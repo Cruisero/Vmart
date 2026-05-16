@@ -3,7 +3,7 @@ const router = express.Router()
 const adminController = require('../controllers/adminController')
 const adminAgent = require('../controllers/adminAgent.controller')
 const sslController = require('../controllers/sslController')
-const { authenticate, isAdmin, isSuperAdmin } = require('../middleware/auth')
+const { authenticate, isAdmin, isSuperAdmin, isStrictSuperAdmin } = require('../middleware/auth')
 
 // 所有管理员路由需要认证 + 管理员权限（ADMIN 和 SUPER_ADMIN 均可访问）
 router.use(authenticate, isAdmin)
@@ -41,11 +41,11 @@ router.put('/cards/:id', adminController.updateCard)
 router.get('/users', adminController.getUsers)
 
 // 代理管理
-router.get('/agents', adminAgent.getAgents)
-router.put('/agents/:id/status', adminAgent.updateAgentStatus)
-router.get('/agents/:id/orders', adminAgent.getAgentOrders)
-router.get('/withdrawals', adminAgent.getWithdrawals)
-router.put('/withdrawals/:id', adminAgent.processWithdrawal)
+router.get('/agents', isStrictSuperAdmin, adminAgent.getAgents)
+router.put('/agents/:id/status', isStrictSuperAdmin, adminAgent.updateAgentStatus)
+router.get('/agents/:id/orders', isStrictSuperAdmin, adminAgent.getAgentOrders)
+router.get('/withdrawals', isStrictSuperAdmin, adminAgent.getWithdrawals)
+router.put('/withdrawals/:id', isStrictSuperAdmin, adminAgent.processWithdrawal)
 
 // ==================== 仅超级管理员可访问 ====================
 

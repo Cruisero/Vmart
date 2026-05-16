@@ -181,7 +181,7 @@ const menuItems = [
     { path: '/admin/tickets', icon: FiMessageCircle, label: '工单管理' },
     { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理' },
     { path: '/admin/users', icon: FiUsers, label: '用户管理', superOnly: true },
-    { path: '/admin/agents', icon: FiShare2, label: '代理管理', superOnly: true },
+    { path: '/admin/agents', icon: FiShare2, label: '代理管理', strictSuperOnly: true },
     { path: '/admin/tenants', icon: FiUsers, label: '租户商城', superOnly: true },
     { path: '/admin/settings', icon: FiSettings, label: '系统设置', superOnly: true },
 ]
@@ -6120,6 +6120,7 @@ function AdminDashboard() {
     // 根据角色过滤菜单项
     const isTenantAdmin = user?.role === 'TENANT_ADMIN';
     const visibleMenuItems = menuItems.filter(item => {
+        if (item.strictSuperOnly && user?.role !== 'SUPER_ADMIN') return false;
         if (item.superOnly && !isSuperAdmin) return false;
         if (item.tenantOnly && !isTenantAdmin) return false;
         return true;

@@ -90,4 +90,15 @@ const isAgent = async (req, res, next) => {
     }
 }
 
-module.exports = { authenticate, optionalAuth, isAdmin, isSuperAdmin, isAgent }
+
+// 严格超级管理员权限验证（仅 SUPER_ADMIN 可通过）
+const isStrictSuperAdmin = (req, res, next) => {
+    const role = req.user?.role?.toUpperCase()
+    if (!req.user || role !== 'SUPER_ADMIN') {
+        return res.status(403).json({ error: '需要超级管理员权限' })
+    }
+    next()
+}
+
+module.exports = {
+    isStrictSuperAdmin, authenticate, optionalAuth, isAdmin, isSuperAdmin, isAgent }
