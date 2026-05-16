@@ -1,0 +1,67 @@
+# ===== 依赖 =====
+node_modules/
+.pnp
+.pnp.js
+
+# ===== 构建产物 =====
+dist/
+build/
+frontend/dist/
+backend/dist/
+
+# ===== 环境变量（绝对不能提交！）=====
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.*
+
+# ===== 数据库备份 =====
+*.sql
+*.sql.gz
+backups/
+backup_*.sql
+$BACKUP_FILE
+$BACKUP_FILE.gz
+test.gz
+
+# ===== 上传文件 =====
+uploads/
+backend/uploads/
+
+# ===== 日志 =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== SSL 证书（敏感）=====
+*.pem
+*.key
+*.cer
+*.crt
+nginx/ssl/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ===== 支付相关敏感文件 =====
+alipay-env-config.txt
+支付宝通道.md
+kashop-crypto-payment/
+kashop-crypto-payment.zip
+
+# ===== 其他临时文件 =====
+typescript/
+Assets/
