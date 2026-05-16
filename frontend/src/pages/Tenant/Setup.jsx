@@ -2,9 +2,10 @@ import { useState } from 'react'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
-const STEPS = ['基本信息', '域名绑定', '提交审核']
+const STEPS = ['套餐与基础信息', '独立域名配置', '提交建站审核']
 
 export default function TenantSetup({ tenant, setTenant, token }) {
+    const { user } = useAuthStore()
     const [step, setStep] = useState(0)
     const [saving, setSaving] = useState(false)
     const [msg, setMsg] = useState(null)
@@ -12,11 +13,8 @@ export default function TenantSetup({ tenant, setTenant, token }) {
     // Step 1
     const [form, setForm] = useState({
         shopName: tenant?.shopName || '',
-        shopSlug: tenant?.shopSlug || '',
+        shopSlug: tenant?.shopSlug || `shop-${Math.random().toString(36).substring(2, 8)}`,
         shopSkin: tenant?.shopSkin || 'zen',
-        contactEmail: tenant?.contactEmail || '',
-        contactInfo: tenant?.contactInfo || '',
-        shopNotice: tenant?.shopNotice || '',
     })
 
     // Step 2
@@ -82,8 +80,37 @@ export default function TenantSetup({ tenant, setTenant, token }) {
             <div>
                 <div className="tenant-page-title">⚙️ 开通配置</div>
                 <div className={`tenant-alert ${tenant.status === 'ACTIVE' ? 'tenant-alert-success' : 'tenant-alert-info'}`}>
-                    {tenant.status === 'ACTIVE' ? '✅ 您的商城已审核通过，正常运营中！' : '⏳ 审核申请已提交，请耐心等待 1-3 个工作日。'}
+                    {tenant.status === 'ACTIVE' ? '✅ 您的专属商城已审核通过，正式上线！' : '⏳ 审核申请已提交，系统正在为您部署专属商城，请耐心等待 1-3 个工作日。'}
                 </div>
+
+                {tenant.status === 'ACTIVE' && (
+                    <div className="tenant-card" style={{ marginTop: 24, background: 'linear-gradient(145deg, rgba(99,102,241,0.05) 0%, rgba(139,92,246,0.05) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                        <div className="tenant-card-title" style={{ color: '#a5b4fc', fontSize: '1.2rem', marginBottom: 24 }}>🎉 您的 Vmart 商城账号信息</div>
+                        
+                        <div style={{ display: 'grid', gap: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: 12 }}>
+                                <span style={{ color: 'var(--tenant-muted)' }}>🌐 商城管理后台地址</span>
+                                <a href={`https://${tenant?.domains?.[0]?.domain || form.shopSlug + '.vmart.cc'}/admin`} target="_blank" rel="noreferrer" style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'none' }}>
+                                    https://{tenant?.domains?.[0]?.domain || form.shopSlug + '.vmart.cc'}/admin ↗
+                                </a>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: 12 }}>
+                                <span style={{ color: 'var(--tenant-muted)' }}>👤 Vmart 超级管理员账号</span>
+                                <span style={{ color: '#f0f0f8', fontWeight: 600 }}>{user?.email}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(0,0,0,0.2)', borderRadius: 12 }}>
+                                <span style={{ color: 'var(--tenant-muted)' }}>🔑 登录密码</span>
+                                <span style={{ color: '#f0f0f8', fontWeight: 600 }}>与您当前的 SaaS 账号密码相同</span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 24, fontSize: '0.85rem', color: 'var(--tenant-muted)', lineHeight: 1.6 }}>
+                            💡 提示：您可以使用上述账号密码登录您的商城后台。登录后，您可以在“系统设置”中修改密码，或在“用户管理”中创建其他员工账号。
+                        </div>
+                    </div>
+                )}
             </div>
         )
     }
@@ -105,41 +132,36 @@ export default function TenantSetup({ tenant, setTenant, token }) {
 
             {msg && <div className={`tenant-alert ${alertCls[msg.type]}`}>{msg.text}</div>}
 
-            {/* Step 1：基本信息 */}
+            {/* Step 1：套餐与基础信息 */}
             {step === 0 && (
                 <div className="tenant-card">
-                    <div className="tenant-card-title">📝 填写店铺基本信息</div>
+                    <div className="tenant-card-title">📝 确认套餐与店铺名称</div>
+                    
+                    <div style={{ padding: '16px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, marginBottom: 24 }}>
+                        <div style={{ fontSize: '0.85rem', color: '#a5b4fc', marginBottom: 8 }}>当前生效套餐</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f0f0f8' }}>🚀 专业版 Pro Plan</div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--tenant-muted)' }}>包含完整商城系统与独立域名权限</div>
+                        </div>
+                    </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
                         <div className="tenant-form-group">
                             <label className="tenant-label">店铺名称 *</label>
-                            <input className="tenant-input" value={form.shopName} onChange={e => setForm(f => ({ ...f, shopName: e.target.value }))} placeholder="我的数字商城" />
+                            <input className="tenant-input" value={form.shopName} onChange={e => setForm(f => ({ ...f, shopName: e.target.value }))} placeholder="例如：我的数字商城" />
                         </div>
                         <div className="tenant-form-group">
-                            <label className="tenant-label">访问路径 * <span style={{ color: 'var(--tenant-muted)', fontWeight: 400 }}>（字母/数字/连字符）</span></label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ color: 'var(--tenant-muted)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>/t/</span>
-                                <input className="tenant-input" value={form.shopSlug} onChange={e => setForm(f => ({ ...f, shopSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} placeholder="my-shop" />
-                            </div>
-                        </div>
-                        <div className="tenant-form-group">
-                            <label className="tenant-label">皮肤主题</label>
+                            <label className="tenant-label">初始皮肤主题</label>
                             <select className="tenant-input" value={form.shopSkin} onChange={e => setForm(f => ({ ...f, shopSkin: e.target.value }))}>
                                 <option value="zen">Zen（简约深色）</option>
                                 <option value="fresh">Fresh（清新浅色）</option>
                                 <option value="classic">Classic（经典风格）</option>
                             </select>
                         </div>
-                        <div className="tenant-form-group">
-                            <label className="tenant-label">联系邮箱</label>
-                            <input className="tenant-input" type="email" value={form.contactEmail} onChange={e => setForm(f => ({ ...f, contactEmail: e.target.value }))} placeholder="contact@myshop.com" />
-                        </div>
                     </div>
-                    <div className="tenant-form-group">
-                        <label className="tenant-label">店铺公告</label>
-                        <textarea className="tenant-input tenant-textarea" value={form.shopNotice} onChange={e => setForm(f => ({ ...f, shopNotice: e.target.value }))} placeholder="欢迎光临，24小时自动发货…" />
-                    </div>
-                    <button className="tenant-btn tenant-btn-primary" onClick={saveStep1} disabled={saving}>
-                        {saving ? '保存中…' : '保存并继续 →'}
+                    
+                    <button className="tenant-btn tenant-btn-primary" onClick={saveStep1} disabled={saving} style={{ marginTop: 12 }}>
+                        {saving ? '保存中…' : '保存并下一步 →'}
                     </button>
                 </div>
             )}
@@ -195,22 +217,25 @@ export default function TenantSetup({ tenant, setTenant, token }) {
             {/* Step 3：提交审核 */}
             {step === 2 && (
                 <div className="tenant-card">
-                    <div className="tenant-card-title">📬 确认提交审核</div>
-                    <div className="tenant-alert tenant-alert-info" style={{ marginBottom: 20 }}>
-                        ℹ️ 提交后我们将在 1-3 个工作日内完成审核，审核通过后您将收到邮件通知，商城即刻上线。
+                    <div className="tenant-card-title">📬 确认并提交建站审核</div>
+                    <div className="tenant-alert tenant-alert-info" style={{ marginBottom: 24 }}>
+                        ℹ️ 提交后我们将在 1-3 个工作日内完成部署与审核。审核通过后，您将直接获得完整 Vmart 商城系统的超级管理员账号与密码。
                     </div>
-                    <div style={{ marginBottom: 20 }}>
-                        {[['店铺名称', tenant?.shopName], ['访问域名', domain || '未绑定'], ['联系邮箱', form.contactEmail || '未填写']].map(([k, v]) => (
-                            <div key={k} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--tenant-border)', fontSize: '0.86rem' }}>
-                                <span style={{ color: 'var(--tenant-muted)', width: 80, flexShrink: 0 }}>{k}</span>
-                                <span>{v}</span>
+                    
+                    <div style={{ background: 'var(--tenant-surface2)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                        <div style={{ color: '#f0f0f8', fontWeight: 700, marginBottom: 16 }}>即将部署的 Vmart 账号信息：</div>
+                        {[['系统类型', 'Vmart 独立完整版商城'], ['店铺名称', tenant?.shopName], ['商城独立域名', domain || '未绑定（将使用系统分配域名）'], ['Vmart 登录账号', user?.email], ['Vmart 登录密码', '与 SaaS 控制台密码一致']].map(([k, v]) => (
+                            <div key={k} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
+                                <span style={{ color: 'var(--tenant-muted)', width: 120, flexShrink: 0 }}>{k}</span>
+                                <span style={{ color: '#a5b4fc', fontWeight: 500 }}>{v}</span>
                             </div>
                         ))}
                     </div>
+
                     <div style={{ display: 'flex', gap: 12 }}>
-                        <button className="tenant-btn tenant-btn-secondary" onClick={() => setStep(1)}>← 上一步</button>
+                        <button className="tenant-btn tenant-btn-secondary" onClick={() => setStep(1)}>← 返回修改</button>
                         <button className="tenant-btn tenant-btn-primary" onClick={submitReview} disabled={saving}>
-                            {saving ? '提交中…' : '✅ 提交审核申请'}
+                            {saving ? '提交部署中…' : '✅ 确认信息并提交审核'}
                         </button>
                     </div>
                 </div>
