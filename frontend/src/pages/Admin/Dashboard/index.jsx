@@ -6184,10 +6184,10 @@ function AdminDashboard() {
 
 // 新手起航页面
 function SetupGuidePage() {
-    const [stats, setStats] = React.useState({ totalProducts: 0 });
+    const [stats, setStats] = useState({ totalProducts: 0 });
     const token = useAuthStore(state => state.token);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (token) {
             fetch('/api/admin/dashboard', { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(r => r.json())
