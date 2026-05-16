@@ -1884,7 +1884,7 @@ exports.rebuildStockFromCards = async (req, res, next) => {
 // 创建子管理员
 exports.createAdmin = async (req, res, next) => {
     try {
-        const { email, password, username } = req.body
+        const { email, password, username, role = 'ADMIN' } = req.body
 
         if (!email || !password) {
             return res.status(400).json({ error: '邮箱和密码为必填项' })
@@ -1907,7 +1907,7 @@ exports.createAdmin = async (req, res, next) => {
                 email,
                 password: hashedPassword,
                 username: username || email.split('@')[0],
-                role: 'ADMIN',
+                role: ['ADMIN', 'SAAS_ADMIN'].includes(role) ? role : 'ADMIN',
                 emailVerified: true
             }
         })
@@ -1970,8 +1970,8 @@ exports.updateUserRole = async (req, res, next) => {
         const { id } = req.params
         const { role } = req.body
 
-        if (!['USER', 'ADMIN'].includes(role)) {
-            return res.status(400).json({ error: '无效的角色，只能设置为 USER 或 ADMIN' })
+        if (!['USER', 'ADMIN', 'SAAS_ADMIN'].includes(role)) {
+            return res.status(400).json({ error: '无效的角色' })
         }
 
         const targetUser = await prisma.user.findFirst({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), id } })

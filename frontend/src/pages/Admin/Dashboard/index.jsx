@@ -71,7 +71,15 @@ function ToastProvider({ children }) {
                         </div>
                         <h3 className="confirm-title">{confirmDialog.title}</h3>
                         <p className="confirm-message">{confirmDialog.message}</p>
-                        <div className="confirm-actions">
+                        
+                            <div className="form-group">
+                                <label>角色</label>
+                                <select className="form-input" value={newAdmin.role} onChange={e => setNewAdmin(p => ({ ...p, role: e.target.value }))}>
+                                    <option value="ADMIN">普通管理员</option>
+                                    <option value="SAAS_ADMIN">SaaS 管理员</option>
+                                </select>
+                            </div>
+                            <div className="confirm-actions">
                             <button className="btn btn-cancel" onClick={closeConfirm}>
                                 取消
                             </button>
@@ -3579,7 +3587,7 @@ function UsersManage() {
     const pageSize = 20
     const searchTimerRef = useRef(null)
     const [showCreateAdmin, setShowCreateAdmin] = useState(false)
-    const [newAdmin, setNewAdmin] = useState({ email: '', password: '', username: '' })
+    const [newAdmin, setNewAdmin] = useState({ email: '', password: '', username: '', role: 'ADMIN' })
     const [creating, setCreating] = useState(false)
 
     // 统一用 ref 追踪最新值，避免闭包陷阱
@@ -3672,7 +3680,7 @@ function UsersManage() {
             if (res.ok) {
                 showToast('子管理员创建成功', 'success')
                 setShowCreateAdmin(false)
-                setNewAdmin({ email: '', password: '', username: '' })
+                setNewAdmin({ email: '', password: '', username: '', role: 'ADMIN' })
                 doFetch(currentPageRef.current, searchTermRef.current, roleFilterRef.current)
             } else {
                 showToast(data.error || '创建失败', 'error')
