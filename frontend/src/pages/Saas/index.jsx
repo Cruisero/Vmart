@@ -100,7 +100,7 @@ export default function SaasPage() {
             window.open('mailto:support@vmart.cc', '_blank')
             return
         }
-        navigate('/register?plan=' + plan.key)
+        navigate('/saas/register?plan=' + plan.key)
     }
 
     return (
@@ -115,8 +115,8 @@ export default function SaasPage() {
                     <a href="#faq">常见问题</a>
                 </div>
                 <div className="saas-nav-cta">
-                    <Link to="/login" className="saas-btn saas-btn-ghost">登录</Link>
-                    <Link to="/register" className="saas-btn saas-btn-primary">免费开始</Link>
+                    <Link to="/saas/login" className="saas-btn saas-btn-ghost">登录</Link>
+                    <Link to="/saas/register" className="saas-btn saas-btn-primary">免费开始</Link>
                 </div>
             </nav>
 
@@ -132,7 +132,7 @@ export default function SaasPage() {
                     Vmart SaaS 为每位商家提供独立数据库的专属商城，支持自定义域名、多种主题皮肤、卡密自动发货，收款直达你的账户。
                 </p>
                 <div className="saas-hero-actions">
-                    <Link to="/register" className="saas-btn saas-btn-primary saas-btn-lg">
+                    <Link to="/saas/register" className="saas-btn saas-btn-primary saas-btn-lg">
                         🚀 免费开始 →
                     </Link>
                     <a href="#pricing" className="saas-btn saas-btn-outline saas-btn-lg">
@@ -267,7 +267,7 @@ export default function SaasPage() {
                         现在注册，即可免费体验完整功能。<br />无需信用卡，随时取消。
                     </p>
                     <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <Link to="/register" className="saas-btn saas-btn-primary saas-btn-lg">
+                        <Link to="/saas/register" className="saas-btn saas-btn-primary saas-btn-lg">
                             立即免费开始 →
                         </Link>
                         <Link to="/tenant" className="saas-btn saas-btn-outline saas-btn-lg">
