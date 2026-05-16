@@ -21,17 +21,4 @@ router.post('/submit', tenantController.submitReview)
 router.get('/settings', tenantController.getSettings)
 router.put('/settings', tenantController.updateSettings)
 
-// 商品管理
-router.get('/products', tenantController.getProducts)
-router.post('/products', tenantController.createProduct)
-router.put('/products/:id', tenantController.updateProduct)
-router.delete('/products/:id', tenantController.deleteProduct)
-router.post('/products/:id/cards', tenantController.uploadCards)
-
-// 订单
-router.get('/orders', tenantController.getOrders)
-
-// 统计
-router.get('/stats', tenantController.getStats)
-
 module.exports = router

@@ -4,8 +4,6 @@ import './Dashboard.css'
 import { useAuthStore } from '../../store/authStore'
 import TenantOverview from './Overview'
 import TenantSetup from './Setup'
-import TenantProducts from './Products'
-import TenantOrders from './Orders'
 import TenantSettings from './Settings'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -35,9 +33,7 @@ export default function TenantDashboard() {
     const navItems = [
         { to: '/tenant/overview', icon: '📊', label: '概览' },
         { to: '/tenant/setup', icon: '⚙️', label: '开通配置' },
-        { to: '/tenant/products', icon: '📦', label: '商品管理' },
-        { to: '/tenant/orders', icon: '🧾', label: '订单管理' },
-        { to: '/tenant/settings', icon: '🔧', label: '店铺设置' },
+        { to: '/tenant/settings', icon: '🔧', label: '基础设置' },
     ]
 
     if (loading) return (
@@ -119,8 +115,6 @@ export default function TenantDashboard() {
                         <Route index element={<Navigate to="overview" replace />} />
                         <Route path="overview" element={<TenantOverview tenant={tenant} token={token} />} />
                         <Route path="setup" element={<TenantSetup tenant={tenant} setTenant={setTenant} token={token} />} />
-                        <Route path="products/*" element={<TenantProducts tenant={tenant} token={token} />} />
-                        <Route path="orders" element={<TenantOrders tenant={tenant} token={token} />} />
                         <Route path="settings" element={<TenantSettings tenant={tenant} setTenant={setTenant} token={token} />} />
                     </Routes>
                 </div>
