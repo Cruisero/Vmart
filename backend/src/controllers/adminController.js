@@ -422,7 +422,9 @@ exports.getProducts = async (req, res, next) => {
         const { page = 1, pageSize = 20, status } = req.query
 
         const where = {}
-        if (status) where.status = status.toUpperCase()
+        
+        if (req.tenantId) where.tenantId = req.tenantId
+if (status) where.status = status.toUpperCase()
 
         const [products, total, stockModeSetting] = await Promise.all([
             prisma.product.findMany({
@@ -485,6 +487,8 @@ exports.createProduct = async (req, res, next) => {
             deliveryNote: deliveryNote || null,
             wholesalePrices: wholesalePrices || [],
             status: 'ACTIVE'
+        ,
+            tenantId: req.tenantId || null
         }
 
         // 只有当 categoryId 有效时才添加
@@ -545,6 +549,7 @@ exports.createProduct = async (req, res, next) => {
 exports.updateProduct = async (req, res, next) => {
     try {
         const { id } = req.params
+        if (req.tenantId) { const item = await prisma.product.findFirst({ where: { id, tenantId: req.tenantId } }); if (!item) return res.status(403).json({ error: '无权操作或记录不存在' }) }
         const { name, description, fullDescription, price, originalPrice, categoryId, image, images, tags, status, stock, variants, weight, deliveryNote, wholesalePrices } = req.body
 
         // 构建更新数据对象
@@ -710,6 +715,7 @@ exports.updateProduct = async (req, res, next) => {
 exports.deleteProduct = async (req, res, next) => {
     try {
         const { id } = req.params
+        if (req.tenantId) { const item = await prisma.product.findFirst({ where: { id, tenantId: req.tenantId } }); if (!item) return res.status(403).json({ error: '无权操作或记录不存在' }) }
 
         await prisma.product.delete({ where: { id } })
 
@@ -761,6 +767,7 @@ exports.createCategory = async (req, res, next) => {
 exports.updateCategory = async (req, res, next) => {
     try {
         const { id } = req.params
+        if (req.tenantId) { const item = await prisma.category.findFirst({ where: { id, tenantId: req.tenantId } }); if (!item) return res.status(403).json({ error: '无权操作或记录不存在' }) }
         const { name, description, icon, sortOrder, status } = req.body
 
         const category = await prisma.category.update({
@@ -777,6 +784,7 @@ exports.updateCategory = async (req, res, next) => {
 exports.deleteCategory = async (req, res, next) => {
     try {
         const { id } = req.params
+        if (req.tenantId) { const item = await prisma.category.findFirst({ where: { id, tenantId: req.tenantId } }); if (!item) return res.status(403).json({ error: '无权操作或记录不存在' }) }
 
         await prisma.category.delete({ where: { id } })
 
@@ -792,7 +800,9 @@ exports.getOrders = async (req, res, next) => {
         const { page = 1, pageSize = 20, status, userId, search } = req.query
 
         const where = {}
-        if (status) where.status = status.toUpperCase()
+        
+        if (req.tenantId) where.tenantId = req.tenantId
+if (status) where.status = status.toUpperCase()
         if (userId) where.userId = userId
 
         // 搜索：按订单号、邮箱、商品名称模糊匹配
@@ -856,7 +866,7 @@ exports.refundOrder = async (req, res, next) => {
     try {
         const { id } = req.params
 
-        const order = await prisma.order.findUnique({ where: { id } })
+        const order = await prisma.order.findFirst({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), id } })
 
         if (!order) {
             return res.status(404).json({ error: '订单不存在' })
@@ -1237,7 +1247,9 @@ exports.getUsers = async (req, res, next) => {
         const { page = 1, pageSize = 20, search = '', role = 'all' } = req.query
 
         const where = {}
-        if (search) {
+        
+        if (req.tenantId) where.tenantId = req.tenantId
+if (search) {
             where.OR = [
                 { email: { contains: search } },
                 { username: { contains: search } }
@@ -1483,7 +1495,7 @@ exports.deleteCard = async (req, res, next) => {
     try {
         const { id } = req.params
 
-        const card = await prisma.card.findUnique({ where: { id } })
+        const card = await prisma.card.findFirst({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), id } })
         if (!card) {
             return res.status(404).json({ error: '卡密不存在' })
         }
@@ -1601,7 +1613,7 @@ exports.updateCard = async (req, res, next) => {
             return res.status(400).json({ error: '卡密内容不能为空' })
         }
 
-        const card = await prisma.card.findUnique({ where: { id } })
+        const card = await prisma.card.findFirst({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), id } })
         if (!card) {
             return res.status(404).json({ error: '卡密不存在' })
         }
@@ -1909,7 +1921,7 @@ exports.deleteAdmin = async (req, res, next) => {
     try {
         const { id } = req.params
 
-        const targetUser = await prisma.user.findUnique({ where: { id } })
+        const targetUser = await prisma.user.findFirst({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), id } })
         if (!targetUser) {
             return res.status(404).json({ error: '用户不存在' })
         }
@@ -1951,7 +1963,7 @@ exports.updateUserRole = async (req, res, next) => {
             return res.status(400).json({ error: '无效的角色，只能设置为 USER 或 ADMIN' })
         }
 
-        const targetUser = await prisma.user.findUnique({ where: { id } })
+        const targetUser = await prisma.user.findFirst({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), id } })
         if (!targetUser) {
             return res.status(404).json({ error: '用户不存在' })
         }

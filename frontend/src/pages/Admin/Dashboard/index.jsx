@@ -177,9 +177,9 @@ const menuItems = [
     { path: '/admin/orders', icon: FiShoppingBag, label: '订单管理' },
     { path: '/admin/tickets', icon: FiMessageCircle, label: '工单管理' },
     { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理' },
-    { path: '/admin/users', icon: FiUsers, label: '用户管理' },
-    { path: '/admin/agents', icon: FiShare2, label: '代理管理' },
-    { path: '/admin/tenants', icon: FiUsers, label: '租户商城' },
+    { path: '/admin/users', icon: FiUsers, label: '用户管理', superOnly: true },
+    { path: '/admin/agents', icon: FiShare2, label: '代理管理', superOnly: true },
+    { path: '/admin/tenants', icon: FiUsers, label: '租户商城', superOnly: true },
     { path: '/admin/settings', icon: FiSettings, label: '系统设置', superOnly: true },
 ]
 

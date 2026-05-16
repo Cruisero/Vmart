@@ -39,6 +39,7 @@ model Category {
   icon        String?
   sortOrder   Int       @default(0) @map("sort_order")
   status      Status    @default(ACTIVE)
+  tenantId    String?   @map("tenant_id")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   products    Product[]
