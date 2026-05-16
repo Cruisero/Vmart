@@ -6116,7 +6116,12 @@ function AdminDashboard() {
     }
 
     // 根据角色过滤菜单项
-    const visibleMenuItems = menuItems.filter(item => !item.superOnly || isSuperAdmin)
+    const isTenantAdmin = user?.role === 'TENANT_ADMIN';
+    const visibleMenuItems = menuItems.filter(item => {
+        if (item.superOnly && !isSuperAdmin) return false;
+        if (item.tenantOnly && !isTenantAdmin) return false;
+        return true;
+    })
 
     return (
         <div className={`admin-layout ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
