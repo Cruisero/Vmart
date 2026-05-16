@@ -173,6 +173,8 @@ function CustomSelect({ value, onChange, options, placeholder, name, required })
 
 // 侧边栏菜单
 const menuItems = [
+    { path: '/admin/setup', icon: FiFlag, label: '新手起航', tenantOnly: true },
+    { path: '/admin/settings', icon: FiSettings, label: '店铺设置', tenantOnly: true },
     { path: '/admin', icon: FiHome, label: '仪表盘', exact: true },
     { path: '/admin/products', icon: FiPackage, label: '商品管理' },
     { path: '/admin/orders', icon: FiShoppingBag, label: '订单管理' },
@@ -182,8 +184,6 @@ const menuItems = [
     { path: '/admin/agents', icon: FiShare2, label: '代理管理', superOnly: true },
     { path: '/admin/tenants', icon: FiUsers, label: '租户商城', superOnly: true },
     { path: '/admin/settings', icon: FiSettings, label: '系统设置', superOnly: true },
-    { path: '/admin/setup', icon: FiFlag, label: '新手起航', tenantOnly: true },
-    { path: '/admin/settings', icon: FiSettings, label: '店铺设置', tenantOnly: true },
 ]
 
 // 仪表盘首页
