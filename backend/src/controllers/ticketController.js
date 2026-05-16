@@ -232,7 +232,7 @@ exports.getTicketDetail = async (req, res, next) => {
         }
 
         // 验证权限
-        const isAdminRole = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)
+        const isAdminRole = ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(req.user.role)
         if (ticket.userId !== userId && !isAdminRole) {
             return res.status(403).json({ error: '无权限查看此工单' })
         }

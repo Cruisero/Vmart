@@ -41,7 +41,7 @@ const optionalAuth = (req, res, next) => {
 const isAdmin = async (req, res, next) => {
     try {
         const role = req.user?.role?.toUpperCase()
-        if (!req.user || !['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'].includes(role)) {
+        if (!req.user || !['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN', 'SAAS_ADMIN'].includes(role)) {
             return res.status(403).json({ error: '需要管理员权限' })
         }
 
@@ -67,7 +67,7 @@ const isAdmin = async (req, res, next) => {
 // 超级管理员权限验证（仅 SUPER_ADMIN 可通过）
 const isSuperAdmin = (req, res, next) => {
     const role = req.user?.role?.toUpperCase()
-    if (!req.user || role !== 'SUPER_ADMIN') {
+    if (!req.user || (role !== 'SUPER_ADMIN' && role !== 'SAAS_ADMIN')) {
         return res.status(403).json({ error: '需要超级管理员权限' })
     }
     next()

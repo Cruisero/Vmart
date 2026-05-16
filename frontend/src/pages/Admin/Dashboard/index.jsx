@@ -191,7 +191,7 @@ function DashboardHome() {
     const navigate = useNavigate()
     const token = useAuthStore(state => state.token)
     const user = useAuthStore(state => state.user)
-    const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role)
     const [stats, setStats] = useState({
         totalOrders: 0,
         totalRevenue: 0,
@@ -1935,7 +1935,7 @@ function OrdersManage() {
     const urlStatusFilter = queryParams.get('status')
     const token = useAuthStore(state => state.token)
     const currentUser = useAuthStore(state => state.user)
-    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
+    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(currentUser?.role)
     const { showToast, showConfirm } = useToast()
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
@@ -2969,7 +2969,7 @@ function TicketsManage() {
 function CardsManage() {
     const { showToast } = useToast()
     const { token, user: currentUser } = useAuthStore()
-    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
+    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(currentUser?.role)
     const location = useLocation()
 
     // 从URL获取初始productId
@@ -3565,7 +3565,7 @@ function UsersManage() {
     const { showToast, showConfirm } = useToast()
     const token = useAuthStore(state => state.token)
     const currentUser = useAuthStore(state => state.user)
-    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
+    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(currentUser?.role)
     const [users, setUsers] = useState([])
     const [initialLoading, setInitialLoading] = useState(true)
     const [searching, setSearching] = useState(false)
@@ -3601,7 +3601,7 @@ function UsersManage() {
             const data = await res.json()
             setUsers(data.users || [])
             setTotalUsers(data.total || 0)
-            setAdminCount((data.users || []).filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN').length)
+            setAdminCount((data.users || []).filter(u => ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role) ? true : u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' || u.role === 'SAAS_ADMIN').length)
             setTotalPages(Math.ceil((data.total || 0) / pageSize))
         } catch (error) {
             showToast('获取用户列表失败', 'error')
@@ -3707,6 +3707,7 @@ function UsersManage() {
     const getRoleLabel = (role) => {
         switch (role) {
             case 'SUPER_ADMIN': return '超级管理员'
+            case 'SAAS_ADMIN': return 'SaaS 管理员'
             case 'ADMIN': return '管理员'
             default: return '普通用户'
         }
@@ -3812,7 +3813,7 @@ function UsersManage() {
                     )}
                 </div>
                 <div className="users-role-tabs">
-                    {[['all', '全部'], ['USER', '普通用户'], ['ADMIN', '管理员']].map(([val, label]) => (
+                    {[['all', '全部'], ['USER', '普通用户'], ['ADMIN', '管理员'], ['SAAS_ADMIN', 'SaaS 管理员']].map(([val, label]) => (
                         <button
                             key={val}
                             className={`users-role-tab${roleFilter === val ? ' active' : ''}`}
@@ -3872,6 +3873,7 @@ function UsersManage() {
                                             >
                                                 <option value="USER">普通用户</option>
                                                 <option value="ADMIN">管理员</option>
+                                                <option value="SAAS_ADMIN">SaaS 管理员</option>
                                             </select>
                                         ) : (
                                             <span className={`role-badge ${(user.role || '').toLowerCase()}`}>
@@ -6059,7 +6061,7 @@ function SettingsPage() {
                                                 <div>
                                                     <div className="admin-email-name">
                                                         {config.username || '未设置用户名'}
-                                                        <span>{config.role === 'SUPER_ADMIN' ? '超级管理员' : '管理员'}</span>
+                                                        <span>{config.role === 'SUPER_ADMIN' ? '超级管理员' : (config.role === 'SAAS_ADMIN' ? 'SaaS 管理员' : '管理员')}</span>
                                                     </div>
                                                     <div className="admin-email-address">{config.email}</div>
                                                 </div>
@@ -6108,7 +6110,7 @@ function AdminDashboard() {
     const navigate = useNavigate()
     const { logout, user } = useAuthStore()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role)
 
     const handleLogout = () => {
         logout()
@@ -6157,7 +6159,7 @@ function AdminDashboard() {
                         <div className="user-avatar">👤</div>
                         <div className="user-details">
                             <span className="user-name">{user?.username || 'Admin'}</span>
-                            <span className="user-role">{isSuperAdmin ? '超级管理员' : '管理员'}</span>
+                            <span className="user-role">{user?.role === 'SUPER_ADMIN' ? '超级管理员' : (user?.role === 'SAAS_ADMIN' ? 'SaaS 管理员' : '管理员')}</span>
                         </div>
                     </div>
                     <button className="logout-btn" onClick={handleLogout}>

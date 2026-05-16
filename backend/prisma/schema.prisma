@@ -249,6 +249,7 @@ enum Role {
   ADMIN
   SUPER_ADMIN
   TENANT_ADMIN
+  SAAS_ADMIN
 }
 
 enum Status {

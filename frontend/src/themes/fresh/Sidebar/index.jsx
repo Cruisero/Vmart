@@ -96,7 +96,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                     <FiMessageSquare className="fs-nav-icon" />
                     提交工单
                 </Link>
-                {['ADMIN', 'SUPER_ADMIN'].includes(user?.role) && (
+                {['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role) && (
                     <Link to="/admin" className={`fs-nav-item${location.pathname.startsWith('/admin') ? ' active' : ''}`} onClick={onClose}>
                         <FiSettings className="fs-nav-icon" />
                         管理后台
@@ -117,7 +117,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                             </div>
                             <div className="fs-user-info">
                                 <div className="fs-user-name">{user?.username || user?.email}</div>
-                                <div className="fs-user-role">{['ADMIN', 'SUPER_ADMIN'].includes(user?.role) ? '管理员' : '普通用户'}</div>
+                                <div className="fs-user-role">{['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role) ? '管理员' : '普通用户'}</div>
                             </div>
                         </Link>
                         <button

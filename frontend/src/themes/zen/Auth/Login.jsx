@@ -29,7 +29,7 @@ export default function ZenLogin() {
             if (!res.ok) throw new Error(data.error || '登录失败')
             login(data.user, data.token)
             toast.success('登录成功')
-            navigate(['ADMIN', 'SUPER_ADMIN'].includes(data.user.role) ? '/admin' : `${prefix}/`)
+            navigate(['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(data.user.role) ? '/admin' : `${prefix}/`)
         } catch (err) { toast.error(err.message) }
         finally { setLoading(false) }
     }
