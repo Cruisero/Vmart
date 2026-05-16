@@ -244,7 +244,7 @@ function App() {
                 <Routes>
                     {/* Admin 路由：完全独立，不受皮肤影响 */}
                     <Route path="/admin/*" element={
-                        ['ADMIN', 'SUPER_ADMIN'].includes(useAuthStore.getState().user?.role)
+                        ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'].includes(useAuthStore.getState().user?.role)
                             ? <AdminDashboard />
                             : <NotFound />
                     } />
