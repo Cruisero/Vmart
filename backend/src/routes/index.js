@@ -13,6 +13,7 @@ const ticketRoutes = require('./ticket.routes')
 const statsRoutes = require('./stats.routes')
 const agentRoutes = require('./agent.routes')
 const storefrontRoutes = require('./storefront.routes')
+const tenantRoutes = require('./tenant.routes')
 
 // API 版本信息
 router.get('/', (req, res) => {
@@ -29,6 +30,26 @@ const prisma = require('../config/database')
 
 router.get('/settings/public', async (req, res) => {
     try {
+        // 如果是租户域名请求，返回租户自己的设置
+        if (req.tenantId && req.tenant) {
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId: req.tenantId }
+            })
+            return res.json({
+                settings: {
+                    siteName: req.tenant.shopName,
+                    siteLogo: req.tenant.shopLogo,
+                    frontend_skin: req.tenant.shopSkin,
+                    notificationEnabled: tenantSetting?.notificationEnabled ? 'true' : 'false',
+                    notificationText: tenantSetting?.notificationText || '',
+                    notificationLink: tenantSetting?.notificationLink || '',
+                    _tenantMode: true,
+                    _tenantId: req.tenantId
+                }
+            })
+        }
+
+        // 主站设置
         const rows = await prisma.setting.findMany({
             where: { key: { in: PUBLIC_KEYS } }
         })
@@ -75,5 +96,8 @@ router.use('/agent', agentRoutes)
 
 // 代理分站前台路由
 router.use('/s', storefrontRoutes)
+
+// 租户管理路由
+router.use('/tenant', tenantRoutes)
 
 module.exports = router

@@ -7,6 +7,7 @@ const routes = require('./routes')
 const errorHandler = require('./middleware/errorHandler')
 const logger = require('./utils/logger')
 const { initScheduledTasks } = require('./tasks/scheduler')
+const tenantDetect = require('./middleware/tenantDetect')
 
 const app = express()
 
@@ -19,9 +20,12 @@ app.use(helmet({
     contentSecurityPolicy: false
 }))
 
-// CORS 配置
+// CORS 配置（支持租户自定义域名）
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        // 允许所有来源（租户自定义域名需要动态允许）
+        callback(null, true)
+    },
     credentials: true
 }))
 
@@ -44,6 +48,9 @@ app.use('/api', limiter)
 
 // 静态文件
 app.use('/uploads', express.static('uploads'))
+
+// 租户检测（根据 Host 头识别租户）
+app.use(tenantDetect)
 
 // API 路由
 app.use('/api', routes)
