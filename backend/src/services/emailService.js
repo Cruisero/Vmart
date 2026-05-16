@@ -57,7 +57,7 @@ const sendOrderCompletedEmail = async (order, cards) => {
             return { success: false, reason: 'disabled' }
         }
 
-        const transporter = await createTransporter()
+        const transporter = await createTransporter(tenantId || order.tenantId)
         if (!transporter) {
             console.log('邮件配置不完整')
             return { success: false, reason: 'config_missing' }
@@ -178,7 +178,7 @@ const sendOrderRefundedEmail = async (order) => {
             return { success: false, reason: 'refund_notify_disabled' }
         }
 
-        const transporter = await createTransporter()
+        const transporter = await createTransporter(tenantId || ticket.tenantId)
         if (!transporter) {
             console.log('邮件配置不完整')
             return { success: false, reason: 'config_missing' }
@@ -268,7 +268,7 @@ const sendVerificationEmail = async (user, token, baseUrl = 'http://localhost:30
     try {
         const config = await getEmailConfig()
 
-        const transporter = await createTransporter()
+        const transporter = await createTransporter(tenantId || product.tenantId)
         if (!transporter) {
             console.log('邮件配置不完整，无法发送验证邮件')
             return { success: false, reason: 'config_missing' }
@@ -342,7 +342,7 @@ const sendVerificationEmail = async (user, token, baseUrl = 'http://localhost:30
 // 测试邮件连接（带超时）
 const testEmailConnection = async () => {
     try {
-        const transporter = await createTransporter()
+        const transporter = await createTransporter(tenantId)
         if (!transporter) {
             return { success: false, error: '邮件配置不完整，请填写 SMTP 服务器、用户名和密码' }
         }
@@ -363,7 +363,7 @@ const testEmailConnection = async () => {
 const sendPasswordResetEmail = async (user, resetToken, baseUrl) => {
     try {
         const config = await getEmailConfig()
-        const transporter = await createTransporter()
+        const transporter = await createTransporter(tenantId)
 
         if (!transporter) {
             return { success: false, reason: 'config_missing' }

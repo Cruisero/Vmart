@@ -249,7 +249,6 @@ enum Role {
   ADMIN
   SUPER_ADMIN
   TENANT_ADMIN
-  SAAS_ADMIN
 }
 
 enum Status {
@@ -450,6 +449,7 @@ model TenantSetting {
   notificationEnabled Boolean  @default(false) @map("notification_enabled")
   notificationText    String?  @map("notification_text")
   notificationLink    String?  @map("notification_link")
+  systemSettings      String?  @map("system_settings") @db.LongText
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 

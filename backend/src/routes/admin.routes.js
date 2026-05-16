@@ -3,7 +3,7 @@ const router = express.Router()
 const adminController = require('../controllers/adminController')
 const adminAgent = require('../controllers/adminAgent.controller')
 const sslController = require('../controllers/sslController')
-const { authenticate, isAdmin, isSuperAdmin, isStrictSuperAdmin } = require('../middleware/auth')
+const { authenticate, isAdmin, isSuperAdmin } = require('../middleware/auth')
 
 // 所有管理员路由需要认证 + 管理员权限（ADMIN 和 SUPER_ADMIN 均可访问）
 router.use(authenticate, isAdmin)
@@ -41,11 +41,11 @@ router.put('/cards/:id', adminController.updateCard)
 router.get('/users', adminController.getUsers)
 
 // 代理管理
-router.get('/agents', isStrictSuperAdmin, adminAgent.getAgents)
-router.put('/agents/:id/status', isStrictSuperAdmin, adminAgent.updateAgentStatus)
-router.get('/agents/:id/orders', isStrictSuperAdmin, adminAgent.getAgentOrders)
-router.get('/withdrawals', isStrictSuperAdmin, adminAgent.getWithdrawals)
-router.put('/withdrawals/:id', isStrictSuperAdmin, adminAgent.processWithdrawal)
+router.get('/agents', adminAgent.getAgents)
+router.put('/agents/:id/status', adminAgent.updateAgentStatus)
+router.get('/agents/:id/orders', adminAgent.getAgentOrders)
+router.get('/withdrawals', adminAgent.getWithdrawals)
+router.put('/withdrawals/:id', adminAgent.processWithdrawal)
 
 // ==================== 仅超级管理员可访问 ====================
 
@@ -67,13 +67,13 @@ router.post('/admins', isSuperAdmin, adminController.createAdmin)
 router.delete('/admins/:id', isSuperAdmin, adminController.deleteAdmin)
 
 // 系统设置
-router.get('/settings', isSuperAdmin, adminController.getSettings)
-router.put('/settings', isSuperAdmin, adminController.updateSettings)
-router.post('/settings/test-email', isSuperAdmin, adminController.testEmail)
+router.get('/settings', isAdmin, adminController.getSettings)
+router.put('/settings', isAdmin, adminController.updateSettings)
+router.post('/settings/test-email', isAdmin, adminController.testEmail)
 
 // 数据库备份
-router.get('/backup/status', isSuperAdmin, adminController.getBackupStatus)
-router.post('/backup/run', isSuperAdmin, adminController.runBackup)
+router.get('/backup/status', isAdmin, adminController.getBackupStatus)
+router.post('/backup/run', isAdmin, adminController.runBackup)
 router.post('/backup/restart-schedule', isSuperAdmin, adminController.restartBackupSchedule)
 router.post('/backup/email', isSuperAdmin, adminController.emailBackup)
 router.get('/backup/download/:filename', isSuperAdmin, adminController.downloadBackup)

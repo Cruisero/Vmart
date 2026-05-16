@@ -78,7 +78,7 @@ const ADMIN_EMAIL_NOTIFICATION_EVENTS = [
 ]
 
 async function getAdminDashboardPermissions(userRole) {
-    if ((userRole || '').toUpperCase() === 'SUPER_ADMIN' || (userRole || '').toUpperCase() === 'SAAS_ADMIN') {
+    if ((userRole || '').toUpperCase() === 'SUPER_ADMIN') {
         return { ...ADMIN_DASHBOARD_PERMISSION_DEFAULTS }
     }
 
@@ -1295,44 +1295,103 @@ if (search) {
 // 系统设置
 exports.getSettings = async (req, res, next) => {
     try {
-        const [settings, admins] = await Promise.all([
-            prisma.setting.findMany(),
-            prisma.user.findMany({
-                where: { role: { in: ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'] } },
+        let settingsObj = {};
+        
+        if (req.tenantId) {
+            // Tenant specific settings
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId: req.tenantId }
+            });
+            if (tenantSetting && tenantSetting.systemSettings) {
+                try {
+                    settingsObj = JSON.parse(tenantSetting.systemSettings);
+                } catch (e) {
+                    console.error('Failed to parse tenant systemSettings:', e);
+                }
+            }
+            
+            const admins = await prisma.user.findMany({
+                where: { tenantId: req.tenantId, role: { in: ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'] } },
                 select: { id: true, email: true, username: true, role: true },
                 orderBy: { createdAt: 'asc' }
-            })
-        ])
+            });
+            
+            const rawAdminEmailConfigs = parseAdminEmailConfigs(settingsObj.adminEmailNotificationConfigs);
+            const normalizedConfigs = normalizeAdminEmailConfigs(rawAdminEmailConfigs, admins);
+            const configuredIds = new Set(normalizedConfigs.map(config => config.userId));
+            const missingConfigs = admins
+                .filter(admin => !configuredIds.has(admin.id))
+                .map(admin => ({
+                    userId: admin.id,
+                    email: admin.email,
+                    username: admin.username,
+                    role: admin.role,
+                    enabled: false,
+                    events: []
+                }));
+            settingsObj.adminEmailNotificationConfigs = JSON.stringify([...normalizedConfigs, ...missingConfigs]);
+            
+        } else {
+            // Global settings
+            const [settings, admins] = await Promise.all([
+                prisma.setting.findMany(),
+                prisma.user.findMany({
+                    where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+                    select: { id: true, email: true, username: true, role: true },
+                    orderBy: { createdAt: 'asc' }
+                })
+            ]);
 
-        const settingsObj = {}
-        settings.forEach(s => {
-            settingsObj[s.key] = s.value
-        })
+            settings.forEach(s => {
+                settingsObj[s.key] = s.value;
+            });
 
-        const rawAdminEmailConfigs = parseAdminEmailConfigs(settingsObj.adminEmailNotificationConfigs)
-        const normalizedConfigs = normalizeAdminEmailConfigs(rawAdminEmailConfigs, admins)
-        const configuredIds = new Set(normalizedConfigs.map(config => config.userId))
-        const missingConfigs = admins
-            .filter(admin => !configuredIds.has(admin.id))
-            .map(admin => ({
-                userId: admin.id,
-                email: admin.email,
-                username: admin.username,
-                role: admin.role,
-                enabled: false,
-                events: []
-            }))
-        settingsObj.adminEmailNotificationConfigs = JSON.stringify([...normalizedConfigs, ...missingConfigs])
+            const rawAdminEmailConfigs = parseAdminEmailConfigs(settingsObj.adminEmailNotificationConfigs);
+            const normalizedConfigs = normalizeAdminEmailConfigs(rawAdminEmailConfigs, admins);
+            const configuredIds = new Set(normalizedConfigs.map(config => config.userId));
+            const missingConfigs = admins
+                .filter(admin => !configuredIds.has(admin.id))
+                .map(admin => ({
+                    userId: admin.id,
+                    email: admin.email,
+                    username: admin.username,
+                    role: admin.role,
+                    enabled: false,
+                    events: []
+                }));
+            settingsObj.adminEmailNotificationConfigs = JSON.stringify([...normalizedConfigs, ...missingConfigs]);
+        }
 
-        res.json({ settings: settingsObj })
+        res.json({ settings: settingsObj });
     } catch (error) {
-        next(error)
+        next(error);
     }
 }
 
 exports.updateSettings = async (req, res, next) => {
     try {
         const settings = req.body
+
+        if (req.tenantId) {
+            // Tenant specific settings
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId: req.tenantId }
+            });
+            let currentSettings = {};
+            if (tenantSetting && tenantSetting.systemSettings) {
+                try {
+                    currentSettings = JSON.parse(tenantSetting.systemSettings);
+                } catch (e) {}
+            }
+            const updatedSettings = { ...currentSettings, ...settings };
+            await prisma.tenantSetting.upsert({
+                where: { tenantId: req.tenantId },
+                update: { systemSettings: JSON.stringify(updatedSettings) },
+                create: { tenantId: req.tenantId, systemSettings: JSON.stringify(updatedSettings) }
+            });
+            res.json({ message: '设置更新成功' });
+            return;
+        }
 
         for (const [key, value] of Object.entries(settings)) {
             await prisma.setting.upsert({
@@ -1363,7 +1422,7 @@ exports.updateSettings = async (req, res, next) => {
 exports.testEmail = async (req, res, next) => {
     try {
         const emailService = require('../services/emailService')
-        const result = await emailService.testEmailConnection()
+        const result = await emailService.testEmailConnection(req.tenantId)
 
         if (result.success) {
             res.json({ success: true, message: '邮件配置测试成功，连接正常' })
@@ -1664,6 +1723,7 @@ exports.cleanupUnverifiedAccounts = async (req, res, next) => {
 
 // 获取备份状态
 exports.getBackupStatus = async (req, res, next) => {
+    if (req.tenantId) return res.json({ status: 'idle', lastBackup: null, isRunning: false, settings: {} });
     try {
         const backupService = require('../services/backupService')
         const status = backupService.getBackupStatus()
@@ -1676,6 +1736,7 @@ exports.getBackupStatus = async (req, res, next) => {
 
 // 手动执行备份（不推送邮件）
 exports.runBackup = async (req, res, next) => {
+    if (req.tenantId) return res.status(403).json({ success: false, error: '商户暂不支持整库备份功能，请联系平台管理员导出数据' });
     try {
         const backupService = require('../services/backupService')
         const result = await backupService.performBackup()
@@ -1884,7 +1945,7 @@ exports.rebuildStockFromCards = async (req, res, next) => {
 // 创建子管理员
 exports.createAdmin = async (req, res, next) => {
     try {
-        const { email, password, username, role = 'ADMIN' } = req.body
+        const { email, password, username } = req.body
 
         if (!email || !password) {
             return res.status(400).json({ error: '邮箱和密码为必填项' })
@@ -1907,7 +1968,7 @@ exports.createAdmin = async (req, res, next) => {
                 email,
                 password: hashedPassword,
                 username: username || email.split('@')[0],
-                role: ['ADMIN', 'SAAS_ADMIN'].includes(role) ? role : 'ADMIN',
+                role: 'ADMIN',
                 emailVerified: true
             }
         })
@@ -1938,7 +1999,7 @@ exports.deleteAdmin = async (req, res, next) => {
         }
 
         // 不能删除超级管理员
-        if (targetUser.role === 'SUPER_ADMIN' || targetUser.role === 'SAAS_ADMIN') {
+        if (targetUser.role === 'SUPER_ADMIN') {
             return res.status(403).json({ error: '不能删除超级管理员' })
         }
 
@@ -1970,7 +2031,7 @@ exports.updateUserRole = async (req, res, next) => {
         const { id } = req.params
         const { role } = req.body
 
-        if (!['USER', 'ADMIN', 'SAAS_ADMIN'].includes(role)) {
+        if (!['USER', 'ADMIN'].includes(role)) {
             return res.status(400).json({ error: '无效的角色' })
         }
 
@@ -1980,7 +2041,7 @@ exports.updateUserRole = async (req, res, next) => {
         }
 
         // 不能修改超级管理员的角色
-        if (targetUser.role === 'SUPER_ADMIN' || targetUser.role === 'SAAS_ADMIN') {
+        if (targetUser.role === 'SUPER_ADMIN') {
             return res.status(403).json({ error: '不能修改超级管理员的角色' })
         }
 

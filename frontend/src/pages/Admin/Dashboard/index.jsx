@@ -76,8 +76,7 @@ function ToastProvider({ children }) {
                                 <label>角色</label>
                                 <select className="form-input" value={newAdmin.role} onChange={e => setNewAdmin(p => ({ ...p, role: e.target.value }))}>
                                     <option value="ADMIN">普通管理员</option>
-                                    <option value="SAAS_ADMIN">SaaS 管理员</option>
-                                </select>
+                                    </select>
                             </div>
                             <div className="confirm-actions">
                             <button className="btn btn-cancel" onClick={closeConfirm}>
@@ -182,16 +181,16 @@ function CustomSelect({ value, onChange, options, placeholder, name, required })
 // 侧边栏菜单
 const menuItems = [
     { path: '/admin/setup', icon: FiFlag, label: '新手起航', tenantOnly: true },
-    { path: '/admin/settings', icon: FiSettings, label: '店铺设置', tenantOnly: true },
+    { path: '/admin/shop-settings', icon: FiMonitor, label: '店铺设置', tenantOnly: true },
     { path: '/admin', icon: FiHome, label: '仪表盘', exact: true },
     { path: '/admin/products', icon: FiPackage, label: '商品管理' },
     { path: '/admin/orders', icon: FiShoppingBag, label: '订单管理' },
     { path: '/admin/tickets', icon: FiMessageCircle, label: '工单管理' },
     { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理' },
     { path: '/admin/users', icon: FiUsers, label: '用户管理', superOnly: true },
-    { path: '/admin/agents', icon: FiShare2, label: '代理管理', strictSuperOnly: true },
+    { path: '/admin/agents', icon: FiShare2, label: '代理管理', superOnly: true },
     { path: '/admin/tenants', icon: FiUsers, label: '租户商城', superOnly: true },
-    { path: '/admin/settings', icon: FiSettings, label: '系统设置', superOnly: true },
+    { path: '/admin/settings', icon: FiSettings, label: '系统设置' },
 ]
 
 // 仪表盘首页
@@ -199,7 +198,7 @@ function DashboardHome() {
     const navigate = useNavigate()
     const token = useAuthStore(state => state.token)
     const user = useAuthStore(state => state.user)
-    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role)
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN'
     const [stats, setStats] = useState({
         totalOrders: 0,
         totalRevenue: 0,
@@ -1943,7 +1942,7 @@ function OrdersManage() {
     const urlStatusFilter = queryParams.get('status')
     const token = useAuthStore(state => state.token)
     const currentUser = useAuthStore(state => state.user)
-    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(currentUser?.role)
+    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
     const { showToast, showConfirm } = useToast()
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
@@ -2977,7 +2976,7 @@ function TicketsManage() {
 function CardsManage() {
     const { showToast } = useToast()
     const { token, user: currentUser } = useAuthStore()
-    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(currentUser?.role)
+    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
     const location = useLocation()
 
     // 从URL获取初始productId
@@ -3573,7 +3572,7 @@ function UsersManage() {
     const { showToast, showConfirm } = useToast()
     const token = useAuthStore(state => state.token)
     const currentUser = useAuthStore(state => state.user)
-    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(currentUser?.role)
+    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
     const [users, setUsers] = useState([])
     const [initialLoading, setInitialLoading] = useState(true)
     const [searching, setSearching] = useState(false)
@@ -3587,7 +3586,7 @@ function UsersManage() {
     const pageSize = 20
     const searchTimerRef = useRef(null)
     const [showCreateAdmin, setShowCreateAdmin] = useState(false)
-    const [newAdmin, setNewAdmin] = useState({ email: '', password: '', username: '', role: 'ADMIN' })
+    const [newAdmin, setNewAdmin] = useState({ email: '', password: '', username: '' })
     const [creating, setCreating] = useState(false)
 
     // 统一用 ref 追踪最新值，避免闭包陷阱
@@ -3609,7 +3608,7 @@ function UsersManage() {
             const data = await res.json()
             setUsers(data.users || [])
             setTotalUsers(data.total || 0)
-            setAdminCount((data.users || []).filter(u => ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(u.role)).length)
+            setAdminCount((data.users || []).filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN').length)
             setTotalPages(Math.ceil((data.total || 0) / pageSize))
         } catch (error) {
             showToast('获取用户列表失败', 'error')
@@ -3715,7 +3714,6 @@ function UsersManage() {
     const getRoleLabel = (role) => {
         switch (role) {
             case 'SUPER_ADMIN': return '超级管理员'
-            case 'SAAS_ADMIN': return 'SaaS 管理员'
             case 'ADMIN': return '管理员'
             default: return '普通用户'
         }
@@ -3821,7 +3819,7 @@ function UsersManage() {
                     )}
                 </div>
                 <div className="users-role-tabs">
-                    {[['all', '全部'], ['USER', '普通用户'], ['ADMIN', '管理员'], ['SAAS_ADMIN', 'SaaS 管理员']].map(([val, label]) => (
+                    {[['all', '全部'], ['USER', '普通用户'], ['ADMIN', '管理员']].map(([val, label]) => (
                         <button
                             key={val}
                             className={`users-role-tab${roleFilter === val ? ' active' : ''}`}
@@ -3881,8 +3879,7 @@ function UsersManage() {
                                             >
                                                 <option value="USER">普通用户</option>
                                                 <option value="ADMIN">管理员</option>
-                                                <option value="SAAS_ADMIN">SaaS 管理员</option>
-                                            </select>
+                                                </select>
                                         ) : (
                                             <span className={`role-badge ${(user.role || '').toLowerCase()}`}>
                                                 {getRoleLabel(user.role)}
@@ -6069,7 +6066,7 @@ function SettingsPage() {
                                                 <div>
                                                     <div className="admin-email-name">
                                                         {config.username || '未设置用户名'}
-                                                        <span>{config.role === 'SUPER_ADMIN' ? '超级管理员' : (config.role === 'SAAS_ADMIN' ? 'SaaS 管理员' : '管理员')}</span>
+                                                        <span>{config.role === 'SUPER_ADMIN' ? '超级管理员' : '管理员'}</span>
                                                     </div>
                                                     <div className="admin-email-address">{config.email}</div>
                                                 </div>
@@ -6118,7 +6115,7 @@ function AdminDashboard() {
     const navigate = useNavigate()
     const { logout, user } = useAuthStore()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const isSuperAdmin = ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role)
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
     const handleLogout = () => {
         logout()
@@ -6128,8 +6125,8 @@ function AdminDashboard() {
     // 根据角色过滤菜单项
     const isTenantAdmin = user?.role === 'TENANT_ADMIN';
     const visibleMenuItems = menuItems.filter(item => {
-        if (item.strictSuperOnly && user?.role !== 'SUPER_ADMIN') return false;
         if (item.superOnly && !isSuperAdmin) return false;
+        if (item.path === '/admin/settings' && !isSuperAdmin && !isTenantAdmin) return false;
         if (item.tenantOnly && !isTenantAdmin) return false;
         return true;
     })
@@ -6168,7 +6165,7 @@ function AdminDashboard() {
                         <div className="user-avatar">👤</div>
                         <div className="user-details">
                             <span className="user-name">{user?.username || 'Admin'}</span>
-                            <span className="user-role">{user?.role === 'SUPER_ADMIN' ? '超级管理员' : (user?.role === 'SAAS_ADMIN' ? 'SaaS 管理员' : '管理员')}</span>
+                            <span className="user-role">{user?.role === 'SUPER_ADMIN' ? '超级管理员' : '管理员'}</span>
                         </div>
                     </div>
                     <button className="logout-btn" onClick={handleLogout}>
@@ -6190,7 +6187,8 @@ function AdminDashboard() {
                     <Route path="agents" element={<AgentsManage />} />
                     <Route path="tenants" element={<TenantsManage />} />
                     <Route path="setup" element={<SetupGuidePage />} />
-                    <Route path="settings" element={isSuperAdmin ? <SettingsPage /> : <TenantSettings />} />
+                    <Route path="shop-settings" element={<TenantSettings />} />
+                    <Route path="settings" element={<SettingsPage />} />
                 </Routes>
             </main>
         </div>

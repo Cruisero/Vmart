@@ -61,7 +61,7 @@ function EmailVerificationBanner() {
     const [dismissed, setDismissed] = useState(false)
     const [resending, setResending] = useState(false)
 
-    if (skin === 'fresh' || !isAuthenticated || user?.emailVerified || dismissed || ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role)) {
+    if (skin === 'fresh' || !isAuthenticated || user?.emailVerified || dismissed || ['ADMIN', 'SUPER_ADMIN'].includes(user?.role)) {
         return null
     }
 
@@ -244,7 +244,7 @@ function App() {
                 <Routes>
                     {/* Admin 路由：完全独立，不受皮肤影响 */}
                     <Route path="/admin/*" element={
-                        ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN', 'SAAS_ADMIN'].includes(useAuthStore.getState().user?.role)
+                        ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'].includes(useAuthStore.getState().user?.role)
                             ? <AdminDashboard />
                             : <NotFound />
                     } />

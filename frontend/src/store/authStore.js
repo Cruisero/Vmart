@@ -38,12 +38,12 @@ export const useAuthStore = create(
             // 检查是否是管理员（ADMIN 或 SUPER_ADMIN）
             isAdmin: () => {
                 const role = get().user?.role
-                return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SAAS_ADMIN'
+                return role === 'ADMIN' || role === 'SUPER_ADMIN'
             },
 
             // 检查是否是超级管理员
             isSuperAdmin: () => {
-                return ['SUPER_ADMIN', 'SAAS_ADMIN'].includes(get().user?.role)
+                return get().user?.role === 'SUPER_ADMIN'
             }
         }),
         {
