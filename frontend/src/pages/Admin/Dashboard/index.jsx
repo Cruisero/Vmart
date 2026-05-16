@@ -3609,7 +3609,7 @@ function UsersManage() {
             const data = await res.json()
             setUsers(data.users || [])
             setTotalUsers(data.total || 0)
-            setAdminCount((data.users || []).filter(u => ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(user?.role) ? true : u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' || u.role === 'SAAS_ADMIN').length)
+            setAdminCount((data.users || []).filter(u => ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(u.role)).length)
             setTotalPages(Math.ceil((data.total || 0) / pageSize))
         } catch (error) {
             showToast('获取用户列表失败', 'error')
