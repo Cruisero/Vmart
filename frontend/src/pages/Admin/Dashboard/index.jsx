@@ -71,14 +71,7 @@ function ToastProvider({ children }) {
                         </div>
                         <h3 className="confirm-title">{confirmDialog.title}</h3>
                         <p className="confirm-message">{confirmDialog.message}</p>
-                        
-                            <div className="form-group">
-                                <label>角色</label>
-                                <select className="form-input" value={newAdmin.role} onChange={e => setNewAdmin(p => ({ ...p, role: e.target.value }))}>
-                                    <option value="ADMIN">普通管理员</option>
-                                    </select>
-                            </div>
-                            <div className="confirm-actions">
+                        <div className="confirm-actions">
                             <button className="btn btn-cancel" onClick={closeConfirm}>
                                 取消
                             </button>
