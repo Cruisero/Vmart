@@ -50,6 +50,7 @@ import NotificationBanner from './components/NotificationBanner'
 import AgentDashboard from './pages/Agent/Dashboard'
 import AgentApply from './pages/AgentApply'
 import Storefront from './pages/Storefront'
+import TenantDashboard from './pages/Tenant'
 
 // 邮箱验证提示组件
 function EmailVerificationBanner() {
@@ -255,6 +256,9 @@ function App() {
 
                     {/* 代理分站 */}
                     <Route path="/s/:slug/*" element={<Storefront />} />
+
+                    {/* 租户商城后台 */}
+                    <Route path="/tenant/*" element={<TenantDashboard />} />
 
                     {/* 代理申请 */}
                     <Route path="/agent-apply" element={<AgentApply />} />
