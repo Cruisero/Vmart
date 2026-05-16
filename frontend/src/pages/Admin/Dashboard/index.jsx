@@ -13,6 +13,7 @@ import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuthStore } from '../../../store/authStore'
 import { useSkinStore } from '../../../store/skinStore'
 import './Dashboard.css'
+import TenantSettings from '../TenantSettings'
 
 // ==================== Toast & Dialog Context ====================
 const ToastContext = createContext(null)
@@ -181,6 +182,7 @@ const menuItems = [
     { path: '/admin/agents', icon: FiShare2, label: '代理管理', superOnly: true },
     { path: '/admin/tenants', icon: FiUsers, label: '租户商城', superOnly: true },
     { path: '/admin/settings', icon: FiSettings, label: '系统设置', superOnly: true },
+    { path: '/admin/setup', icon: FiFlag, label: '新手起航', tenantOnly: true },
     { path: '/admin/settings', icon: FiSettings, label: '店铺设置', tenantOnly: true },
 ]
 
@@ -429,52 +431,7 @@ function DashboardHome() {
             )}
 
             
-            {/* 新手起航 (仅商户可见) */}
-            {user?.role === 'TENANT_ADMIN' && (
-                <div className="setup-guide-card" style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '20px', marginBottom: '24px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                        <div style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8', padding: '8px', borderRadius: '8px' }}><FiPackage size={20} /></div>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>新手起航</h3>
-                            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>完成以下步骤，正式开启您的数字商城营业之旅</p>
-                        </div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-body)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ color: stats.totalProducts > 0 ? '#10b981' : 'var(--text-muted)' }}>
-                                    {stats.totalProducts > 0 ? <FiCheckCircle size={20} /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid var(--border-color)' }} />}
-                                </div>
-                                <span style={{ color: stats.totalProducts > 0 ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: stats.totalProducts > 0 ? 'line-through' : 'none' }}>发布第一款商品</span>
-                            </div>
-                            <Link to="/admin/products" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>去上架</Link>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-body)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ color: 'var(--text-muted)' }}>
-                                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
-                                </div>
-                                <span style={{ color: 'var(--text-primary)' }}>绑定专属域名</span>
-                            </div>
-                            <Link to="/admin/settings" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>去配置</Link>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-body)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ color: 'var(--text-muted)' }}>
-                                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
-                                </div>
-                                <span style={{ color: 'var(--text-primary)' }}>订阅高级套餐 <span style={{ fontSize: '0.75rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>未订阅无法营业</span></span>
-                            </div>
-                            <Link to="/admin/settings" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>选择套餐</Link>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* 统计卡片 */}
+                        {/* 统计卡片 */}
             {dashboardPermissions.viewStatsGrid && (
                 <div className="stats-grid">
                     <div className={`stat-card accent-orders ${expandedCard === 'orders' ? 'expanded' : ''}`} onClick={() => setExpandedCard(expandedCard === 'orders' ? null : 'orders')}>
@@ -6216,11 +6173,77 @@ function AdminDashboard() {
                     <Route path="users" element={<UsersManage />} />
                     <Route path="agents" element={<AgentsManage />} />
                     <Route path="tenants" element={<TenantsManage />} />
-                    <Route path="settings" element={isSuperAdmin ? <SettingsPage /> : <Navigate to="/admin" replace />} />
+                    <Route path="setup" element={<SetupGuidePage />} />
+                    <Route path="settings" element={isSuperAdmin ? <SettingsPage /> : <TenantSettings />} />
                 </Routes>
             </main>
         </div>
     )
+}
+
+
+// 新手起航页面
+function SetupGuidePage() {
+    const [stats, setStats] = React.useState({ totalProducts: 0 });
+    const token = useAuthStore(state => state.token);
+
+    React.useEffect(() => {
+        if (token) {
+            fetch('/api/admin/dashboard', { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.stats) setStats(data.stats);
+                })
+                .catch(e => console.error(e));
+        }
+    }, [token]);
+
+    return (
+        <div className="dashboard-content">
+            <h2 className="page-title">新手向导</h2>
+            <div className="setup-guide-card" style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border-color)', maxWidth: '800px', margin: '0 auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                    <div style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8', padding: '12px', borderRadius: '12px' }}><FiPackage size={24} /></div>
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>开启您的数字商城营业之旅</h3>
+                        <p style={{ margin: '6px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>完成以下基础设置，即可正式营业并接收订单</p>
+                    </div>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ color: stats.totalProducts > 0 ? '#10b981' : 'var(--text-muted)' }}>
+                                {stats.totalProducts > 0 ? <FiCheckCircle size={24} /> : <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border-color)' }} />}
+                            </div>
+                            <span style={{ fontSize: '1.05rem', color: stats.totalProducts > 0 ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: stats.totalProducts > 0 ? 'line-through' : 'none' }}>发布第一款商品</span>
+                        </div>
+                        <Link to="/admin/products" className="btn btn-secondary" style={{ padding: '8px 16px' }}>去上架</Link>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ color: 'var(--text-muted)' }}>
+                                <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
+                            </div>
+                            <span style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>绑定专属独立域名</span>
+                        </div>
+                        <Link to="/admin/settings" className="btn btn-secondary" style={{ padding: '8px 16px' }}>去配置</Link>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ color: 'var(--text-muted)' }}>
+                                <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
+                            </div>
+                            <span style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>订阅高级套餐 <span style={{ fontSize: '0.8rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '4px', marginLeft: '12px' }}>未订阅无法前台交易</span></span>
+                        </div>
+                        <Link to="/admin/settings" className="btn btn-primary" style={{ padding: '8px 16px' }}>选择套餐</Link>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 // 包装导出
