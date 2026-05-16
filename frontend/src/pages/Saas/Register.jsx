@@ -25,14 +25,14 @@ export default function SaasRegister() {
             const r = await fetch(`${API}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: form.username, email: form.email, password: form.password })
+                body: JSON.stringify({ ...form, isSaas: true })
             })
             const d = await r.json()
 
-            if (d.token) {
+            if (r.ok) {
                 // 注册成功并直接登录
                 login(d.user, d.token)
-                navigate('/tenant', { replace: true })
+                navigate('/admin', { replace: true })
             } else if (d.message && d.message.includes('验证')) {
                 // 需要邮箱验证
                 setStep('success')

@@ -50,7 +50,6 @@ import NotificationBanner from './components/NotificationBanner'
 import AgentDashboard from './pages/Agent/Dashboard'
 import AgentApply from './pages/AgentApply'
 import Storefront from './pages/Storefront'
-import TenantDashboard from './pages/Tenant'
 import SaasPage from './pages/Saas'
 import SaasLogin from './pages/Saas/Login'
 import SaasRegister from './pages/Saas/Register'
@@ -259,9 +258,6 @@ function App() {
 
                     {/* 代理分站 */}
                     <Route path="/s/:slug/*" element={<Storefront />} />
-
-                    {/* 租户商城后台 */}
-                    <Route path="/tenant/*" element={<TenantDashboard />} />
 
                     {/* SaaS 商户首页 + 独立登录/注册 */}
                     <Route path="/saas" element={<SaasPage />} />

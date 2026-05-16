@@ -26,8 +26,8 @@ export default function SaasLogin() {
             const d = await r.json()
             if (d.token) {
                 login(d.user, d.token)
-                // 登录成功 → 直接跳商户后台
-                navigate('/tenant', { replace: true })
+                // 登录成功 → 直接跳商户商城后台
+                navigate('/admin', { replace: true })
             } else {
                 setError(d.error || '登录失败，请检查邮箱和密码')
             }

@@ -46,17 +46,35 @@ exports.register = async (req, res, next) => {
         const verificationToken = crypto.randomBytes(32).toString('hex')
 
         // 创建用户
+        const role = req.body.isSaas ? 'TENANT_ADMIN' : 'USER'
+        
         const user = await prisma.user.create({
             data: {
                 email,
                 password: hashedPassword,
                 username: username || email.split('@')[0],
-                role: 'USER',
+                role,
                 emailVerified: false,
                 verificationToken,
                 referralAgentId
+            
             }
         })
+        
+        // 如果是 SaaS 注册，自动为其开通 Tenant 记录实现极速入驻
+        if (req.body.isSaas) {
+            const tenant = await prisma.tenant.create({
+                data: {
+                    userId: user.id,
+                    shopName: '数字商城',
+                    shopSlug: 'shop-' + Math.random().toString(36).substring(2, 8),
+                    status: 'ACTIVE'
+                }
+            })
+            await prisma.tenantSetting.create({
+                data: { tenantId: tenant.id }
+            })
+        }
 
         // 关联该邮箱下的游客订单到新账号
         try {
