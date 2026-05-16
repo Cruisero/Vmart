@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import './Dashboard.css'
-import useAuthStore from '../../store/authStore'
+import { useAuthStore } from '../../store/authStore'
 import TenantOverview from './Overview'
 import TenantSetup from './Setup'
 import TenantProducts from './Products'

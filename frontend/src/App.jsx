@@ -51,6 +51,7 @@ import AgentDashboard from './pages/Agent/Dashboard'
 import AgentApply from './pages/AgentApply'
 import Storefront from './pages/Storefront'
 import TenantDashboard from './pages/Tenant'
+import SaasPage from './pages/Saas'
 
 // 邮箱验证提示组件
 function EmailVerificationBanner() {
@@ -259,6 +260,10 @@ function App() {
 
                     {/* 租户商城后台 */}
                     <Route path="/tenant/*" element={<TenantDashboard />} />
+
+                    {/* SaaS 商户首页 */}
+                    <Route path="/saas" element={<SaasPage />} />
+                    <Route path="/merchant" element={<SaasPage />} />
 
                     {/* 代理申请 */}
                     <Route path="/agent-apply" element={<AgentApply />} />
