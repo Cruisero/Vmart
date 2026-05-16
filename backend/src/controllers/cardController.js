@@ -6,7 +6,8 @@ exports.getCards = async (req, res, next) => {
     try {
         const { productId, status, page = 1, pageSize = 50 } = req.query
 
-        const where = {}
+        const where = {};
+        if (req.tenantId) where.tenantId = req.tenantId;
         if (productId) where.productId = productId
         if (status) where.status = status.toUpperCase()
 
@@ -46,7 +47,7 @@ exports.importCards = async (req, res, next) => {
 
         // 检查商品是否存在
         const product = await prisma.product.findUnique({
-            where: { id: productId }
+            where: { id: productId, ...(req.tenantId ? { tenantId: req.tenantId } : {}) }
         })
 
         if (!product) {
@@ -58,13 +59,14 @@ exports.importCards = async (req, res, next) => {
             data: cards.map(content => ({
                 productId,
                 content: content.trim(),
+                tenantId: req.tenantId || null,
                 status: 'AVAILABLE'
             }))
         })
 
         // 更新商品库存
         await prisma.product.update({
-            where: { id: productId },
+            where: { id: productId, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: { stock: { increment: createdCards.count } }
         })
 
@@ -83,7 +85,7 @@ exports.deleteCard = async (req, res, next) => {
         const { id } = req.params
 
         const card = await prisma.card.findUnique({
-            where: { id }
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) }
         })
 
         if (!card) {
@@ -94,7 +96,7 @@ exports.deleteCard = async (req, res, next) => {
             return res.status(400).json({ error: '已售出的卡密无法删除' })
         }
 
-        await prisma.card.delete({ where: { id } })
+        await prisma.card.delete({ where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) } })
 
         // 更新商品库存
         await prisma.product.update({
@@ -154,7 +156,7 @@ exports.dispenseCards = async (orderId, productId, quantity, variantId = null) =
 
     // 更新商品销量和库存
     await prisma.product.update({
-        where: { id: productId },
+        where: { id: productId, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
         data: {
             stock: { decrement: quantity },
             soldCount: { increment: quantity }
@@ -164,7 +166,7 @@ exports.dispenseCards = async (orderId, productId, quantity, variantId = null) =
     // 检查库存警报
     try {
         const updatedProduct = await prisma.product.findUnique({
-            where: { id: productId },
+            where: { id: productId, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             select: { id: true, name: true, stock: true, price: true }
         })
         if (updatedProduct && updatedProduct.stock <= 0) {

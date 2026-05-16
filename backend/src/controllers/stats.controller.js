@@ -11,6 +11,7 @@ exports.recordVisit = async (req, res, next) => {
 
         const siteVisit = await prisma.siteVisit.upsert({
             where: {
+                    ...(req.tenantId ? { tenantId: req.tenantId } : {}),
                 date: today
             },
             update: {

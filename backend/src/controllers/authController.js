@@ -124,9 +124,7 @@ exports.register = async (req, res, next) => {
         // 通知管理员（异步，不阻塞响应）
         const { notifyNewUser } = require('../services/adminNotifyService')
         notifyNewUser(user).catch(e => console.error('管理员通知失败:', e))
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 用户登录
@@ -164,9 +162,7 @@ exports.login = async (req, res, next) => {
             },
             token
         })
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 获取当前用户信息
@@ -194,9 +190,7 @@ exports.getCurrentUser = async (req, res, next) => {
         }
 
         res.json({ user })
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 刷新 Token
@@ -217,9 +211,7 @@ exports.refreshToken = async (req, res, next) => {
         const token = generateToken(user)
 
         res.json({ token })
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 退出登录
@@ -227,9 +219,7 @@ exports.logout = async (req, res, next) => {
     try {
         // 可以在这里将 Token 加入黑名单 (使用 Redis)
         res.json({ message: '已退出登录' })
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 验证邮箱
@@ -263,9 +253,7 @@ exports.verifyEmail = async (req, res, next) => {
         })
 
         res.json({ message: '邮箱验证成功！' })
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 重发验证邮件
@@ -306,9 +294,7 @@ exports.resendVerification = async (req, res, next) => {
         } else {
             res.status(500).json({ error: '邮件发送失败，请稍后重试' })
         }
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 修改密码
@@ -350,9 +336,7 @@ exports.changePassword = async (req, res, next) => {
         })
 
         res.json({ message: '密码修改成功' })
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 请求重置密码（忘记密码）
@@ -394,9 +378,7 @@ exports.forgotPassword = async (req, res, next) => {
             console.error('发送重置邮件失败:', result.error)
             res.status(500).json({ error: '邮件发送失败，请稍后重试' })
         }
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 
 // 重置密码
@@ -437,7 +419,5 @@ exports.resetPassword = async (req, res, next) => {
         })
 
         res.json({ message: '密码重置成功，请使用新密码登录' })
-    } catch (error) {
-        next(error)
-    }
+    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }

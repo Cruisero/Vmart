@@ -165,7 +165,7 @@ exports.getProductById = async (req, res, next) => {
         const { id } = req.params
 
         const product = await prisma.product.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: {
                 category: {
                     select: { id: true, name: true, icon: true }
@@ -183,8 +183,9 @@ exports.getProductById = async (req, res, next) => {
 
         // 异步增加浏览量（不阻塞响应）
         prisma.product.update({
-            where: { id },
-            data: { viewCount: { increment: 1 } }
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+            data: {
+                tenantId: req.tenantId || null, viewCount: { increment: 1 } }
         }).catch(() => { })
 
         // 查询库存计算模式设置

@@ -208,7 +208,7 @@ exports.getTicketDetail = async (req, res, next) => {
         const { id } = req.params
 
         const ticket = await prisma.ticket.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: {
                 user: {
                     select: { id: true, email: true, username: true }
@@ -243,7 +243,7 @@ exports.getTicketDetail = async (req, res, next) => {
         if (unreadCount > 0) {
             const readData = getReadUpdateData(isAdmin)
             await prisma.ticket.update({
-                where: { id },
+                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 data: readData
             })
             Object.assign(ticket, readData)
@@ -272,7 +272,7 @@ exports.addMessage = async (req, res, next) => {
 
         // 验证工单存在且属于用户
         const ticket = await prisma.ticket.findUnique({
-            where: { id }
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) }
         })
 
         if (!ticket) {
@@ -293,7 +293,7 @@ exports.addMessage = async (req, res, next) => {
         const now = new Date()
         const [, message] = await prisma.$transaction([
             prisma.ticket.update({
-                where: { id },
+                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 data: {
                     updatedAt: now,
                     adminUnreadCount: { increment: 1 },
@@ -357,7 +357,7 @@ exports.closeMyTicket = async (req, res, next) => {
         const userId = req.user.id
         const { id } = req.params
 
-        const ticket = await prisma.ticket.findUnique({ where: { id } })
+        const ticket = await prisma.ticket.findUnique({ where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) } })
 
         if (!ticket) {
             return res.status(404).json({ error: '工单不存在' })
@@ -370,7 +370,7 @@ exports.closeMyTicket = async (req, res, next) => {
         }
 
         const updated = await prisma.ticket.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: { status: 'CLOSED', closedAt: new Date() }
         })
 
@@ -387,7 +387,8 @@ exports.getAllTickets = async (req, res, next) => {
     try {
         const { status, type, page = 1, limit = 20, noReply } = req.query
 
-        const where = {}
+        const where = {};
+        if (req.tenantId) where.tenantId = req.tenantId;
         if (status && status !== 'all') {
             where.status = status
         }
@@ -459,7 +460,7 @@ exports.adminReply = async (req, res, next) => {
         }
 
         const ticket = await prisma.ticket.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: {
                 user: { select: { email: true, username: true } }
             }
@@ -473,7 +474,7 @@ exports.adminReply = async (req, res, next) => {
         const now = new Date()
         const [, message] = await prisma.$transaction([
             prisma.ticket.update({
-                where: { id },
+                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 data: {
                     status: newStatus,
                     updatedAt: now,
@@ -528,7 +529,7 @@ exports.updateTicketStatus = async (req, res, next) => {
 
         // 先取工单及用户信息，用于通知
         const existing = await prisma.ticket.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: { user: { select: { email: true, username: true } } }
         })
         if (!existing) {
@@ -555,7 +556,7 @@ exports.updateTicketStatus = async (req, res, next) => {
         }
 
         const ticket = await prisma.ticket.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: updateData
         })
 

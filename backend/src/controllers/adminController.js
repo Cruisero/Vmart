@@ -154,16 +154,17 @@ exports.getDashboard = async (req, res, next) => {
             todayVisitsData,
             stockModeSetting
         ] = await Promise.all([
-            prisma.order.count({ where: { status: 'COMPLETED' } }),
+            prisma.order.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'COMPLETED' } }),
             prisma.order.aggregate({
-                where: { status: 'COMPLETED' },
+                where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'COMPLETED' },
                 _sum: { totalAmount: true }
             }),
             prisma.product.count(),
             prisma.user.count(),
             prisma.order.count({
                 where: {
-                    status: 'COMPLETED',
+                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+                status: 'COMPLETED',
                     createdAt: { gte: today }
                 }
             }),
@@ -175,12 +176,12 @@ exports.getDashboard = async (req, res, next) => {
                 }
             }),
             prisma.ticket.count({ where: { adminUnreadCount: { gt: 0 } } }),
-            prisma.order.count({ where: { status: 'PENDING' } }),
-            prisma.order.count({ where: { status: 'PAID' } }),
-            prisma.order.count({ where: { status: 'REFUNDING' } }),
+            prisma.order.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'PENDING' } }),
+            prisma.order.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'PAID' } }),
+            prisma.order.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'REFUNDING' } }),
             // 待确认的支付订单（USDT / BSC_USDT 等）
              prisma.order.findMany({
-                 where: { status: 'PENDING' },
+                 where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'PENDING' },
                  select: {
                      id: true,
                      orderNo: true,
@@ -203,6 +204,7 @@ exports.getDashboard = async (req, res, next) => {
 
         const todayRevenue = await prisma.order.aggregate({
             where: {
+                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
                 status: 'COMPLETED',
                 createdAt: { gte: today }
             },
@@ -233,7 +235,7 @@ exports.getDashboard = async (req, res, next) => {
                         name: true,
                         stock: true,
                         _count: {
-                            select: { cards: { where: { status: 'AVAILABLE' } } }
+                            select: { cards: { where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'AVAILABLE' } } }
                         }
                     }
                 })
@@ -334,7 +336,8 @@ exports.getDashboardTrend = async (req, res, next) => {
         const [orders, users, products, siteVisits] = await Promise.all([
             prisma.order.findMany({
                 where: {
-                    status: 'COMPLETED',
+                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+                status: 'COMPLETED',
                     createdAt: {
                         gte: startDate,
                         lte: today
@@ -344,7 +347,8 @@ exports.getDashboardTrend = async (req, res, next) => {
             }),
             prisma.user.findMany({
                 where: {
-                    createdAt: {
+                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+                createdAt: {
                         gte: startDate,
                         lte: today
                     }
@@ -353,7 +357,8 @@ exports.getDashboardTrend = async (req, res, next) => {
             }),
             prisma.product.findMany({
                 where: {
-                    createdAt: {
+                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+                createdAt: {
                         gte: startDate,
                         lte: today
                     }
@@ -421,7 +426,8 @@ exports.getProducts = async (req, res, next) => {
     try {
         const { page = 1, pageSize = 20, status } = req.query
 
-        const where = {}
+        const where = {};
+        if (req.tenantId) where.tenantId = req.tenantId;
         
         if (req.tenantId) where.tenantId = req.tenantId
 if (status) where.status = status.toUpperCase()
@@ -431,7 +437,7 @@ if (status) where.status = status.toUpperCase()
                 where,
                 include: {
                     category: { select: { name: true } },
-                    _count: { select: { cards: { where: { status: 'AVAILABLE' } } } },
+                    _count: { select: { cards: { where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'AVAILABLE' } } } },
                     variants: {
                         orderBy: { sortOrder: 'asc' }
                     }
@@ -580,7 +586,7 @@ exports.updateProduct = async (req, res, next) => {
         const product = await prisma.$transaction(async (tx) => {
             // 更新商品基本信息
             const updatedProduct = await tx.product.update({
-                where: { id },
+                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 data: updateData
             })
 
@@ -668,7 +674,7 @@ exports.updateProduct = async (req, res, next) => {
                         const totalStock = validVariants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
 
                         await tx.product.update({
-                            where: { id },
+                            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                             data: {
                                 price: minPrice,
                                 originalPrice: maxOriginalPrice,
@@ -691,7 +697,7 @@ exports.updateProduct = async (req, res, next) => {
                             }
                         })
                         await tx.product.update({
-                            where: { id },
+                            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                             data: { stock: remainingStock }
                         })
                     }
@@ -700,7 +706,7 @@ exports.updateProduct = async (req, res, next) => {
 
             // 返回包含规格的商品数据
             return tx.product.findUnique({
-                where: { id },
+                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 include: { variants: true }
             })
         })
@@ -717,7 +723,7 @@ exports.deleteProduct = async (req, res, next) => {
         const { id } = req.params
         if (req.tenantId) { const item = await prisma.product.findFirst({ where: { id, tenantId: req.tenantId } }); if (!item) return res.status(403).json({ error: '无权操作或记录不存在' }) }
 
-        await prisma.product.delete({ where: { id } })
+        await prisma.product.delete({ where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) } })
 
         res.json({ message: '商品删除成功' })
     } catch (error) {
@@ -771,7 +777,7 @@ exports.updateCategory = async (req, res, next) => {
         const { name, description, icon, sortOrder, status } = req.body
 
         const category = await prisma.category.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: { name, description, icon, sortOrder, status: status?.toUpperCase() }
         })
 
@@ -786,7 +792,7 @@ exports.deleteCategory = async (req, res, next) => {
         const { id } = req.params
         if (req.tenantId) { const item = await prisma.category.findFirst({ where: { id, tenantId: req.tenantId } }); if (!item) return res.status(403).json({ error: '无权操作或记录不存在' }) }
 
-        await prisma.category.delete({ where: { id } })
+        await prisma.category.delete({ where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) } })
 
         res.json({ message: '分类删除成功' })
     } catch (error) {
@@ -799,7 +805,8 @@ exports.getOrders = async (req, res, next) => {
     try {
         const { page = 1, pageSize = 20, status, userId, search } = req.query
 
-        const where = {}
+        const where = {};
+        if (req.tenantId) where.tenantId = req.tenantId;
         
         if (req.tenantId) where.tenantId = req.tenantId
 if (status) where.status = status.toUpperCase()
@@ -851,7 +858,7 @@ exports.updateOrderStatus = async (req, res, next) => {
         const { status } = req.body
 
         const order = await prisma.order.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: { status: status.toUpperCase() }
         })
 
@@ -885,7 +892,7 @@ exports.refundOrder = async (req, res, next) => {
         }
 
         await prisma.order.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: {
                 status: 'REFUNDING'
             }
@@ -904,7 +911,7 @@ exports.completeRefundOrder = async (req, res, next) => {
         const refundCompletedAt = new Date()
 
         const order = await prisma.order.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: {
                 cards: true,
                 product: {
@@ -927,7 +934,7 @@ exports.completeRefundOrder = async (req, res, next) => {
 
         await prisma.$transaction(async (tx) => {
             await tx.order.update({
-                where: { id },
+                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 data: {
                     status: 'REFUNDED',
                     completedAt: refundCompletedAt
@@ -969,7 +976,7 @@ exports.deleteOrder = async (req, res, next) => {
         const { id } = req.params
 
         const order = await prisma.order.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: { cards: true, payment: true }
         })
 
@@ -1027,7 +1034,7 @@ exports.deleteOrder = async (req, res, next) => {
             await tx.ticket.deleteMany({ where: { orderId: id } })
 
             // 删除订单
-            await tx.order.delete({ where: { id } })
+            await tx.order.delete({ where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) } })
         })
 
         res.json({ message: '订单已删除' })
@@ -1045,7 +1052,7 @@ exports.shipOrder = async (req, res, next) => {
 
         // 获取订单和卡密信息
         const order = await prisma.order.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: {
                 product: true,
                 cards: true
@@ -1120,7 +1127,7 @@ exports.shipOrder = async (req, res, next) => {
 
         // 更新订单状态为已完成
         const updatedOrder = await prisma.order.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: {
                 status: 'COMPLETED',
                 completedAt: new Date()
@@ -1168,7 +1175,7 @@ exports.resendCards = async (req, res, next) => {
 
         // 获取订单
         const order = await prisma.order.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: { product: true, cards: true }
         })
 
@@ -1210,14 +1217,14 @@ exports.resendCards = async (req, res, next) => {
         // 如果订单还是 PAID 状态，更新为 COMPLETED
         if (order.status === 'PAID') {
             await prisma.order.update({
-                where: { id },
+                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 data: { status: 'COMPLETED', completedAt: new Date() }
             })
         }
 
         // 重新获取包含所有卡密的订单
         const fullOrder = await prisma.order.findUnique({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: { product: true, cards: true }
         })
 
@@ -1246,7 +1253,8 @@ exports.getUsers = async (req, res, next) => {
     try {
         const { page = 1, pageSize = 20, search = '', role = 'all' } = req.query
 
-        const where = {}
+        const where = {};
+        if (req.tenantId) where.tenantId = req.tenantId;
         
         if (req.tenantId) where.tenantId = req.tenantId
 if (search) {
@@ -1374,7 +1382,8 @@ exports.getCards = async (req, res, next) => {
     try {
         const { productId, variantId, status, keyword, page = 1, pageSize = 20 } = req.query
 
-        const baseWhere = {}
+        const baseWhere = {};
+        if (req.tenantId) baseWhere.tenantId = req.tenantId;
         if (productId) baseWhere.productId = productId
         if (variantId === 'default') {
             baseWhere.variantId = null
@@ -1505,7 +1514,7 @@ exports.deleteCard = async (req, res, next) => {
         }
 
         await prisma.$transaction(async (tx) => {
-            await tx.card.delete({ where: { id } })
+            await tx.card.delete({ where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) } })
 
             // 商品库存始终同步
             await tx.product.update({
@@ -1623,7 +1632,7 @@ exports.updateCard = async (req, res, next) => {
         }
 
         const updatedCard = await prisma.card.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: { content: content.trim() }
         })
 
@@ -1788,7 +1797,8 @@ exports.rebuildStockFromCards = async (req, res, next) => {
             prisma.card.groupBy({
                 by: ['productId'],
                 where: {
-                    status: 'AVAILABLE',
+                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+                status: 'AVAILABLE',
                     productId: { in: productIdList }
                 },
                 _count: { _all: true }
@@ -1806,7 +1816,8 @@ exports.rebuildStockFromCards = async (req, res, next) => {
             ? await prisma.card.groupBy({
                 by: ['variantId'],
                 where: {
-                    status: 'AVAILABLE',
+                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+                status: 'AVAILABLE',
                     variantId: { in: variantIdList }
                 },
                 _count: { _all: true }
@@ -1943,7 +1954,7 @@ exports.deleteAdmin = async (req, res, next) => {
 
         // 将角色降为普通用户而非物理删除
         await prisma.user.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: { role: 'USER' }
         })
 
@@ -1979,7 +1990,7 @@ exports.updateUserRole = async (req, res, next) => {
         }
 
         await prisma.user.update({
-            where: { id },
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             data: { role }
         })
 
