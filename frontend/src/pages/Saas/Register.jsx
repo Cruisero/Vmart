@@ -8,7 +8,7 @@ export default function SaasRegister() {
     const navigate = useNavigate()
     const [params] = useSearchParams()
     const plan = params.get('plan') || 'free'
-    const { setToken, setUser } = useAuthStore()
+    const { login } = useAuthStore()
 
     const [form, setForm] = useState({ username: '', email: '', password: '', confirm: '' })
     const [loading, setLoading] = useState(false)
@@ -31,8 +31,7 @@ export default function SaasRegister() {
 
             if (d.token) {
                 // 注册成功并直接登录
-                setToken(d.token)
-                setUser(d.user)
+                login(d.user, d.token)
                 navigate('/tenant', { replace: true })
             } else if (d.message && d.message.includes('验证')) {
                 // 需要邮箱验证

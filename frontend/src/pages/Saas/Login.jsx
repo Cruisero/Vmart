@@ -8,7 +8,7 @@ export default function SaasLogin() {
     const navigate = useNavigate()
     const [params] = useSearchParams()
     const plan = params.get('plan') || ''
-    const { setToken, setUser } = useAuthStore()
+    const { login } = useAuthStore()
 
     const [form, setForm] = useState({ email: '', password: '' })
     const [loading, setLoading] = useState(false)
@@ -25,8 +25,7 @@ export default function SaasLogin() {
             })
             const d = await r.json()
             if (d.token) {
-                setToken(d.token)
-                setUser(d.user)
+                login(d.user, d.token)
                 // 登录成功 → 直接跳商户后台
                 navigate('/tenant', { replace: true })
             } else {

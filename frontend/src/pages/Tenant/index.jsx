@@ -11,7 +11,7 @@ import TenantSettings from './Settings'
 const API = import.meta.env.VITE_API_URL || '/api'
 
 export default function TenantDashboard() {
-    const { token, user } = useAuthStore()
+    const { token, user, logout } = useAuthStore()
     const navigate = useNavigate()
     const [tenant, setTenant] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -106,7 +106,7 @@ export default function TenantDashboard() {
                     <div className="tenant-header-user">
                         <span>👤 {user?.username || user?.email}</span>
                         <button
-                            onClick={() => { useAuthStore.getState().logout(); navigate('/login') }}
+                            onClick={() => { logout(); navigate('/saas/login') }}
                             style={{ background: 'none', border: 'none', color: 'var(--tenant-muted)', cursor: 'pointer', fontSize: '0.82rem' }}
                         >
                             退出
