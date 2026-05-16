@@ -179,6 +179,7 @@ const menuItems = [
     { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理' },
     { path: '/admin/users', icon: FiUsers, label: '用户管理' },
     { path: '/admin/agents', icon: FiShare2, label: '代理管理' },
+    { path: '/admin/tenants', icon: FiUsers, label: '租户商城' },
     { path: '/admin/settings', icon: FiSettings, label: '系统设置', superOnly: true },
 ]
 
@@ -4724,6 +4725,163 @@ function SslApplyButton({ domain, token }) {
     )
 }
 
+// ==================== 租户商城管理 ====================
+function TenantsManage() {
+    const token = useAuthStore(state => state.token)
+    const [tenants, setTenants] = useState([])
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
+    const [status, setStatus] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [selected, setSelected] = useState(null)
+    const [rejectReason, setRejectReason] = useState('')
+    const [actionLoading, setActionLoading] = useState(false)
+    const { showToast, showConfirm } = useToast()
+
+    const fetchTenants = async () => {
+        setLoading(true)
+        const params = new URLSearchParams({ page, limit: 20 })
+        if (status) params.set('status', status)
+        const r = await fetch(`/api/admin/tenants?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+        const d = await r.json()
+        setTenants(d.tenants || []); setTotal(d.total || 0)
+        setLoading(false)
+    }
+
+    useEffect(() => { fetchTenants() }, [page, status])
+
+    const doAction = async (id, action, body = {}) => {
+        setActionLoading(true)
+        const r = await fetch(`/api/admin/tenants/${id}/${action}`, {
+            method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })
+        const d = await r.json(); setActionLoading(false)
+        if (d.message) { showToast(d.message, 'success'); fetchTenants(); setSelected(null) }
+        else showToast(d.error || '操作失败', 'error')
+    }
+
+    const statusLabel = { PENDING: '待配置', REVIEWING: '审核中', ACTIVE: '运营中', SUSPENDED: '已暂停', REJECTED: '已拒绝' }
+    const statusColor = { PENDING: '#F59E0B', REVIEWING: '#60A5FA', ACTIVE: '#10B981', SUSPENDED: '#EF4444', REJECTED: '#EF4444' }
+
+    return (
+        <div className="admin-section">
+            <div className="section-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                <h2>🏪 租户商城管理</h2>
+                <div style={{ display:'flex', gap:8 }}>
+                    {[['','全部'],['REVIEWING','审核中'],['ACTIVE','运营中'],['PENDING','待配置'],['SUSPENDED','已暂停']].map(([v,l]) => (
+                        <button key={v} onClick={()=>{setStatus(v);setPage(1)}}
+                            className={`tab-btn ${status===v?'active':''}`}>{l}</button>
+                    ))}
+                </div>
+            </div>
+
+            {selected && (
+                <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.65)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+                    onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
+                    <div style={{background:'var(--bg-secondary)',borderRadius:16,width:'100%',maxWidth:560,padding:28,maxHeight:'90vh',overflowY:'auto'}}>
+                        <div style={{fontSize:'1.1rem',fontWeight:700,marginBottom:20}}>🏪 {selected.shopName}</div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px 20px',marginBottom:20}}>
+                            {[
+                                ['店铺名称', selected.shopName],
+                                ['访问路径', `/t/${selected.shopSlug}`],
+                                ['用户邮箱', selected.user?.email],
+                                ['绑定域名', selected.domains?.[0]?.domain || '未绑定'],
+                                ['DNS验证', selected.domains?.[0]?.dnsVerified ? '✅ 已验证' : '❌ 未验证'],
+                                ['商品/订单', `${selected._count?.products||0} / ${selected._count?.orders||0}`],
+                                ['申请时间', new Date(selected.createdAt).toLocaleString()],
+                                ['当前状态', statusLabel[selected.status]]
+                            ].map(([k,v]) => (
+                                <div key={k}>
+                                    <div style={{fontSize:'0.72rem',color:'var(--text-muted)',marginBottom:2}}>{k}</div>
+                                    <div style={{fontSize:'0.86rem'}}>{v}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+                            {selected.status === 'REVIEWING' && (<>
+                                <button className="btn btn-success" disabled={actionLoading}
+                                    onClick={()=>showConfirm('批准商城',`确定批准 ${selected.shopName}？商城将即刻上线。`,()=>doAction(selected.id,'approve'))}>
+                                    ✅ 批准开通
+                                </button>
+                                <input style={{flex:1,padding:'8px 12px',borderRadius:8,border:'1px solid var(--border-color)',background:'var(--bg-primary)',color:'var(--text-primary)',fontSize:'0.84rem'}}
+                                    value={rejectReason} onChange={e=>setRejectReason(e.target.value)} placeholder="拒绝原因（可选）" />
+                                <button className="btn btn-danger" disabled={actionLoading}
+                                    onClick={()=>doAction(selected.id,'reject',{reason:rejectReason})}>
+                                    ❌ 拒绝
+                                </button>
+                            </>)}
+                            {selected.status === 'ACTIVE' && (
+                                <button className="btn btn-warning" disabled={actionLoading}
+                                    onClick={()=>showConfirm('暂停商城',`确定暂停 ${selected.shopName}？`,()=>doAction(selected.id,'suspend'))}>
+                                    ⏸ 暂停运营
+                                </button>
+                            )}
+                            {selected.status === 'SUSPENDED' && (
+                                <button className="btn btn-success" disabled={actionLoading}
+                                    onClick={()=>doAction(selected.id,'reactivate')}>
+                                    ▶ 恢复运营
+                                </button>
+                            )}
+                            <button className="btn" onClick={()=>setSelected(null)} style={{marginLeft:'auto'}}>关闭</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="table-container">
+                {loading ? (
+                    <div style={{textAlign:'center',padding:60,color:'var(--text-muted)'}}>加载中…</div>
+                ) : (
+                    <table className="admin-table">
+                        <thead><tr>
+                            <th>店铺名称</th><th>用户</th><th>绑定域名</th>
+                            <th>DNS</th><th>商品/订单</th><th>状态</th><th>申请时间</th><th>操作</th>
+                        </tr></thead>
+                        <tbody>
+                            {tenants.length === 0 ? (
+                                <tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>暂无租户</td></tr>
+                            ) : tenants.map(t => (
+                                <tr key={t.id}>
+                                    <td>
+                                        <div style={{fontWeight:600}}>{t.shopName}</div>
+                                        <div style={{fontSize:'0.75rem',color:'var(--text-muted)'}}>/t/{t.shopSlug}</div>
+                                    </td>
+                                    <td style={{fontSize:'0.82rem'}}>{t.user?.email}</td>
+                                    <td style={{fontSize:'0.82rem'}}>{t.domains?.[0]?.domain || <span style={{color:'var(--text-muted)'}}>未绑定</span>}</td>
+                                    <td>{t.domains?.[0]?.dnsVerified ? <span style={{color:'#10B981'}}>✅</span> : <span style={{color:'var(--text-muted)'}}>—</span>}</td>
+                                    <td style={{fontSize:'0.82rem'}}>{t._count?.products||0} / {t._count?.orders||0}</td>
+                                    <td>
+                                        <span style={{padding:'3px 10px',borderRadius:20,fontSize:'0.75rem',fontWeight:600,
+                                            background:statusColor[t.status]+'22',color:statusColor[t.status]}}>
+                                            {statusLabel[t.status]}
+                                        </span>
+                                    </td>
+                                    <td style={{fontSize:'0.78rem',color:'var(--text-muted)'}}>{new Date(t.createdAt).toLocaleDateString()}</td>
+                                    <td>
+                                        <button className="btn btn-sm" onClick={()=>{setSelected(t);setRejectReason('')}}>
+                                            详情/审核
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+
+            {total > 20 && (
+                <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:16}}>
+                    <button className="btn" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}>上一页</button>
+                    <span style={{padding:'8px 14px',color:'var(--text-muted)',fontSize:'0.84rem'}}>{page} / {Math.ceil(total/20)}</span>
+                    <button className="btn" onClick={()=>setPage(p=>p+1)} disabled={page>=Math.ceil(total/20)}>下一页</button>
+                </div>
+            )}
+        </div>
+    )
+}
+
+
 function SettingsPage() {
     const { token } = useAuthStore()
     const { showToast } = useToast()
@@ -6010,6 +6168,7 @@ function AdminDashboard() {
                     <Route path="cards" element={<CardsManage />} />
                     <Route path="users" element={<UsersManage />} />
                     <Route path="agents" element={<AgentsManage />} />
+                    <Route path="tenants" element={<TenantsManage />} />
                     <Route path="settings" element={isSuperAdmin ? <SettingsPage /> : <Navigate to="/admin" replace />} />
                 </Routes>
             </main>

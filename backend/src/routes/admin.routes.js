@@ -88,4 +88,13 @@ router.get('/ssl/status', isSuperAdmin, sslController.getStatus)
 router.post('/ssl/apply-step1', isSuperAdmin, sslController.applyStep1)
 router.post('/ssl/apply-step2', isSuperAdmin, sslController.applyStep2)
 
+// ==================== 租户管理 ====================
+const adminTenantController = require('../controllers/adminTenantController')
+router.get('/tenants', adminTenantController.getTenants)
+router.get('/tenants/:id', adminTenantController.getTenantDetail)
+router.put('/tenants/:id/approve', adminTenantController.approveTenant)
+router.put('/tenants/:id/reject', adminTenantController.rejectTenant)
+router.put('/tenants/:id/suspend', adminTenantController.suspendTenant)
+router.put('/tenants/:id/reactivate', adminTenantController.reactivateTenant)
+
 module.exports = router
