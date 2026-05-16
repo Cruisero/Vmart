@@ -3,7 +3,7 @@ import { Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-r
 import {
     FiHome, FiPackage, FiShoppingBag, FiCreditCard,
     FiUsers, FiSettings, FiLogOut, FiMenu, FiX,
-    FiTrendingUp, FiDollarSign, FiBox, FiActivity,
+    FiTrendingUp, FiDollarSign, FiBox, FiActivity, FiFlag,
     FiCheckCircle, FiAlertCircle, FiInfo, FiAlertTriangle,
     FiChevronDown, FiCheck, FiImage, FiMessageCircle,
     FiClock, FiBell, FiBellOff, FiSend,
