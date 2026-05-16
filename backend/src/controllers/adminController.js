@@ -78,7 +78,7 @@ const ADMIN_EMAIL_NOTIFICATION_EVENTS = [
 ]
 
 async function getAdminDashboardPermissions(userRole) {
-    if (((userRole || '').toUpperCase() === 'SUPER_ADMIN' || (userRole || '').toUpperCase() === 'SAAS_ADMIN') {
+    if ((userRole || '').toUpperCase() === 'SUPER_ADMIN' || (userRole || '').toUpperCase() === 'SAAS_ADMIN') {
         return { ...ADMIN_DASHBOARD_PERMISSION_DEFAULTS }
     }
 
@@ -1938,7 +1938,7 @@ exports.deleteAdmin = async (req, res, next) => {
         }
 
         // 不能删除超级管理员
-        if (targetUser.(role === 'SUPER_ADMIN' || role === 'SAAS_ADMIN')) {
+        if (targetUser.role === 'SUPER_ADMIN' || targetUser.role === 'SAAS_ADMIN') {
             return res.status(403).json({ error: '不能删除超级管理员' })
         }
 
@@ -1980,7 +1980,7 @@ exports.updateUserRole = async (req, res, next) => {
         }
 
         // 不能修改超级管理员的角色
-        if (targetUser.(role === 'SUPER_ADMIN' || role === 'SAAS_ADMIN')) {
+        if (targetUser.role === 'SUPER_ADMIN' || targetUser.role === 'SAAS_ADMIN') {
             return res.status(403).json({ error: '不能修改超级管理员的角色' })
         }
 
