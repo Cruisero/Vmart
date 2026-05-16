@@ -1,0 +1,1978 @@
+// 管理员控制器
+const prisma = require('../config/database')
+const bcrypt = require('bcryptjs')
+const emailService = require('../services/emailService')
+
+async function releaseOrderCards(tx, order) {
+    const releasedCards = order.cards || []
+    const releasedCount = releasedCards.length
+
+    if (releasedCount === 0) {
+        return 0
+    }
+
+    await tx.card.updateMany({
+        where: { orderId: order.id },
+        data: {
+            status: 'AVAILABLE',
+            orderId: null,
+            soldAt: null
+        }
+    })
+
+    await tx.product.update({
+        where: { id: order.productId },
+        data: { stock: { increment: releasedCount } }
+    })
+
+    const variantCountMap = new Map()
+    releasedCards.forEach((card) => {
+        if (card.variantId) {
+            variantCountMap.set(card.variantId, (variantCountMap.get(card.variantId) || 0) + 1)
+        }
+    })
+
+    for (const [variantId, count] of variantCountMap.entries()) {
+        await tx.productVariant.update({
+            where: { id: variantId },
+            data: { stock: { increment: count } }
+        })
+    }
+
+    return releasedCount
+}
+
+async function deleteAvailableCardsForVariants(tx, variantIds) {
+    if (!variantIds || variantIds.length === 0) {
+        return 0
+    }
+
+    const deleted = await tx.card.deleteMany({
+        where: {
+            variantId: { in: variantIds },
+            status: 'AVAILABLE'
+        }
+    })
+
+    // Keep sold card/order history, but detach it from variants that no longer exist.
+    await tx.card.updateMany({
+        where: { variantId: { in: variantIds } },
+        data: { variantId: null }
+    })
+
+    return deleted.count
+}
+
+const ADMIN_DASHBOARD_PERMISSION_DEFAULTS = {
+    adminPermissionViewStatsGrid: true,
+    adminPermissionViewTodayStats: true
+}
+
+const ADMIN_EMAIL_NOTIFICATION_EVENTS = [
+    'notifyOrderPaid',
+    'notifyPendingShip',
+    'notifyNewTicket',
+    'notifyNewUser',
+    'notifyLowStock',
+    'notifyOrderCancelled'
+]
+
+async function getAdminDashboardPermissions(userRole) {
+    if ((userRole || '').toUpperCase() === 'SUPER_ADMIN') {
+        return { ...ADMIN_DASHBOARD_PERMISSION_DEFAULTS }
+    }
+
+    const keys = Object.keys(ADMIN_DASHBOARD_PERMISSION_DEFAULTS)
+    const rows = await prisma.setting.findMany({
+        where: { key: { in: keys } }
+    })
+    const valueMap = new Map(rows.map(row => [row.key, row.value]))
+
+    return Object.fromEntries(
+        keys.map(key => {
+            const value = valueMap.get(key)
+            return [key, value == null ? ADMIN_DASHBOARD_PERMISSION_DEFAULTS[key] : value === 'true']
+        })
+    )
+}
+
+function parseAdminEmailConfigs(value) {
+    if (!value) return []
+
+    try {
+        const configs = JSON.parse(value)
+        return Array.isArray(configs) ? configs : []
+    } catch (error) {
+        return []
+    }
+}
+
+function normalizeAdminEmailConfigs(configs, admins) {
+    const adminMap = new Map(admins.map(admin => [admin.id, admin]))
+
+    return (Array.isArray(configs) ? configs : [])
+        .map(config => {
+            const admin = adminMap.get(config.userId)
+            if (!admin) return null
+
+            const events = Array.isArray(config.events)
+                ? config.events.filter(event => ADMIN_EMAIL_NOTIFICATION_EVENTS.includes(event))
+                : []
+
+            return {
+                userId: admin.id,
+                email: admin.email,
+                username: admin.username,
+                role: admin.role,
+                enabled: config.enabled !== false,
+                events
+            }
+        })
+        .filter(Boolean)
+}
+
+// 仪表盘统计
+exports.getDashboard = async (req, res, next) => {
+    try {
+        const dashboardPermissions = await getAdminDashboardPermissions(req.user.role)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const [
+            totalOrders,
+            totalRevenue,
+            totalProducts,
+            totalUsers,
+            todayOrders,
+            recentOrders,
+            pendingTickets,
+            unpaidOrders,
+            paidOrders,
+            refundingOrders,
+            pendingPayments,
+            totalVisitsData,
+            todayVisitsData,
+            stockModeSetting
+        ] = await Promise.all([
+            prisma.order.count({ where: { status: 'COMPLETED' } }),
+            prisma.order.aggregate({
+                where: { status: 'COMPLETED' },
+                _sum: { totalAmount: true }
+            }),
+            prisma.product.count(),
+            prisma.user.count(),
+            prisma.order.count({
+                where: {
+                    status: 'COMPLETED',
+                    createdAt: { gte: today }
+                }
+            }),
+            prisma.order.findMany({
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    product: { select: { name: true } }
+                }
+            }),
+            prisma.ticket.count({ where: { adminUnreadCount: { gt: 0 } } }),
+            prisma.order.count({ where: { status: 'PENDING' } }),
+            prisma.order.count({ where: { status: 'PAID' } }),
+            prisma.order.count({ where: { status: 'REFUNDING' } }),
+            // 待确认的支付订单（USDT / BSC_USDT 等）
+             prisma.order.findMany({
+                 where: { status: 'PENDING' },
+                 select: {
+                     id: true,
+                     orderNo: true,
+                     productName: true,
+                     totalAmount: true,
+                     paymentMethod: true,
+                     usdtAmount: true,
+                     bscUsdtAmount: true,
+                     createdAt: true,
+                     email: true
+                 },
+                 orderBy: { createdAt: 'desc' },
+                 take: 20
+             }),
+             prisma.siteVisit ? prisma.siteVisit.aggregate({ _sum: { visits: true } }).catch(() => ({ _sum: { visits: 0 } })) : Promise.resolve({ _sum: { visits: 0 } }),
+             prisma.siteVisit ? prisma.siteVisit.findUnique({ where: { date: today } }).catch(() => null) : Promise.resolve(null),
+             prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        ])
+        const stockMode = stockModeSetting?.value || 'auto'
+
+        const todayRevenue = await prisma.order.aggregate({
+            where: {
+                status: 'COMPLETED',
+                createdAt: { gte: today }
+            },
+            _sum: { totalAmount: true }
+        })
+
+        // 按支付方式汇总待支付订单
+        const paymentMethodSummary = {}
+        pendingPayments.forEach(o => {
+            const method = o.paymentMethod || '未知'
+            if (!paymentMethodSummary[method]) {
+                paymentMethodSummary[method] = { count: 0, amount: 0 }
+            }
+            paymentMethodSummary[method].count += 1
+            paymentMethodSummary[method].amount += parseFloat(o.totalAmount || 0)
+        })
+
+        // 查询库存告警商品
+        let stockAlertProducts = []
+        try {
+            const alertSetting = await prisma.setting.findUnique({ where: { key: 'stockAlertProductIds' } })
+            const alertIds = alertSetting?.value ? JSON.parse(alertSetting.value) : []
+            if (alertIds.length > 0) {
+                const alertProducts = await prisma.product.findMany({
+                    where: { id: { in: alertIds } },
+                    select: {
+                        id: true,
+                        name: true,
+                        stock: true,
+                        _count: {
+                            select: { cards: { where: { status: 'AVAILABLE' } } }
+                        }
+                    }
+                })
+
+                stockAlertProducts = alertProducts
+                    .map((p) => {
+                        const effectiveStock = stockMode === 'auto' ? p._count.cards : p.stock
+                        return { id: p.id, name: p.name, stock: effectiveStock }
+                    })
+                    .filter((p) => p.stock <= 0)
+            }
+        } catch (e) {
+            console.error('查询库存告警失败:', e)
+        }
+
+        const canViewStatsGrid = dashboardPermissions.adminPermissionViewStatsGrid
+        const canViewTodayStats = dashboardPermissions.adminPermissionViewTodayStats
+
+        res.json({
+            permissions: {
+                dashboard: {
+                    viewStatsGrid: canViewStatsGrid,
+                    viewTodayStats: canViewTodayStats
+                }
+            },
+            totalOrders: canViewStatsGrid ? totalOrders : 0,
+            totalRevenue: canViewStatsGrid ? parseFloat(totalRevenue._sum.totalAmount || 0) : 0,
+            totalProducts: canViewStatsGrid ? totalProducts : 0,
+            totalUsers: canViewStatsGrid ? totalUsers : 0,
+            totalVisits: canViewStatsGrid ? totalVisitsData._sum.visits || 0 : 0,
+            todayOrders: canViewTodayStats ? todayOrders : 0,
+            todayRevenue: canViewTodayStats ? parseFloat(todayRevenue._sum.totalAmount || 0) : 0,
+            todayVisits: canViewTodayStats ? todayVisitsData?.visits || 0 : 0,
+            pendingTickets,
+            unpaidOrders,
+            paidOrders,
+            refundingOrders,
+            stockAlertProducts,
+            paymentMethodSummary,
+            pendingPayments: pendingPayments.map(o => ({
+                id: o.id,
+                orderNo: o.orderNo,
+                productName: o.productName,
+                amount: parseFloat(o.totalAmount),
+                paymentMethod: o.paymentMethod,
+                usdtAmount: o.usdtAmount ? parseFloat(o.usdtAmount) : null,
+                bscUsdtAmount: o.bscUsdtAmount ? parseFloat(o.bscUsdtAmount) : null,
+                email: o.email,
+                createdAt: o.createdAt
+            })),
+            recentOrders: recentOrders.map(o => ({
+                id: o.id,
+                orderNo: o.orderNo,
+                product: o.product?.name || o.productName,
+                amount: parseFloat(o.totalAmount),
+                status: o.status.toLowerCase(),
+                createdAt: o.createdAt
+            }))
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 仪表盘趋势数据
+exports.getDashboardTrend = async (req, res, next) => {
+    try {
+        const dashboardPermissions = await getAdminDashboardPermissions(req.user.role)
+        if (!dashboardPermissions.adminPermissionViewStatsGrid) {
+            return res.status(403).json({ error: '无权限查看仪表盘统计趋势' })
+        }
+
+        const days = parseInt(req.query.days) || 7
+        const today = new Date()
+        today.setHours(23, 59, 59, 999)
+        
+        const startDate = new Date(today)
+        startDate.setDate(startDate.getDate() - days + 1)
+        startDate.setHours(0, 0, 0, 0)
+
+        // 生成日期数组
+        const dateList = []
+        for (let i = 0; i < days; i++) {
+            const d = new Date(startDate)
+            d.setDate(d.getDate() + i)
+            const dateStr = d.toISOString().split('T')[0]
+            dateList.push({
+                date: dateStr,
+                orders: 0,
+                revenue: 0,
+                users: 0,
+                products: 0,
+                visits: 0
+            })
+        }
+
+        // 并行查询
+        const [orders, users, products, siteVisits] = await Promise.all([
+            prisma.order.findMany({
+                where: {
+                    status: 'COMPLETED',
+                    createdAt: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { createdAt: true, totalAmount: true }
+            }),
+            prisma.user.findMany({
+                where: {
+                    createdAt: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { createdAt: true }
+            }),
+            prisma.product.findMany({
+                where: {
+                    createdAt: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { createdAt: true }
+            }),
+            prisma.siteVisit ? prisma.siteVisit.findMany({
+                where: {
+                    date: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { date: true, visits: true }
+            }).catch(() => []) : Promise.resolve([])
+        ])
+
+        // 整理数据
+        const dataMap = new Map(dateList.map(item => [item.date, item]))
+
+        orders.forEach(o => {
+            const dateStr = o.createdAt.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).orders += 1
+                dataMap.get(dateStr).revenue += parseFloat(o.totalAmount || 0)
+            }
+        })
+
+        users.forEach(u => {
+            const dateStr = u.createdAt.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).users += 1
+            }
+        })
+
+        products.forEach(p => {
+            const dateStr = p.createdAt.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).products += 1
+            }
+        })
+
+        siteVisits.forEach(sv => {
+            const dateStr = sv.date.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).visits += sv.visits
+            }
+        })
+
+        // 固定两位小数
+        dateList.forEach(item => {
+            item.revenue = parseFloat(item.revenue.toFixed(2))
+        })
+
+        res.json({
+            trend: dateList
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 商品管理 - 列表
+exports.getProducts = async (req, res, next) => {
+    try {
+        const { page = 1, pageSize = 20, status } = req.query
+
+        const where = {}
+        if (status) where.status = status.toUpperCase()
+
+        const [products, total, stockModeSetting] = await Promise.all([
+            prisma.product.findMany({
+                where,
+                include: {
+                    category: { select: { name: true } },
+                    _count: { select: { cards: { where: { status: 'AVAILABLE' } } } },
+                    variants: {
+                        orderBy: { sortOrder: 'asc' }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: parseInt(pageSize)
+            }),
+            prisma.product.count({ where }),
+            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        ])
+        const stockMode = stockModeSetting?.value || 'auto'
+
+        res.json({
+            products: products.map(p => ({
+                ...p,
+                price: parseFloat(p.price),
+                originalPrice: p.originalPrice ? parseFloat(p.originalPrice) : null,
+                stock: stockMode === 'auto' ? p._count.cards : p.stock,
+                availableCards: p._count.cards,
+                variants: (p.variants || []).map(v => ({
+                    ...v,
+                    price: parseFloat(v.price),
+                    originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null
+                }))
+            })),
+            total,
+            page: parseInt(page),
+            pageSize: parseInt(pageSize)
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 商品管理 - 创建
+exports.createProduct = async (req, res, next) => {
+    try {
+        const { name, description, fullDescription, price, originalPrice, categoryId, image, images, tags, stock, variants, weight, deliveryNote, wholesalePrices } = req.body
+
+        // 构建数据对象，只包含有值的字段
+        const productData = {
+            name,
+            description,
+            fullDescription,
+            price,
+            originalPrice,
+            image,
+            images: images || [],
+            stock: stock || 0,
+            tags: tags || [],
+            weight: parseInt(weight) || 0,
+            deliveryNote: deliveryNote || null,
+            wholesalePrices: wholesalePrices || [],
+            status: 'ACTIVE'
+        }
+
+        // 只有当 categoryId 有效时才添加
+        if (categoryId && categoryId !== '' && categoryId !== 'null') {
+            productData.categoryId = categoryId
+        }
+
+        // 如果有规格数据，使用嵌套创建，并自动设置商品价格为最低规格价格
+        if (variants && variants.length > 0) {
+            const validVariants = variants.filter(v => v.name && v.price)
+            if (validVariants.length > 0) {
+                // 商品价格自动取最低规格价格
+                const prices = validVariants.map(v => parseFloat(v.price) || 0)
+                const minPrice = Math.min(...prices)
+                productData.price = minPrice
+
+                // 原价取最高规格原价（如果有）
+                const originalPrices = validVariants
+                    .map(v => v.originalPrice ? parseFloat(v.originalPrice) : 0)
+                    .filter(p => p > 0)
+                if (originalPrices.length > 0) {
+                    productData.originalPrice = Math.max(...originalPrices)
+                }
+
+                // 库存为各规格库存之和
+                const totalStock = validVariants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
+                productData.stock = totalStock
+
+                productData.variants = {
+                    create: validVariants.map((v, index) => ({
+                        type: v.type || null,
+                        name: v.name,
+                        price: parseFloat(v.price) || 0,
+                        originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
+                        stock: parseInt(v.stock) || 0,
+                        sortOrder: index,
+                        wholesalePrices: v.wholesalePrices || [],
+                        status: 'ACTIVE'
+                    }))
+                }
+            }
+        }
+
+        const product = await prisma.product.create({
+            data: productData,
+            include: {
+                variants: true
+            }
+        })
+
+        res.status(201).json({ message: '商品创建成功', product })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 商品管理 - 更新
+exports.updateProduct = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { name, description, fullDescription, price, originalPrice, categoryId, image, images, tags, status, stock, variants, weight, deliveryNote, wholesalePrices } = req.body
+
+        // 构建更新数据对象
+        const updateData = {
+            name,
+            description,
+            fullDescription,
+            price,
+            originalPrice,
+            image,
+            images: images || [],
+            stock,
+            tags,
+            weight: weight !== undefined ? parseInt(weight) || 0 : undefined,
+            deliveryNote: deliveryNote !== undefined ? (deliveryNote || null) : undefined,
+            wholesalePrices: wholesalePrices !== undefined ? (wholesalePrices || []) : undefined,
+            status: status?.toUpperCase()
+        }
+
+        // 只有当 categoryId 有效时才更新，否则设置为 null
+        if (categoryId && categoryId !== '' && categoryId !== 'null') {
+            updateData.categoryId = categoryId
+        } else {
+            updateData.categoryId = null
+        }
+
+        // 使用事务处理规格更新
+        const product = await prisma.$transaction(async (tx) => {
+            // 更新商品基本信息
+            const updatedProduct = await tx.product.update({
+                where: { id },
+                data: updateData
+            })
+
+            // 如果传入了 variants 数组，使用 upsert 策略保留已有规格 ID
+            if (variants !== undefined) {
+                // 获取当前数据库中的旧规格
+                const existingVariants = await tx.productVariant.findMany({
+                    where: { productId: id }
+                })
+
+                if (variants && variants.length > 0) {
+                    const validVariants = variants.filter(v => v.name && v.price)
+
+                    if (validVariants.length > 0) {
+                        // 构建匹配 key: name + type
+                        const makeKey = (name, type) => `${(type || '').trim()}::${(name || '').trim()}`
+
+                        // 将旧规格按 key 索引
+                        const existingMap = new Map()
+                        for (const ev of existingVariants) {
+                            existingMap.set(makeKey(ev.name, ev.type), ev)
+                        }
+
+                        const matchedExistingIds = new Set()
+
+                        // 逐个处理传入的规格：匹配则更新，不匹配则新建
+                        for (let i = 0; i < validVariants.length; i++) {
+                            const v = validVariants[i]
+                            const key = makeKey(v.name, v.type)
+                            const existing = existingMap.get(key)
+
+                            if (existing) {
+                                // 更新已有规格（保留 ID）
+                                matchedExistingIds.add(existing.id)
+                                await tx.productVariant.update({
+                                    where: { id: existing.id },
+                                    data: {
+                                        price: parseFloat(v.price) || 0,
+                                        originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
+                                        stock: parseInt(v.stock) || 0,
+                                        sortOrder: i,
+                                        status: 'ACTIVE',
+                                        wholesalePrices: v.wholesalePrices || []
+                                    }
+                                })
+                            } else {
+                                // 新建规格
+                                await tx.productVariant.create({
+                                    data: {
+                                        productId: id,
+                                        type: v.type || null,
+                                        name: v.name,
+                                        price: parseFloat(v.price) || 0,
+                                        originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
+                                        stock: parseInt(v.stock) || 0,
+                                        sortOrder: i,
+                                        status: 'ACTIVE',
+                                        wholesalePrices: v.wholesalePrices || []
+                                    }
+                                })
+                            }
+                        }
+
+                        // 找出需要删除的旧规格（不在新列表中的）
+                        const toDeleteIds = existingVariants
+                            .filter(ev => !matchedExistingIds.has(ev.id))
+                            .map(ev => ev.id)
+
+                        if (toDeleteIds.length > 0) {
+                            await deleteAvailableCardsForVariants(tx, toDeleteIds)
+                            await tx.productVariant.deleteMany({
+                                where: { id: { in: toDeleteIds } }
+                            })
+                        }
+
+                        // 更新商品价格和库存
+                        const prices = validVariants.map(v => parseFloat(v.price) || 0)
+                        const minPrice = Math.min(...prices)
+
+                        const originalPrices = validVariants
+                            .map(v => v.originalPrice ? parseFloat(v.originalPrice) : 0)
+                            .filter(p => p > 0)
+                        const maxOriginalPrice = originalPrices.length > 0 ? Math.max(...originalPrices) : null
+
+                        const totalStock = validVariants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
+
+                        await tx.product.update({
+                            where: { id },
+                            data: {
+                                price: minPrice,
+                                originalPrice: maxOriginalPrice,
+                                stock: totalStock
+                            }
+                        })
+                    }
+                } else {
+                    // variants 为空数组，删除所有规格和对应未售卡密
+                    if (existingVariants.length > 0) {
+                        const allVariantIds = existingVariants.map(ev => ev.id)
+                        await deleteAvailableCardsForVariants(tx, allVariantIds)
+                        await tx.productVariant.deleteMany({
+                            where: { productId: id }
+                        })
+                        const remainingStock = await tx.card.count({
+                            where: {
+                                productId: id,
+                                status: 'AVAILABLE'
+                            }
+                        })
+                        await tx.product.update({
+                            where: { id },
+                            data: { stock: remainingStock }
+                        })
+                    }
+                }
+            }
+
+            // 返回包含规格的商品数据
+            return tx.product.findUnique({
+                where: { id },
+                include: { variants: true }
+            })
+        })
+
+        res.json({ message: '商品更新成功', product })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 商品管理 - 删除
+exports.deleteProduct = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        await prisma.product.delete({ where: { id } })
+
+        res.json({ message: '商品删除成功' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 分类管理
+exports.getCategories = async (req, res, next) => {
+    try {
+        const categories = await prisma.category.findMany({
+            orderBy: { sortOrder: 'asc' },
+            include: { _count: { select: { products: true } } }
+        })
+
+        // 转换格式，添加 productCount 字段
+        const formattedCategories = categories.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            description: cat.description,
+            icon: cat.icon,
+            status: cat.status,
+            sortOrder: cat.sortOrder,
+            productCount: cat._count?.products || 0
+        }))
+
+        res.json({ categories: formattedCategories })
+    } catch (error) {
+        next(error)
+    }
+}
+
+exports.createCategory = async (req, res, next) => {
+    try {
+        const { name, description, icon, sortOrder } = req.body
+
+        const category = await prisma.category.create({
+            data: { name, description, icon, sortOrder: sortOrder || 0 }
+        })
+
+        res.status(201).json({ message: '分类创建成功', category })
+    } catch (error) {
+        next(error)
+    }
+}
+
+exports.updateCategory = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { name, description, icon, sortOrder, status } = req.body
+
+        const category = await prisma.category.update({
+            where: { id },
+            data: { name, description, icon, sortOrder, status: status?.toUpperCase() }
+        })
+
+        res.json({ message: '分类更新成功', category })
+    } catch (error) {
+        next(error)
+    }
+}
+
+exports.deleteCategory = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        await prisma.category.delete({ where: { id } })
+
+        res.json({ message: '分类删除成功' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 订单管理 - 列表
+exports.getOrders = async (req, res, next) => {
+    try {
+        const { page = 1, pageSize = 20, status, userId, search } = req.query
+
+        const where = {}
+        if (status) where.status = status.toUpperCase()
+        if (userId) where.userId = userId
+
+        // 搜索：按订单号、邮箱、商品名称模糊匹配
+        if (search && search.trim()) {
+            const keyword = search.trim()
+            where.OR = [
+                { orderNo: { contains: keyword } },
+                { email: { contains: keyword } },
+                { productName: { contains: keyword } }
+            ]
+        }
+
+        const [orders, total] = await Promise.all([
+            prisma.order.findMany({
+                where,
+                include: {
+                    product: { select: { name: true, image: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: parseInt(pageSize)
+            }),
+            prisma.order.count({ where })
+        ])
+
+        res.json({
+            orders: orders.map(o => ({
+                ...o,
+                unitPrice: parseFloat(o.unitPrice),
+                totalAmount: parseFloat(o.totalAmount),
+                status: o.status.toLowerCase()
+            })),
+            total,
+            page: parseInt(page),
+            pageSize: parseInt(pageSize)
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 订单管理 - 更新状态
+exports.updateOrderStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { status } = req.body
+
+        const order = await prisma.order.update({
+            where: { id },
+            data: { status: status.toUpperCase() }
+        })
+
+        res.json({ message: '订单状态更新成功', order })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 订单管理 - 退款
+exports.refundOrder = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        const order = await prisma.order.findUnique({ where: { id } })
+
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+
+        if (order.status === 'REFUNDING') {
+            return res.status(400).json({ error: '该订单已在退款中' })
+        }
+
+        if (order.status === 'REFUNDED') {
+            return res.status(400).json({ error: '该订单已退款' })
+        }
+
+        if (!['PAID', 'COMPLETED'].includes(order.status)) {
+            return res.status(400).json({ error: '当前订单状态不能发起退款' })
+        }
+
+        await prisma.order.update({
+            where: { id },
+            data: {
+                status: 'REFUNDING'
+            }
+        })
+
+        res.json({ message: '订单已标记为退款中' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 订单管理 - 完成退款
+exports.completeRefundOrder = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const refundCompletedAt = new Date()
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                cards: true,
+                product: {
+                    select: { name: true }
+                }
+            }
+        })
+
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+
+        if (order.status === 'REFUNDED') {
+            return res.status(400).json({ error: '该订单已退款' })
+        }
+
+        if (order.status !== 'REFUNDING') {
+            return res.status(400).json({ error: '订单需先进入退款中状态' })
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({
+                where: { id },
+                data: {
+                    status: 'REFUNDED',
+                    completedAt: refundCompletedAt
+                }
+            })
+
+            await releaseOrderCards(tx, order)
+
+            await tx.payment.updateMany({
+                where: { orderId: id },
+                data: { status: 'REFUNDED' }
+            })
+        })
+
+        let emailSent = false
+        try {
+            const emailResult = await emailService.sendOrderRefundedEmail({
+                ...order,
+                status: 'REFUNDED',
+                completedAt: refundCompletedAt
+            })
+            emailSent = emailResult.success
+        } catch (emailError) {
+            console.error('退款成功邮件发送失败:', emailError)
+        }
+
+        res.json({
+            message: emailSent ? '订单已退款，卡密已释放，退款通知邮件已发送' : '订单已退款，卡密已释放',
+            emailSent
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 订单管理 - 删除订单
+exports.deleteOrder = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: { cards: true, payment: true }
+        })
+
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+
+        // 使用事务：释放卡密 + 删除支付记录 + 删除订单
+        await prisma.$transaction(async (tx) => {
+            const releasedCards = order.cards || []
+            const releasedCount = releasedCards.length
+
+            // 释放关联卡密（解除关联，但不删除卡密本身）
+            if (order.cards && order.cards.length > 0) {
+                await tx.card.updateMany({
+                    where: { orderId: id },
+                    data: {
+                        status: 'AVAILABLE',
+                        orderId: null,
+                        soldAt: null
+                    }
+                })
+
+                // 回补商品库存
+                await tx.product.update({
+                    where: { id: order.productId },
+                    data: { stock: { increment: releasedCount } }
+                })
+
+                // 回补规格库存
+                const variantCountMap = new Map()
+                releasedCards.forEach((c) => {
+                    if (c.variantId) {
+                        variantCountMap.set(c.variantId, (variantCountMap.get(c.variantId) || 0) + 1)
+                    }
+                })
+
+                for (const [variantId, count] of variantCountMap.entries()) {
+                    await tx.productVariant.update({
+                        where: { id: variantId },
+                        data: { stock: { increment: count } }
+                    })
+                }
+            }
+
+            // 删除支付记录
+            if (order.payment) {
+                await tx.payment.delete({ where: { orderId: id } })
+            }
+
+            // 删除关联的工单（如果有）
+            await tx.ticketMessage.deleteMany({
+                where: { ticket: { orderId: id } }
+            })
+            await tx.ticket.deleteMany({ where: { orderId: id } })
+
+            // 删除订单
+            await tx.order.delete({ where: { id } })
+        })
+
+        res.json({ message: '订单已删除' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 订单管理 - 手动发货（完成订单并发送邮件）
+exports.shipOrder = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { cardContent } = req.body  // 支持手动输入卡密内容
+        const emailService = require('../services/emailService')
+
+        // 获取订单和卡密信息
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                product: true,
+                cards: true
+            }
+        })
+
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+
+        if (order.status !== 'PAID') {
+            return res.status(400).json({ error: '只有已支付订单才能发货' })
+        }
+
+        // 检查是否需要手动输入卡密
+        const hasExistingCards = order.cards && order.cards.length > 0
+        const hasManualInput = cardContent && cardContent.trim()
+
+        if (!hasExistingCards && !hasManualInput) {
+            return res.status(400).json({
+                error: '该订单没有卡密，请输入卡密内容后再发货',
+                needCardContent: true,
+                orderNo: order.orderNo
+            })
+        }
+
+        // 如果手动输入了卡密，创建卡密记录并关联到订单
+        let newCards = []
+        if (hasManualInput) {
+            // 解析卡密内容
+            let cardLines = []
+            if (order.quantity === 1) {
+                // 单个卡密：整段内容作为一个卡密（支持多行长卡密）
+                cardLines = [cardContent.trim()]
+            } else if (cardContent.includes('\n---\n') || cardContent.startsWith('---\n') || cardContent.endsWith('\n---')) {
+                // 多个卡密且使用 --- 分隔：支持每个卡密包含多行内容
+                cardLines = cardContent.split(/\n---\n|\n---$|^---\n/)
+                    .map(c => c.trim())
+                    .filter(c => c.length > 0)
+                    .slice(0, order.quantity)
+            } else {
+                // 多个卡密，按行分割（向后兼容）
+                cardLines = cardContent.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0)
+                    .slice(0, order.quantity)
+            }
+
+            if (cardLines.length > 0) {
+                // 创建卡密记录
+                for (const content of cardLines) {
+                    const card = await prisma.card.create({
+                        data: {
+                            productId: order.productId,
+                            variantId: order.variantId || null,
+                            content: content,
+                            status: 'SOLD',
+                            orderId: order.id,
+                            soldAt: new Date()
+                        }
+                    })
+                    newCards.push(card)
+                }
+
+                // 更新商品已售数量
+                await prisma.product.update({
+                    where: { id: order.productId },
+                    data: { soldCount: { increment: order.quantity } }
+                })
+            }
+        }
+
+        // 更新订单状态为已完成
+        const updatedOrder = await prisma.order.update({
+            where: { id },
+            data: {
+                status: 'COMPLETED',
+                completedAt: new Date()
+            },
+            include: {
+                product: true,
+                cards: true  // 包含刚创建的卡密
+            }
+        })
+
+        // 发送邮件通知
+        let emailSent = false
+        try {
+            await emailService.sendOrderCompletedEmail(updatedOrder, updatedOrder.cards)
+            emailSent = true
+        } catch (emailError) {
+            console.error('发货邮件发送失败:', emailError)
+        }
+
+        res.json({
+            message: emailSent ? '发货成功，邮件已发送' : '发货成功，但邮件发送失败',
+            order: {
+                orderNo: updatedOrder.orderNo,
+                status: updatedOrder.status,
+                completedAt: updatedOrder.completedAt
+            },
+            cardsAdded: newCards.length,
+            emailSent
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 订单管理 - 补发卡密（已完成订单追加卡密并重发邮件）
+exports.resendCards = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { cardContent } = req.body
+        const emailService = require('../services/emailService')
+
+        if (!cardContent || !cardContent.trim()) {
+            return res.status(400).json({ error: '请输入补发的卡密内容' })
+        }
+
+        // 获取订单
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: { product: true, cards: true }
+        })
+
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+
+        if (order.status !== 'COMPLETED' && order.status !== 'PAID') {
+            return res.status(400).json({ error: '只有已支付或已完成的订单才能补发' })
+        }
+
+        // 解析卡密内容（复用发货的解析逻辑）
+        let cardLines = []
+        if (cardContent.includes('\n---\n') || cardContent.startsWith('---\n') || cardContent.endsWith('\n---')) {
+            cardLines = cardContent.split(/\n---\n|\n---$|^---\n/)
+                .map(c => c.trim())
+                .filter(c => c.length > 0)
+        } else {
+            // 补发不限制数量，按行或整段
+            cardLines = [cardContent.trim()]
+        }
+
+        // 创建新的卡密记录
+        const newCards = []
+        for (const content of cardLines) {
+            const card = await prisma.card.create({
+                data: {
+                    productId: order.productId,
+                    variantId: order.variantId || null,
+                    content: content,
+                    status: 'SOLD',
+                    orderId: order.id,
+                    soldAt: new Date()
+                }
+            })
+            newCards.push(card)
+        }
+
+        // 如果订单还是 PAID 状态，更新为 COMPLETED
+        if (order.status === 'PAID') {
+            await prisma.order.update({
+                where: { id },
+                data: { status: 'COMPLETED', completedAt: new Date() }
+            })
+        }
+
+        // 重新获取包含所有卡密的订单
+        const fullOrder = await prisma.order.findUnique({
+            where: { id },
+            include: { product: true, cards: true }
+        })
+
+        // 重新发送邮件（包含所有卡密）
+        let emailSent = false
+        try {
+            await emailService.sendOrderCompletedEmail(fullOrder, fullOrder.cards)
+            emailSent = true
+        } catch (emailError) {
+            console.error('补发邮件发送失败:', emailError)
+        }
+
+        res.json({
+            message: emailSent ? '补发成功，邮件已发送' : '补发成功，但邮件发送失败',
+            cardsAdded: newCards.length,
+            totalCards: fullOrder.cards.length,
+            emailSent
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 用户管理
+exports.getUsers = async (req, res, next) => {
+    try {
+        const { page = 1, pageSize = 20, search = '', role = 'all' } = req.query
+
+        const where = {}
+        if (search) {
+            where.OR = [
+                { email: { contains: search } },
+                { username: { contains: search } }
+            ]
+        }
+        if (role && role !== 'all') {
+            where.role = role
+        }
+
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                select: {
+                    id: true,
+                    email: true,
+                    username: true,
+                    role: true,
+                    createdAt: true,
+                    _count: { select: { orders: true } },
+                    referralAgent: { select: { shopName: true, shopSlug: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (parseInt(page) - 1) * parseInt(pageSize),
+                take: parseInt(pageSize)
+            }),
+            prisma.user.count({ where })
+        ])
+
+        res.json({ users, total, page: parseInt(page), pageSize: parseInt(pageSize) })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 系统设置
+exports.getSettings = async (req, res, next) => {
+    try {
+        const [settings, admins] = await Promise.all([
+            prisma.setting.findMany(),
+            prisma.user.findMany({
+                where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+                select: { id: true, email: true, username: true, role: true },
+                orderBy: { createdAt: 'asc' }
+            })
+        ])
+
+        const settingsObj = {}
+        settings.forEach(s => {
+            settingsObj[s.key] = s.value
+        })
+
+        const rawAdminEmailConfigs = parseAdminEmailConfigs(settingsObj.adminEmailNotificationConfigs)
+        const normalizedConfigs = normalizeAdminEmailConfigs(rawAdminEmailConfigs, admins)
+        const configuredIds = new Set(normalizedConfigs.map(config => config.userId))
+        const missingConfigs = admins
+            .filter(admin => !configuredIds.has(admin.id))
+            .map(admin => ({
+                userId: admin.id,
+                email: admin.email,
+                username: admin.username,
+                role: admin.role,
+                enabled: false,
+                events: []
+            }))
+        settingsObj.adminEmailNotificationConfigs = JSON.stringify([...normalizedConfigs, ...missingConfigs])
+
+        res.json({ settings: settingsObj })
+    } catch (error) {
+        next(error)
+    }
+}
+
+exports.updateSettings = async (req, res, next) => {
+    try {
+        const settings = req.body
+
+        for (const [key, value] of Object.entries(settings)) {
+            await prisma.setting.upsert({
+                where: { key },
+                create: { key, value },
+                update: { value }
+            })
+        }
+
+        // 检查是否更新了备份相关的设置，如果是，则重启备份调度
+        const backupKeys = ['backupEnabled', 'backupFrequency', 'backupRetentionDays', 'backupEmailEnabled', 'backupEmail']
+        const hasBackupUpdate = Object.keys(settings).some(key => backupKeys.includes(key))
+        
+        if (hasBackupUpdate) {
+            const backupService = require('../services/backupService')
+            backupService.startBackupSchedule().catch(err => {
+                console.error('重启备份服务失败:', err)
+            })
+        }
+
+        res.json({ message: '设置更新成功' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 测试邮件配置
+exports.testEmail = async (req, res, next) => {
+    try {
+        const emailService = require('../services/emailService')
+        const result = await emailService.testEmailConnection()
+
+        if (result.success) {
+            res.json({ success: true, message: '邮件配置测试成功，连接正常' })
+        } else {
+            res.status(400).json({ success: false, error: result.error })
+        }
+    } catch (error) {
+        next(error)
+    }
+}
+
+// ==================== 卡密管理 ====================
+
+// 获取卡密列表
+exports.getCards = async (req, res, next) => {
+    try {
+        const { productId, variantId, status, keyword, page = 1, pageSize = 20 } = req.query
+
+        const baseWhere = {}
+        if (productId) baseWhere.productId = productId
+        if (variantId === 'default') {
+            baseWhere.variantId = null
+        } else if (variantId) {
+            baseWhere.variantId = variantId
+        }
+
+        const listWhere = { ...baseWhere }
+        if (status) listWhere.status = status.toUpperCase()
+        if (keyword && keyword.trim()) {
+            listWhere.OR = [
+                { content: { contains: keyword.trim() } },
+                { order: { orderNo: { contains: keyword.trim() } } }
+            ]
+        }
+
+        const [cards, total, statsTotal, statsByStatus] = await Promise.all([
+            prisma.card.findMany({
+                where: listWhere,
+                include: {
+                    product: { select: { id: true, name: true } },
+                    variant: { select: { id: true, name: true } },
+                    order: { select: { orderNo: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: parseInt(pageSize)
+            }),
+            prisma.card.count({ where: listWhere }),
+            prisma.card.count({ where: baseWhere }),
+            prisma.card.groupBy({
+                by: ['status'],
+                where: baseWhere,
+                _count: { _all: true }
+            })
+        ])
+
+        const statsMap = statsByStatus.reduce((acc, item) => {
+            acc[item.status] = item._count._all
+            return acc
+        }, {})
+
+        res.json({
+            cards,
+            total,
+            page: parseInt(page),
+            pageSize: parseInt(pageSize),
+            totalPages: Math.ceil(total / pageSize),
+            stats: {
+                total: statsTotal,
+                available: statsMap.AVAILABLE || 0,
+                sold: statsMap.SOLD || 0,
+                expired: statsMap.EXPIRED || 0
+            }
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 批量导入卡密
+exports.importCards = async (req, res, next) => {
+    try {
+        const { productId, variantId, cards } = req.body
+
+        if (!productId) {
+            return res.status(400).json({ error: '请选择商品' })
+        }
+
+        if (!cards || !Array.isArray(cards) || cards.length === 0) {
+            return res.status(400).json({ error: '请提供卡密数据' })
+        }
+
+        // 过滤空行并去重
+        const uniqueCards = [...new Set(cards.filter(c => c && c.trim()))]
+
+        if (uniqueCards.length === 0) {
+            return res.status(400).json({ error: '没有有效的卡密数据' })
+        }
+
+        // 批量创建
+        const result = await prisma.card.createMany({
+            data: uniqueCards.map(content => ({
+                productId,
+                variantId: variantId || null,
+                content: content.trim(),
+                status: 'AVAILABLE'
+            })),
+            skipDuplicates: false
+        })
+
+        // 更新库存：商品库存始终同步，规格库存按需同步
+        await prisma.$transaction(async (tx) => {
+            await tx.product.update({
+                where: { id: productId },
+                data: { stock: { increment: result.count } }
+            })
+
+            if (variantId) {
+                await tx.productVariant.update({
+                    where: { id: variantId },
+                    data: { stock: { increment: result.count } }
+                })
+            }
+        })
+
+        res.json({
+            message: `成功导入 ${result.count} 个卡密`,
+            count: result.count
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 删除单个卡密
+exports.deleteCard = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        const card = await prisma.card.findUnique({ where: { id } })
+        if (!card) {
+            return res.status(404).json({ error: '卡密不存在' })
+        }
+
+        if (card.status === 'SOLD') {
+            return res.status(400).json({ error: '已售出的卡密不能删除' })
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.card.delete({ where: { id } })
+
+            // 商品库存始终同步
+            await tx.product.update({
+                where: { id: card.productId },
+                data: { stock: { decrement: 1 } }
+            })
+
+            // 规格库存按需同步
+            if (card.variantId) {
+                await tx.productVariant.update({
+                    where: { id: card.variantId },
+                    data: { stock: { decrement: 1 } }
+                })
+            }
+        })
+
+        res.json({ message: '卡密删除成功' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 批量删除卡密
+exports.deleteCards = async (req, res, next) => {
+    try {
+        const { ids, productId } = req.body
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: '请选择要删除的卡密' })
+        }
+
+        // 先查询将要删除的可用卡密，用于精确回写商品/规格库存
+        const cardsToDelete = await prisma.card.findMany({
+            where: {
+                id: { in: ids },
+                status: 'AVAILABLE'
+            },
+            select: {
+                id: true,
+                productId: true,
+                variantId: true
+            }
+        })
+
+        if (cardsToDelete.length === 0) {
+            return res.json({
+                message: '没有可删除的卡密',
+                count: 0
+            })
+        }
+
+        const cardIds = cardsToDelete.map(c => c.id)
+
+        const productCountMap = new Map()
+        const variantCountMap = new Map()
+
+        cardsToDelete.forEach((c) => {
+            productCountMap.set(c.productId, (productCountMap.get(c.productId) || 0) + 1)
+            if (c.variantId) {
+                variantCountMap.set(c.variantId, (variantCountMap.get(c.variantId) || 0) + 1)
+            }
+        })
+
+        const result = await prisma.$transaction(async (tx) => {
+            const deleted = await tx.card.deleteMany({
+                where: {
+                    id: { in: cardIds },
+                    status: 'AVAILABLE'
+                }
+            })
+
+            for (const [pid, count] of productCountMap.entries()) {
+                await tx.product.update({
+                    where: { id: pid },
+                    data: { stock: { decrement: count } }
+                })
+            }
+
+            for (const [vid, count] of variantCountMap.entries()) {
+                await tx.productVariant.update({
+                    where: { id: vid },
+                    data: { stock: { decrement: count } }
+                })
+            }
+
+            return deleted
+        })
+
+        res.json({
+            message: `成功删除 ${result.count} 个卡密`,
+            count: result.count
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 更新单个卡密
+exports.updateCard = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { content } = req.body
+
+        if (!content || !content.trim()) {
+            return res.status(400).json({ error: '卡密内容不能为空' })
+        }
+
+        const card = await prisma.card.findUnique({ where: { id } })
+        if (!card) {
+            return res.status(404).json({ error: '卡密不存在' })
+        }
+
+        if (card.status === 'SOLD') {
+            return res.status(400).json({ error: '已售出的卡密不能编辑' })
+        }
+
+        const updatedCard = await prisma.card.update({
+            where: { id },
+            data: { content: content.trim() }
+        })
+
+        res.json({ message: '卡密更新成功', card: updatedCard })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 手动清理未验证账户
+exports.cleanupUnverifiedAccounts = async (req, res, next) => {
+    try {
+        const days = parseInt(req.query.days) || 14
+        const { cleanupUnverifiedAccounts } = require('../utils/accountCleanup')
+
+        const result = await cleanupUnverifiedAccounts(days)
+
+        res.json({
+            message: `已清理 ${result.deleted} 个未验证账户`,
+            deleted: result.deleted,
+            users: result.users || []
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// ==================== 数据库备份 ====================
+
+// 获取备份状态
+exports.getBackupStatus = async (req, res, next) => {
+    try {
+        const backupService = require('../services/backupService')
+        const status = backupService.getBackupStatus()
+        const settings = await backupService.getBackupSettings()
+        res.json({ ...status, settings })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 手动执行备份（不推送邮件）
+exports.runBackup = async (req, res, next) => {
+    try {
+        const backupService = require('../services/backupService')
+        const result = await backupService.performBackup()
+        if (result) {
+            res.json({ success: true, message: '备份完成', ...result })
+        } else {
+            res.status(500).json({ success: false, error: '备份失败，请查看服务器日志' })
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message || '备份失败' })
+    }
+}
+
+// 重启备份定时任务（设置更新后调用）
+exports.restartBackupSchedule = async (req, res, next) => {
+    try {
+        const backupService = require('../services/backupService')
+        await backupService.startBackupSchedule()
+        const settings = await backupService.getBackupSettings()
+        res.json({ success: true, message: '备份计划已更新', settings })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 推送备份文件到邮箱
+exports.emailBackup = async (req, res, next) => {
+    try {
+        const { filename } = req.body
+        if (!filename) {
+            return res.status(400).json({ success: false, error: '缺少文件名' })
+        }
+        const backupService = require('../services/backupService')
+        await backupService.sendBackupByFilename(filename)
+        res.json({ success: true, message: '备份已推送至邮箱' })
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message || '推送失败' })
+    }
+}
+
+// 下载备份文件
+exports.downloadBackup = async (req, res, next) => {
+    try {
+        const { filename } = req.params
+        if (!filename || !filename.endsWith('.sql')) {
+            return res.status(400).json({ error: '无效的文件名' })
+        }
+        const path = require('path')
+        const fs = require('fs')
+        const BACKUP_DIR = '/app/backups'
+        const filepath = path.join(BACKUP_DIR, path.basename(filename))
+        if (!fs.existsSync(filepath)) {
+            return res.status(404).json({ error: '备份文件不存在' })
+        }
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+        res.setHeader('Content-Type', 'application/sql')
+        const fileStream = fs.createReadStream(filepath)
+        fileStream.pipe(res)
+    } catch (error) {
+        next(error)
+    }
+}
+
+// ==================== 库存警报 ====================
+
+// 获取开启库存警报的商品ID列表
+exports.getStockAlertProducts = async (req, res, next) => {
+    try {
+        const setting = await prisma.setting.findUnique({
+            where: { key: 'stockAlertProductIds' }
+        })
+        const productIds = setting?.value ? JSON.parse(setting.value) : []
+        res.json({ productIds })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 设置开启库存警报的商品ID列表
+exports.setStockAlertProducts = async (req, res, next) => {
+    try {
+        const { productIds } = req.body
+        if (!Array.isArray(productIds)) {
+            return res.status(400).json({ error: '参数格式错误' })
+        }
+        await prisma.setting.upsert({
+            where: { key: 'stockAlertProductIds' },
+            update: { value: JSON.stringify(productIds) },
+            create: { key: 'stockAlertProductIds', value: JSON.stringify(productIds), description: '库存警报商品ID列表' }
+        })
+        res.json({ message: '库存警报设置已更新', productIds })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 按可用卡密重建商品/规格库存（用于修复历史库存漂移）
+exports.rebuildStockFromCards = async (req, res, next) => {
+    try {
+        const { productIds } = req.body || {}
+        const targetIds = Array.isArray(productIds) && productIds.length > 0 ? productIds : null
+
+        const products = await prisma.product.findMany({
+            where: targetIds ? { id: { in: targetIds } } : {},
+            select: { id: true, name: true, stock: true }
+        })
+
+        if (products.length === 0) {
+            return res.json({
+                message: '没有可同步的商品',
+                updatedProducts: 0,
+                updatedVariants: 0
+            })
+        }
+
+        const productIdList = products.map(p => p.id)
+
+        const [productCardGroups, variants] = await Promise.all([
+            prisma.card.groupBy({
+                by: ['productId'],
+                where: {
+                    status: 'AVAILABLE',
+                    productId: { in: productIdList }
+                },
+                _count: { _all: true }
+            }),
+            prisma.productVariant.findMany({
+                where: { productId: { in: productIdList } },
+                select: { id: true, productId: true, name: true, stock: true }
+            })
+        ])
+
+        const productCountMap = new Map(productCardGroups.map(g => [g.productId, g._count._all]))
+        const variantIdList = variants.map(v => v.id)
+
+        const variantCardGroups = variantIdList.length > 0
+            ? await prisma.card.groupBy({
+                by: ['variantId'],
+                where: {
+                    status: 'AVAILABLE',
+                    variantId: { in: variantIdList }
+                },
+                _count: { _all: true }
+            })
+            : []
+
+        const variantCountMap = new Map(
+            variantCardGroups
+                .filter(g => !!g.variantId)
+                .map(g => [g.variantId, g._count._all])
+        )
+
+        const productChanges = []
+        const variantChanges = []
+
+        await prisma.$transaction(async (tx) => {
+            for (const p of products) {
+                const nextStock = productCountMap.get(p.id) || 0
+                if (p.stock !== nextStock) {
+                    await tx.product.update({
+                        where: { id: p.id },
+                        data: { stock: nextStock }
+                    })
+                    productChanges.push({
+                        id: p.id,
+                        name: p.name,
+                        before: p.stock,
+                        after: nextStock
+                    })
+                }
+            }
+
+            for (const v of variants) {
+                const nextStock = variantCountMap.get(v.id) || 0
+                if (v.stock !== nextStock) {
+                    await tx.productVariant.update({
+                        where: { id: v.id },
+                        data: { stock: nextStock }
+                    })
+                    variantChanges.push({
+                        id: v.id,
+                        name: v.name,
+                        before: v.stock,
+                        after: nextStock
+                    })
+                }
+            }
+        })
+
+        res.json({
+            message: '库存重建完成',
+            updatedProducts: productChanges.length,
+            updatedVariants: variantChanges.length,
+            products: productChanges,
+            variants: variantChanges
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// ==================== 管理员管理 ====================
+
+// 创建子管理员
+exports.createAdmin = async (req, res, next) => {
+    try {
+        const { email, password, username } = req.body
+
+        if (!email || !password) {
+            return res.status(400).json({ error: '邮箱和密码为必填项' })
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: '密码至少6位' })
+        }
+
+        // 检查邮箱是否已存在
+        const existing = await prisma.user.findUnique({ where: { email } })
+        if (existing) {
+            return res.status(409).json({ error: '该邮箱已被注册' })
+        }
+
+        // 创建子管理员
+        const hashedPassword = await bcrypt.hash(password, 10)
+        const admin = await prisma.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                username: username || email.split('@')[0],
+                role: 'ADMIN',
+                emailVerified: true
+            }
+        })
+
+        res.status(201).json({
+            message: '子管理员创建成功',
+            admin: {
+                id: admin.id,
+                email: admin.email,
+                username: admin.username,
+                role: admin.role,
+                createdAt: admin.createdAt
+            }
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 删除子管理员
+exports.deleteAdmin = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        const targetUser = await prisma.user.findUnique({ where: { id } })
+        if (!targetUser) {
+            return res.status(404).json({ error: '用户不存在' })
+        }
+
+        // 不能删除超级管理员
+        if (targetUser.role === 'SUPER_ADMIN') {
+            return res.status(403).json({ error: '不能删除超级管理员' })
+        }
+
+        // 不能删除自己
+        if (targetUser.id === req.user.id) {
+            return res.status(403).json({ error: '不能删除自己的账号' })
+        }
+
+        // 只允许删除管理员角色
+        if (targetUser.role !== 'ADMIN') {
+            return res.status(400).json({ error: '该用户不是管理员' })
+        }
+
+        // 将角色降为普通用户而非物理删除
+        await prisma.user.update({
+            where: { id },
+            data: { role: 'USER' }
+        })
+
+        res.json({ message: '子管理员已移除（降级为普通用户）' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 修改用户角色
+exports.updateUserRole = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { role } = req.body
+
+        if (!['USER', 'ADMIN'].includes(role)) {
+            return res.status(400).json({ error: '无效的角色，只能设置为 USER 或 ADMIN' })
+        }
+
+        const targetUser = await prisma.user.findUnique({ where: { id } })
+        if (!targetUser) {
+            return res.status(404).json({ error: '用户不存在' })
+        }
+
+        // 不能修改超级管理员的角色
+        if (targetUser.role === 'SUPER_ADMIN') {
+            return res.status(403).json({ error: '不能修改超级管理员的角色' })
+        }
+
+        // 不能修改自己的角色
+        if (targetUser.id === req.user.id) {
+            return res.status(403).json({ error: '不能修改自己的角色' })
+        }
+
+        await prisma.user.update({
+            where: { id },
+            data: { role }
+        })
+
+        res.json({ message: '角色更新成功' })
+    } catch (error) {
+        next(error)
+    }
+}

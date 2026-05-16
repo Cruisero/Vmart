@@ -1,0 +1,392 @@
+/* =============================================
+   Fresh Theme — Product Detail  (redesign)
+   ============================================= */
+
+.fd-page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 40px 60px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* ── Main two-column layout ── */
+.fd-body {
+    display: grid;
+    grid-template-columns: 40% 1fr;
+    gap: 28px;
+    align-items: center;
+}
+
+/* ── Image card ── */
+.fd-image-wrap {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    overflow: hidden;
+    position: sticky;
+    top: 76px;
+}
+
+.fd-image-wrap img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.fd-image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FEF2F2;
+    font-size: 5rem;
+}
+
+/* ── Right info card ── */
+.fd-info {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    padding: 32px 32px 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+.fd-name {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.025em;
+    line-height: 1.3;
+    margin-bottom: 8px;
+}
+
+.fd-short-desc {
+    font-size: 0.875rem;
+    color: #6B7280;
+    line-height: 1.65;
+    margin-bottom: 0;
+}
+
+/* Divider */
+.fd-divider {
+    height: 1px;
+    background: #F3F4F6;
+    margin: 20px 0;
+}
+
+/* ── Price ── */
+.fd-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.fd-price {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.fd-price-orig {
+    font-size: 1rem;
+    color: #D1D5DB;
+    text-decoration: line-through;
+}
+
+.fd-discount {
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #FEF3C7;
+    color: #D97706;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.01em;
+}
+
+.fd-meta-row {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: #9CA3AF;
+    margin-bottom: 0;
+}
+
+/* ── Variants ── */
+.fd-section-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #374151;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.fd-variants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 0;
+}
+
+.fd-variant-btn {
+    padding: 7px 14px;
+    border-radius: 9px;
+    border: 1.5px solid #E5E7EB;
+    background: #F9FAFB;
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.3;
+}
+.fd-variant-btn:hover { border-color: #DC2626; color: #DC2626; background: #FEF2F2; }
+.fd-variant-btn.active {
+    border-color: #DC2626;
+    background: #FEF2F2;
+    color: #DC2626;
+    font-weight: 600;
+}
+.fd-variant-price { font-size: 0.7rem; opacity: 0.8; }
+
+/* ── Quantity ── */
+.fd-qty-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.fd-qty-ctrl {
+    display: flex;
+    align-items: center;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #F9FAFB;
+    width: 160px;
+}
+
+.fd-qty-btn {
+    width: 44px;
+    height: 40px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    font-size: 1rem;
+    color: #374151;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+.fd-qty-btn:hover:not(:disabled) { background: #E5E7EB; }
+.fd-qty-btn:disabled { color: #D1D5DB; cursor: not-allowed; }
+
+.fd-qty-val {
+    flex: 1;
+    height: 40px;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111827;
+    border: none;
+    border-left: 1px solid #E5E7EB;
+    border-right: 1px solid #E5E7EB;
+    background: transparent;
+    outline: none;
+    -moz-appearance: textfield;
+    line-height: 40px;
+    background: #fff;
+}
+.fd-qty-val::-webkit-outer-spin-button,
+.fd-qty-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.fd-subtotal {
+    font-size: 0.85rem;
+    color: #6B7280;
+}
+.fd-subtotal strong { color: #111827; font-size: 1rem; }
+
+/* ── Buy button ── */
+.fd-buy-btn {
+    width: 100%;
+    padding: 14px;
+    background: #DC2626;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+.fd-buy-btn:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+.fd-buy-btn:active:not(:disabled) { transform: translateY(0); }
+.fd-buy-btn:disabled {
+    background: #E5E7EB;
+    color: #9CA3AF;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* ── Wholesale tiers ── */
+.fd-guarantees {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.fd-wholesale-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    margin-right: 2px;
+}
+.fd-wholesale-label svg { color: #10B981; }
+
+.fd-wholesale-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1.5px solid #E5E7EB;
+    background: #F9FAFB;
+    transition: border-color 0.2s, background 0.2s, transform 0.2s;
+    cursor: default;
+    min-width: 72px;
+}
+
+.fd-wholesale-card.active {
+    border-color: #10B981;
+    background: rgba(16,185,129,0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16,185,129,0.15);
+}
+
+.fd-wc-qty {
+    font-size: 0.7rem;
+    color: #9CA3AF;
+    white-space: nowrap;
+}
+.fd-wholesale-card.active .fd-wc-qty { color: #059669; font-weight: 600; }
+
+.fd-wc-price {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111827;
+}
+.fd-wholesale-card.active .fd-wc-price { color: #10B981; }
+
+.fd-wc-saving {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #fff;
+    background: #10B981;
+    border-radius: 5px;
+    padding: 1px 5px;
+    line-height: 1.4;
+}
+.fd-wholesale-card:not(.active) .fd-wc-saving {
+    background: #D1D5DB;
+    color: #6B7280;
+}
+
+/* ── Description card ── */
+.fd-desc-section {
+    margin-top: 24px;
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.fd-desc-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #F3F4F6;
+    letter-spacing: -0.01em;
+}
+
+.fd-desc-content {
+    font-size: 0.875rem;
+    color: #374151;
+    line-height: 1.85;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ── Loading / Not found ── */
+.fd-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+}
+
+.fd-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #E5E7EB;
+    border-top-color: #DC2626;
+    border-radius: 50%;
+    animation: fd-spin 0.7s linear infinite;
+}
+@keyframes fd-spin { to { transform: rotate(360deg); } }
+
+.fd-not-found {
+    text-align: center;
+    padding: 80px 20px;
+    color: #6B7280;
+}
+.fd-not-found h2 { font-size: 1.1rem; color: #111827; margin-bottom: 8px; }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+    .fd-page { padding: 16px 16px 40px; }
+    .fd-body { grid-template-columns: 1fr; gap: 16px; }
+    .fd-image-wrap { position: static; max-width: 480px; margin: 0 auto; width: 100%; }
+    .fd-name { font-size: 1.2rem; }
+    .fd-price { font-size: 1.8rem; }
+    .fd-info { padding: 24px 20px; }
+    .fd-desc-section { padding: 20px; }
+}
+
+
+.fd-wholesale-badge {
+    display: inline-block;
+    background: #FEF2F2;
+    color: #DC2626;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 8px;
+    vertical-align: middle;
+}

@@ -1,0 +1,80 @@
+services:
+  # 前端服务 - Nginx 静态文件
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: haodongxi-frontend
+    restart: always
+    ports:
+      - "3005:80"
+    volumes:
+      - ./backend/uploads:/var/www/uploads:ro
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # 后端服务 - Node.js + Express
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: haodongxi-backend
+    restart: always
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/backups:/app/backups
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - DATABASE_URL=mysql://haodongxi:${MYSQL_PASSWORD:-HaoDongXi2026!}@mysql:3306/haodongxi
+      - JWT_SECRET=${JWT_SECRET:-your-production-jwt-secret-change-this}
+      - JWT_EXPIRES_IN=7d
+      - FRONTEND_URL=https://haodongxi.shop
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      # Alipay 支付配置
+      - ALIPAY_APP_ID=${ALIPAY_APP_ID}
+      - ALIPAY_GATEWAY=${ALIPAY_GATEWAY:-https://openapi.alipay.com/gateway.do}
+      - ALIPAY_NOTIFY_URL=${ALIPAY_NOTIFY_URL}
+      - ALIPAY_RETURN_URL=${ALIPAY_RETURN_URL}
+      - ALIPAY_PUBLIC_KEY=${ALIPAY_PUBLIC_KEY}
+      - ALIPAY_PRIVATE_KEY=${ALIPAY_PRIVATE_KEY}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: haodongxi-mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-Root2026!}
+      - MYSQL_DATABASE=haodongxi
+      - MYSQL_USER=haodongxi
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-HaoDongXi2026!}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_data:

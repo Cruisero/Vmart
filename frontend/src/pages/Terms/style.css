@@ -1,0 +1,198 @@
+.policy-page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+}
+
+.policy-page .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary, #64748b);
+    text-decoration: none;
+    font-size: 14px;
+    margin-bottom: 20px;
+    transition: color 0.2s;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.policy-page .back-btn:hover {
+    color: var(--primary, #0ea5e9);
+}
+
+.policy-container {
+    background: var(--card-bg, #fff);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.policy-header {
+    background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #14b8a6 100%);
+    padding: 40px 36px;
+    text-align: center;
+}
+
+.policy-header h1 {
+    color: #fff;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    letter-spacing: 1px;
+}
+
+.policy-header .update-date {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    margin: 0;
+}
+
+.policy-content {
+    padding: 36px;
+}
+
+.policy-content section {
+    margin-bottom: 32px;
+}
+
+.policy-content section:last-of-type {
+    margin-bottom: 16px;
+}
+
+.policy-content h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border, #f0f0f0);
+}
+
+.policy-content p {
+    color: var(--text-secondary, #475569);
+    font-size: 14.5px;
+    line-height: 1.8;
+    margin: 0 0 10px;
+}
+
+.policy-content ul,
+.policy-content ol {
+    color: var(--text-secondary, #475569);
+    font-size: 14.5px;
+    line-height: 1.8;
+    padding-left: 22px;
+    margin: 0 0 10px;
+}
+
+.policy-content li {
+    margin-bottom: 8px;
+}
+
+.policy-content strong {
+    color: var(--text-primary, #1e293b);
+}
+
+.policy-content a {
+    color: #0ea5e9;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.policy-content a:hover {
+    text-decoration: underline;
+}
+
+/* 高亮说明区域 */
+.highlight-section {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    padding: 20px 24px;
+    border-radius: 12px;
+    border-left: 4px solid #f59e0b;
+}
+
+.highlight-section h2 {
+    color: #92400e;
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 10px;
+}
+
+.highlight-section p {
+    color: #78350f;
+}
+
+/* 退款方式表格 */
+.refund-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 14px;
+}
+
+.refund-table th {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: var(--text-primary, #1e293b);
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 16px;
+}
+
+.refund-table td {
+    padding: 12px 16px;
+    color: var(--text-secondary, #475569);
+    border-bottom: 1px solid var(--border, #f0f0f0);
+}
+
+.refund-table tr:last-child td {
+    border-bottom: none;
+}
+
+.policy-content .note {
+    font-size: 13px;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.policy-footer {
+    text-align: center;
+    padding-top: 24px;
+    border-top: 1px solid var(--border, #f0f0f0);
+    margin-top: 20px;
+}
+
+.policy-footer p {
+    color: var(--text-secondary, #64748b);
+    font-size: 14px;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+    .policy-page {
+        padding: 16px 12px 40px;
+    }
+
+    .policy-header {
+        padding: 28px 20px;
+    }
+
+    .policy-header h1 {
+        font-size: 22px;
+    }
+
+    .policy-content {
+        padding: 24px 18px;
+    }
+
+    .refund-table {
+        font-size: 13px;
+    }
+
+    .refund-table th,
+    .refund-table td {
+        padding: 10px 12px;
+    }
+}

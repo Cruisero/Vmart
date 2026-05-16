@@ -1,0 +1,374 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String
+  username          String?
+  role              Role      @default(USER)
+  avatar            String?
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  verificationToken String?   @map("verification_token")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  resetToken        String?   @map("reset_token")
+  resetTokenExpiry  DateTime? @map("reset_token_expiry")
+  orders            Order[]
+  tickets           Ticket[]
+  ticketMessages    TicketMessage[]
+  agent             Agent?
+  referralAgentId   String?   @map("referral_agent_id")
+  referralAgent     Agent?    @relation("ReferredUsers", fields: [referralAgentId], references: [id])
+
+  @@index([referralAgentId])
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  status      Status    @default(ACTIVE)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id              String           @id @default(uuid())
+  categoryId      String?          @map("category_id")
+  name            String
+  description     String?          @db.Text
+  fullDescription String?          @map("full_description") @db.Text
+  price           Decimal          @db.Decimal(10, 2)
+  originalPrice   Decimal?         @map("original_price") @db.Decimal(10, 2)
+  agentBasePrice  Decimal?         @map("agent_base_price") @db.Decimal(10, 2)
+  stock           Int              @default(0)
+  soldCount       Int              @default(0) @map("sold_count")
+  image           String?
+  images          Json?
+  tags            Json?
+  status          Status           @default(ACTIVE)
+  sortOrder       Int              @default(0) @map("sort_order")
+  weight          Int              @default(0)
+  viewCount       Int              @default(0) @map("view_count")
+  sortScore       Float            @default(0) @map("sort_score")
+  deliveryNote    String?          @map("delivery_note") @db.Text
+  wholesalePrices Json?            @map("wholesale_prices")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  cards           Card[]
+  orders          Order[]
+  variants        ProductVariant[]
+  category        Category?        @relation(fields: [categoryId], references: [id])
+  agentProducts   AgentProduct[]
+
+  @@index([categoryId], map: "idx_category")
+  @@map("products")
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid())
+  productId     String   @map("product_id")
+  name          String
+  price         Decimal  @db.Decimal(10, 2)
+  originalPrice Decimal? @map("original_price") @db.Decimal(10, 2)
+  stock         Int      @default(0)
+  sortOrder     Int      @default(0) @map("sort_order")
+  status        Status   @default(ACTIVE)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  type            String?
+  wholesalePrices Json?            @map("wholesale_prices")
+  cards           Card[]
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId], map: "product_variants_product_id_fkey")
+  @@map("product_variants")
+}
+
+model Card {
+  id        String          @id @default(uuid())
+  productId String          @map("product_id")
+  content   String          @db.Text
+  status    CardStatus      @default(AVAILABLE)
+  orderId   String?         @map("order_id")
+  soldAt    DateTime?       @map("sold_at")
+  createdAt DateTime        @default(now()) @map("created_at")
+  variantId String?         @map("variant_id")
+  order     Order?          @relation(fields: [orderId], references: [id])
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId], map: "cards_order_id_fkey")
+  @@index([productId], map: "cards_product_id_fkey")
+  @@index([variantId], map: "cards_variant_id_fkey")
+  @@map("cards")
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  orderNo       String      @unique @map("order_no")
+  userId        String?     @map("user_id")
+  email         String
+  productId     String      @map("product_id")
+  productName   String      @map("product_name")
+  quantity      Int         @default(1)
+  unitPrice     Decimal     @map("unit_price") @db.Decimal(10, 2)
+  totalAmount   Decimal     @map("total_amount") @db.Decimal(10, 2)
+  status        OrderStatus @default(PENDING)
+  paymentMethod String?     @map("payment_method")
+  paymentNo     String?     @map("payment_no")
+  paidAt        DateTime?   @map("paid_at")
+  completedAt   DateTime?   @map("completed_at")
+  ipAddress     String?     @map("ip_address")
+  userAgent     String?     @map("user_agent") @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  variantId     String?     @map("variant_id")
+  variantName   String?     @map("variant_name")
+  cancelledAt   DateTime?   @map("cancelled_at")
+  usdtAmount    Decimal?    @map("usdt_amount") @db.Decimal(10, 2)
+  bscUsdtAmount Decimal?    @map("bsc_usdt_amount") @db.Decimal(10, 2)
+  remark        String?     @db.Text
+  cards         Card[]
+  product       Product     @relation(fields: [productId], references: [id])
+  user          User?       @relation(fields: [userId], references: [id])
+  payment       Payment?
+  tickets       Ticket[]
+  agentOrder    AgentOrder?
+
+  @@index([productId], map: "orders_product_id_fkey")
+  @@index([userId], map: "orders_user_id_fkey")
+  @@map("orders")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String        @unique @map("order_id")
+  paymentMethod String        @map("payment_method")
+  amount        Decimal       @db.Decimal(10, 2)
+  tradeNo       String?       @map("trade_no")
+  status        PaymentStatus @default(PENDING)
+  rawData       Json?         @map("raw_data")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Setting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String?  @db.Text
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model Ticket {
+  id               String       @id @default(uuid())
+  ticketNo         String       @unique @map("ticket_no")
+  userId           String       @map("user_id")
+  orderId          String?      @map("order_id")
+  orderNo          String?      @map("order_no")
+  type             TicketType
+  subject          String
+  status           TicketStatus @default(OPEN)
+  userUnreadCount  Int          @default(0) @map("user_unread_count")
+  adminUnreadCount Int          @default(0) @map("admin_unread_count")
+  userLastReadAt   DateTime?    @map("user_last_read_at")
+  adminLastReadAt  DateTime?    @map("admin_last_read_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  closedAt         DateTime?    @map("closed_at")
+  user             User         @relation(fields: [userId], references: [id])
+  order            Order?       @relation(fields: [orderId], references: [id])
+  messages         TicketMessage[]
+
+  @@index([userId], map: "tickets_user_id_fkey")
+  @@index([orderId], map: "tickets_order_id_fkey")
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  senderId  String?  @map("sender_id")
+  isAdmin   Boolean  @default(false) @map("is_admin")
+  content   String   @db.Text
+  images    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    User?    @relation(fields: [senderId], references: [id])
+
+  @@index([ticketId], map: "ticket_messages_ticket_id_fkey")
+  @@index([senderId], map: "ticket_messages_sender_id_fkey")
+  @@map("ticket_messages")
+}
+
+enum Role {
+  USER
+  AGENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum CardStatus {
+  AVAILABLE
+  SOLD
+  EXPIRED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  COMPLETED
+  CANCELLED
+  REFUNDING
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum TicketType {
+  ORDER_ISSUE
+  CARD_ISSUE
+  REFUND
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_SUPER_ADMIN
+  COMPLETED
+  CLOSED
+}
+
+model SiteVisit {
+  id        String   @id @default(uuid())
+  date      DateTime @unique
+  visits    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_visits")
+}
+
+// ==================== 代理分站系统 ====================
+
+model Agent {
+  id            String       @id @default(uuid())
+  userId        String       @unique @map("user_id")
+  shopName      String       @map("shop_name")
+  shopSlug      String       @unique @map("shop_slug")
+  shopLogo      String?      @map("shop_logo")
+  shopSkin      String       @default("zen") @map("shop_skin")
+  shopNotice    String?      @map("shop_notice")
+  contactEmail  String?      @map("contact_email")
+  contactInfo   String?      @map("contact_info")
+  applyDescription String?   @map("apply_description") @db.Text
+  status        AgentStatus  @default(PENDING)
+  balance       Decimal      @default(0) @db.Decimal(10, 2)
+  totalEarnings Decimal      @default(0) @map("total_earnings") @db.Decimal(10, 2)
+  withdrawAccounts String?  @map("withdraw_accounts") @db.Text
+  emailNotify   Boolean      @default(true) @map("email_notify")
+  notifyEmail   String?      @map("notify_email")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  user          User         @relation(fields: [userId], references: [id])
+  products      AgentProduct[]
+  orders        AgentOrder[]
+  withdrawals   Withdrawal[]
+  referredUsers User[]       @relation("ReferredUsers")
+
+  @@map("agents")
+}
+
+model AgentProduct {
+  id          String   @id @default(uuid())
+  agentId     String   @map("agent_id")
+  productId   String   @map("product_id")
+  markup      Decimal  @db.Decimal(10, 2)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, productId])
+  @@map("agent_products")
+}
+
+model AgentOrder {
+  id            String   @id @default(uuid())
+  agentId       String   @map("agent_id")
+  orderId       String   @unique @map("order_id")
+  costPrice     Decimal  @map("cost_price") @db.Decimal(10, 2)
+  sellPrice     Decimal  @map("sell_price") @db.Decimal(10, 2)
+  profit        Decimal  @db.Decimal(10, 2)
+  settled       Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  agent         Agent    @relation(fields: [agentId], references: [id])
+  order         Order    @relation(fields: [orderId], references: [id])
+
+  @@map("agent_orders")
+}
+
+model Withdrawal {
+  id          String           @id @default(uuid())
+  agentId     String           @map("agent_id")
+  amount      Decimal          @db.Decimal(10, 2)
+  method      String
+  account     String
+  status      WithdrawalStatus @default(PENDING)
+  processedAt DateTime?        @map("processed_at")
+  remark      String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  agent       Agent            @relation(fields: [agentId], references: [id])
+
+  @@map("withdrawals")
+}
+
+enum AgentStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

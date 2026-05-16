@@ -1,0 +1,35 @@
+.zn-bar {
+  position: sticky; top: 0; z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #EEECE8;
+}
+.zn-bar-inner {
+  max-width: 960px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 24px;
+}
+.zn-logo {
+  font-size: 1.1rem; font-weight: 800; letter-spacing: 3px;
+  color: #1A1A1A; text-decoration: none;
+  display: flex; align-items: center;
+}
+.zn-logo-img { height: 28px; width: auto; display: block; }
+.zn-actions {
+  display: flex; align-items: center; gap: 20px;
+}
+.zn-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.82rem; color: #888; text-decoration: none;
+  background: none; border: none; cursor: pointer;
+  transition: color 0.15s;
+}
+.zn-link:hover { color: #1A1A1A; }
+.zn-logout { color: #bbb; }
+.zn-logout:hover { color: #C45D3E; }
+.zn-login-btn {
+  font-size: 0.82rem; font-weight: 600; color: #1A1A1A;
+  text-decoration: none; padding: 6px 16px;
+  border: 1px solid #1A1A1A; border-radius: 4px;
+  transition: all 0.15s;
+}
+.zn-login-btn:hover { background: #1A1A1A; color: #fff; }

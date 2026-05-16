@@ -1,0 +1,9 @@
+Script started on Fri Feb 20 01:48:06 2026
+[1m[7m%[27m[1m[0m                                         [0m[27m[24m[Jbradpit@BradpitdeMacBook-Air Kashop % [K[?2004h[?2004l
+[1m[7m%[27m[1m[0m                                         [0m[27m[24m[Jbradpit@BradpitdeMacBook-Air Kashop % [K[?2004hsscp [K  /tmp/backup-db.sh root@159.195.71.45:/va [Krr/www/haodongxi/backup-db.sh && ssh root@ [K1159.195.71.45 "chmod +x /var/www/haodongx [Kii/backup-db.sh && echo 'Script uploaded'  [K&&& bash /var/www/haodongxi/backup-db.sh"[?2004l
+backup   0%    0     0.0KB/s   --:-- ETAbackup 100%  675     1.9KB/s   00:00    
+Script uploaded
+mysqldump: [Warning] Using a password on the command line interface can be insecure.
+Thu Feb 19 06:53:16 PM CET 2026: Backup completed: /var/www/haodongxi/backups/haodongxi_20260219_185316.sql.gz
+[1m[7m%[27m[1m[0m                                         [0m[27m[24m[Jbradpit@BradpitdeMacBook-Air Kashop % [K[?2004h[?2004l
+[1m[7m%[27m[1m[0m                                         [0m[27m[24m[Jbradpit@BradpitdeMacBook-Air Kashop % [K[?2004h

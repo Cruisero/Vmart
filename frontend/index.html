@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="HaoDongXi - 专业虚拟物品发卡平台，安全便捷的自动发卡服务" />
+  <meta name="keywords" content="发卡,虚拟物品,自动发卡,卡密,充值" />
+  <title>HaoDongXi - 虚拟物品发卡平台</title>
+  <script>
+    // 在页面渲染前立即应用保存的主题，避免闪烁
+    (function () {
+      try {
+        var stored = localStorage.getItem('kashop-theme');
+        if (stored) {
+          var parsed = JSON.parse(stored);
+          var theme = parsed.state && parsed.state.theme ? parsed.state.theme : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } else {
+          // 默认使用浅色主题
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

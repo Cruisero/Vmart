@@ -1,0 +1,291 @@
+/* =============================================
+   Fresh Theme — Order Query
+   ============================================= */
+
+.foq-page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 60px 40px 80px;
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.foq-wrap {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ── Header ── */
+.foq-header {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.foq-icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: #DC2626;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    box-shadow: 0 6px 20px rgba(79,70,229,0.3);
+}
+
+.foq-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.04em;
+    margin-bottom: 8px;
+}
+
+.foq-sub {
+    font-size: 0.875rem;
+    color: #9CA3AF;
+    line-height: 1.6;
+}
+
+/* ── Card ── */
+.foq-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    padding: 28px;
+}
+
+/* ── Input row ── */
+.foq-input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.foq-input-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.foq-input-icon {
+    position: absolute;
+    left: 14px;
+    color: #9CA3AF;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    transition: color 0.15s;
+}
+
+.foq-input {
+    width: 100%;
+    height: 48px;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 0 110px 0 42px;
+    font-size: 0.9rem;
+    color: #111827;
+    background: #F9FAFB;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    box-sizing: border-box;
+}
+.foq-input:focus {
+    border-color: #DC2626;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+.foq-input::placeholder { color: #9CA3AF; }
+
+.foq-input-hint {
+    position: absolute;
+    right: 14px;
+    font-size: 0.72rem;
+    color: #DC2626;
+    font-weight: 600;
+    background: #FEF2F2;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.foq-search-btn {
+    height: 48px;
+    padding: 0 22px;
+    background: #DC2626;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    transition: opacity 0.15s, transform 0.1s;
+    box-shadow: 0 4px 14px rgba(79,70,229,0.25);
+    flex-shrink: 0;
+}
+.foq-search-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.foq-search-btn:disabled { background: #E5E7EB; color: #9CA3AF; box-shadow: none; cursor: not-allowed; }
+
+.foq-btn-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: foq-spin 0.7s linear infinite;
+    display: inline-block;
+}
+@keyframes foq-spin { to { transform: rotate(360deg); } }
+
+/* ── Tips ── */
+.foq-tips {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #F3F4F6;
+}
+
+.foq-tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.82rem;
+    color: #6B7280;
+    line-height: 1.5;
+}
+
+.foq-tip-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #FCA5A5;
+    flex-shrink: 0;
+    margin-top: 6px;
+}
+
+/* ── Results ── */
+.foq-results {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    padding: 24px 28px;
+}
+
+.foq-results-title {
+    font-size: 0.82rem;
+    color: #6B7280;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #F3F4F6;
+}
+.foq-results-title strong { color: #DC2626; }
+
+.foq-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #9CA3AF;
+    font-size: 0.875rem;
+}
+
+.foq-order-list { display: flex; flex-direction: column; gap: 10px; }
+
+.foq-order-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+.foq-order-item:hover {
+    border-color: #FCA5A5;
+    background: #FAFBFF;
+}
+
+.foq-order-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #F3F4F6;
+    flex-shrink: 0;
+}
+.foq-order-ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+}
+
+.foq-order-info { flex: 1; min-width: 0; }
+.foq-order-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+}
+.foq-order-no {
+    font-size: 0.72rem;
+    color: #9CA3AF;
+    font-family: 'Courier New', monospace;
+}
+
+.foq-order-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.foq-status-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+}
+
+.foq-order-price {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.02em;
+}
+
+.foq-chevron {
+    color: #D1D5DB;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+.foq-order-item:hover .foq-chevron { color: #DC2626; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+    .foq-page { padding: 32px 16px 60px; }
+    .foq-card { padding: 20px; }
+    .foq-input-row { flex-direction: column; }
+    .foq-search-btn { width: 100%; justify-content: center; height: 46px; }
+    .foq-input { padding-right: 14px; }
+    .foq-input-hint { display: none; }
+    .foq-results { padding: 20px; }
+}

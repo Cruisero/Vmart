@@ -1,0 +1,244 @@
+/* 工单页面样式 */
+.tickets-page {
+    padding: 20px 0;
+    min-height: 60vh;
+}
+
+/* 头部 */
+.tickets-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.tickets-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+}
+
+.tickets-header p {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* 筛选栏 */
+.tickets-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 10px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.filter-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.filter-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+/* 空状态 */
+.tickets-empty {
+    text-align: center;
+    padding: 80px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+}
+
+.tickets-empty .empty-icon {
+    font-size: 4rem;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+}
+
+.tickets-empty h3 {
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    margin: 0 0 12px;
+}
+
+.tickets-empty p {
+    color: var(--text-secondary);
+    margin: 0 0 24px;
+}
+
+/* 工单列表 */
+.tickets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ticket-card {
+    display: block;
+    padding: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.ticket-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ticket-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ticket-no {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.ticket-unread-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.ticket-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.ticket-status.open {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.ticket-status.in-progress {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.ticket-status.closed {
+    background: rgba(100, 116, 139, 0.1);
+    color: #64748b;
+}
+
+.ticket-status.completed {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.ticket-subject {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 12px;
+    line-height: 1.4;
+}
+
+.ticket-meta {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.ticket-type {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+}
+
+.ticket-order {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.ticket-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.ticket-time,
+.ticket-messages {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    width: auto;
+}
+
+/* 加载状态 */
+.loading-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-secondary);
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+    .tickets-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .ticket-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ticket-badges {
+        justify-content: flex-start;
+    }
+
+    .ticket-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+}

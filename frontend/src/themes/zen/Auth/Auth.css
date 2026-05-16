@@ -1,0 +1,54 @@
+.za-page {
+  min-height: calc(100vh - 56px); display: flex; align-items: center; justify-content: center;
+  background: #FAFAF8; padding: 40px 24px;
+}
+.za-card {
+  width: 100%; max-width: 380px;
+}
+.za-title { font-size: 1.5rem; font-weight: 700; color: #1A1A1A; margin-bottom: 4px; }
+.za-sub { font-size: 0.85rem; color: #999; margin-bottom: 28px; }
+.za-form { display: flex; flex-direction: column; gap: 16px; }
+.za-field { display: flex; flex-direction: column; gap: 5px; }
+.za-label { font-size: 0.78rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.za-label-row { display: flex; justify-content: space-between; align-items: center; }
+.za-forgot { font-size: 0.75rem; color: #C45D3E; text-decoration: none; }
+.za-forgot:hover { text-decoration: underline; }
+.za-input-wrap { position: relative; }
+.za-input {
+  width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #EEECE8;
+  background: transparent; font-size: 0.9rem; color: #2D2D2D; outline: none;
+  transition: border-color 0.15s;
+}
+.za-input:focus { border-bottom-color: #1A1A1A; }
+.za-input::placeholder { color: #ccc; }
+.za-pw-toggle {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: #bbb; cursor: pointer;
+}
+.za-submit {
+  margin-top: 8px; padding: 12px; border: none; border-radius: 4px;
+  background: #1A1A1A; color: #fff; font-size: 0.88rem; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: opacity 0.15s;
+}
+.za-submit:hover { opacity: 0.85; }
+.za-submit:disabled { background: #ccc; cursor: default; }
+.za-footer { text-align: center; margin-top: 24px; font-size: 0.82rem; color: #999; }
+.za-link { color: #C45D3E; text-decoration: none; margin-left: 4px; font-weight: 600; }
+.za-link:hover { text-decoration: underline; }
+.za-divider {
+  text-align: center; margin: 20px 0; position: relative; color: #ccc; font-size: 0.78rem;
+}
+.za-divider::before, .za-divider::after {
+  content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: #EEECE8;
+}
+.za-divider::before { left: 0; }
+.za-divider::after { right: 0; }
+.za-divider span { background: #FAFAF8; padding: 0 12px; position: relative; }
+.za-guest {
+  display: block; text-align: center; font-size: 0.82rem; color: #999;
+  text-decoration: none; transition: color 0.15s;
+}
+.za-guest:hover { color: #2D2D2D; }
+.za-terms { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #999; }
+.za-terms input[type="checkbox"] { accent-color: #1A1A1A; }

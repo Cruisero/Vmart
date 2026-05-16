@@ -1,0 +1,879 @@
+/* 订单结果页样式 */
+.order-result-page {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+/* 订单不存在 */
+.order-not-found {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.not-found-icon {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 24px;
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.order-not-found h2 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.order-not-found p {
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+}
+
+/* 订单状态卡片 */
+.order-status-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 24px;
+    border-radius: var(--radius-lg);
+    margin-bottom: 24px;
+}
+
+.order-status-card.status-success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.order-status-card.status-warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.05) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.order-status-card.status-info {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.05) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.order-status-card.status-error {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.05) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.order-status-card.status-refunded {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(168, 85, 247, 0.05) 100%);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.order-status-card.status-refunding {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.2) 0%, rgba(249, 115, 22, 0.05) 100%);
+    border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.status-refunding .status-icon {
+    background: rgba(249, 115, 22, 0.2);
+    color: #f97316;
+}
+
+.status-refunded .status-icon {
+    background: rgba(168, 85, 247, 0.2);
+    color: #7c3aed;
+}
+
+.status-error .status-icon {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.status-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    border-radius: 50%;
+}
+
+.status-success .status-icon {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+}
+
+.status-warning .status-icon {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--warning);
+}
+
+.status-info .status-icon {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--info);
+}
+
+.status-info h2 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.status-info p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* 支付倒计时 */
+.payment-countdown {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.15));
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    color: #92400e;
+    margin: 16px 0;
+}
+
+.payment-countdown .countdown-icon {
+    font-size: 1.2rem;
+}
+
+.payment-countdown .countdown-time {
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: #b45309;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+}
+
+.payment-countdown.urgent {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(248, 113, 113, 0.15));
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #dc2626;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+.payment-countdown.urgent .countdown-time {
+    color: #b91c1c;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* 订单内容 */
+.order-content {
+    margin-bottom: 32px;
+}
+
+.order-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 16px;
+}
+
+.order-section .section-subtitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* 商品信息 */
+.order-product {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.order-product img {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+}
+
+.order-product .product-info {
+    flex: 1;
+}
+
+.order-product h4 {
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.order-product p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.product-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-light);
+}
+
+/* 卡密区域 - 重新设计 */
+.cards-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.cards-section .section-header .section-subtitle {
+    margin: 0;
+    padding: 0;
+    border: none;
+    font-size: 1.1rem;
+}
+
+.cards-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.copy-all-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.copy-all-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.toggle-cards-btn {
+    padding: 8px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.toggle-cards-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* 卡密列表容器 */
+.cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+/* 隐藏时显示遮罩文字，无模糊 */
+
+/* 单个卡密项 */
+.card-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.card-item:hover {
+    border-color: var(--primary);
+    background: rgba(239, 68, 68, 0.03);
+}
+
+/* 卡密序号 */
+.card-index {
+    min-width: 36px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gradient-primary);
+    border-radius: 50%;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* 卡密内容包装 */
+.card-content-wrapper {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+
+.card-content {
+    display: block;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.04);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.5;
+    transition: filter 0.3s ease;
+}
+
+/* 复制按钮 */
+.card-copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: rgba(239, 68, 68, 0.1);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--primary-light);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.card-copy-btn:hover {
+    background: var(--gradient-primary);
+    color: white;
+    transform: scale(1.05);
+}
+
+/* 底部信息 */
+.cards-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(245, 158, 11, 0.08);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.cards-count {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.cards-count strong {
+    color: var(--primary-light);
+    font-weight: 600;
+}
+
+.cards-warning {
+    font-size: 0.85rem;
+    color: var(--warning);
+}
+
+/* 待支付区域 */
+.pending-section {
+    text-align: center;
+}
+
+.pending-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.pending-notice svg {
+    font-size: 2rem;
+    color: var(--warning);
+}
+
+.pending-notice h4 {
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.pending-notice p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* 已取消订单样式 */
+.cancelled-section {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.cancelled-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.cancelled-notice svg {
+    font-size: 2.5rem;
+    color: var(--primary);
+}
+
+.cancelled-notice h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.cancelled-notice p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* 退款中订单样式 */
+.refunding-section {
+    background: rgba(249, 115, 22, 0.05);
+    border-color: rgba(249, 115, 22, 0.2);
+}
+
+.refunding-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    background: rgba(249, 115, 22, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.refunding-notice svg {
+    font-size: 2.5rem;
+    color: #f97316;
+}
+
+.refunding-notice h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.refunding-notice p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* 已退款订单样式 */
+.refunded-section {
+    background: rgba(168, 85, 247, 0.05);
+    border-color: rgba(168, 85, 247, 0.2);
+}
+
+.refunded-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    background: rgba(168, 85, 247, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.refunded-notice svg {
+    font-size: 2.5rem;
+    color: #7c3aed;
+}
+
+.refunded-notice h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.refunded-notice p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.pay-now-btn {
+    width: 100%;
+}
+
+/* 订单详情 */
+.order-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95rem;
+}
+
+.detail-row span:first-child {
+    color: var(--text-muted);
+}
+
+.detail-row span:last-child {
+    color: var(--text-primary);
+}
+
+.detail-row.total {
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    font-weight: 600;
+}
+
+.detail-row.total span:last-child {
+    font-size: 1.1rem;
+    color: var(--primary-light);
+}
+
+/* 底部操作 */
+.order-actions {
+    display: flex;
+    gap: 16px;
+}
+
+.order-actions .btn {
+    flex: 1;
+    padding: 14px 24px;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+    .order-status-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .order-product {
+        flex-wrap: wrap;
+    }
+
+    .order-actions {
+        flex-direction: column;
+    }
+}
+
+/* 二维码支付区域 */
+.qr-payment-section {
+    text-align: center;
+    padding: 20px;
+}
+
+.qr-payment-section h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+}
+
+.qr-code-container {
+    display: inline-block;
+    padding: 16px;
+    background: white;
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.qr-code-image {
+    width: 200px;
+    height: 200px;
+    display: block;
+}
+
+.qr-amount {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.qr-amount strong {
+    color: var(--primary-light);
+    font-size: 1.5rem;
+}
+
+.qr-hint {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.polling-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--info);
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.polling-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--info);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+/* 发货备注卡片 */
+.delivery-note-section {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.06) 0%, rgba(99, 102, 241, 0.04) 100%);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.delivery-note-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: var(--radius-md);
+}
+
+.delivery-note-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.delivery-note-content h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.delivery-note-content p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* 卡密发放中提示 */
+.cards-pending-section {
+    text-align: center;
+}
+
+.cards-pending-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: var(--radius-md);
+}
+
+.cards-pending-notice svg {
+    font-size: 2.5rem;
+    color: var(--info);
+    animation: pulse 2s infinite;
+}
+
+.cards-pending-notice h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.cards-pending-notice p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* USDT 支付区域 */
+.usdt-payment-section {
+    text-align: center;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(38, 161, 123, 0.1) 0%, rgba(38, 161, 123, 0.05) 100%);
+    border: 1px solid rgba(38, 161, 123, 0.3);
+    border-radius: var(--radius-lg);
+}
+
+.usdt-payment-section h4 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+}
+
+.usdt-amount-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.usdt-amount-display .amount-label {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.usdt-amount-display .usdt-amount {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #26a17b;
+}
+
+.copy-amount-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border: none;
+    background: rgba(38, 161, 123, 0.2);
+    color: #26a17b;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all var(--transition-fast);
+}
+
+.copy-amount-btn:hover {
+    background: rgba(38, 161, 123, 0.3);
+}
+
+.usdt-address-section {
+    margin-bottom: 20px;
+}
+
+.usdt-address-section label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.address-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+}
+
+.address-box code {
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.address-box .copy-btn {
+    flex-shrink: 0;
+    padding: 6px 8px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.address-box .copy-btn:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.usdt-qr-container {
+    margin: 20px auto;
+    padding: 16px;
+    background: white;
+    border-radius: var(--radius-md);
+    display: inline-block;
+}
+
+.usdt-qr-image {
+    display: block;
+}
+
+.usdt-info {
+    margin: 16px 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.usdt-info p {
+    margin: 4px 0;
+}
+
+.usdt-warning {
+    margin: 16px 0;
+    padding: 12px 16px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-md);
+    color: var(--warning);
+    font-size: 0.9rem;
+}
+
+.usdt-warning strong {
+    color: #26a17b;
+}

@@ -1,0 +1,482 @@
+/* 工单详情页样式 */
+.ticket-detail-page {
+    padding: 20px 0;
+}
+
+.ticket-detail-page .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin-bottom: 24px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.ticket-detail-page .back-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.ticket-detail-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* 工单信息卡片 */
+.ticket-info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.ticket-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.ticket-info-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-close-ticket {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 8px;
+    color: #ef4444;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-close-ticket:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: #ef4444;
+}
+
+.ticket-info-card .ticket-no {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.ticket-info-card .ticket-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.ticket-info-card .ticket-status.open {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.ticket-info-card .ticket-status.in-progress {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.ticket-info-card .ticket-status.closed {
+    background: rgba(100, 116, 139, 0.1);
+    color: #64748b;
+}
+
+.ticket-info-card .ticket-status.completed {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.ticket-info-card .ticket-subject {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 16px;
+}
+
+.ticket-info-card .ticket-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: flex-start;
+}
+
+.ticket-info-card .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.ticket-info-card .order-product {
+    margin-left: 8px;
+    color: var(--text-muted);
+}
+
+/* 消息区域 */
+.messages-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.messages-list {
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+/* 消息项 */
+.message-item {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.message-item:last-child {
+    margin-bottom: 0;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.message-item.admin .message-avatar {
+    background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+}
+
+.message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.message-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.message-sender {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.message-item.admin .message-sender {
+    color: #8b5cf6;
+}
+
+.message-time {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.message-text {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+    padding: 12px 16px;
+    border-radius: 12px;
+    border-top-left-radius: 4px;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-left: 3px solid #3b82f6;
+}
+
+.message-item.admin .message-text {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(217, 70, 239, 0.1) 100%);
+    border-left: 3px solid #8b5cf6;
+}
+
+/* 发送消息 */
+.message-input-form {
+    padding: 16px 24px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.message-input {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    resize: none;
+    line-height: 1.5;
+}
+
+.message-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.send-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+}
+
+/* 已关闭提示 */
+.ticket-closed-notice {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+}
+
+/* 已完成提示 */
+.ticket-completed-notice {
+    padding: 12px 20px;
+    text-align: center;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+    border-top: 1px solid rgba(16, 185, 129, 0.15);
+    font-size: 0.9rem;
+}
+
+/* 关闭工单确认弹窗 */
+.close-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.close-confirm-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+}
+
+.close-confirm-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 16px;
+}
+
+.close-confirm-modal h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 10px;
+}
+
+.close-confirm-modal p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0 0 24px;
+    line-height: 1.6;
+}
+
+.close-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #dc2626;
+}
+
+.btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+/* 状态 */
+.loading-state,
+.error-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-secondary);
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+    .ticket-detail-page {
+        padding: 12px 0;
+    }
+
+    .ticket-detail-page .back-btn {
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        margin-bottom: 16px;
+    }
+
+    .ticket-info-card {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .ticket-info-header {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .ticket-info-card .ticket-no {
+        font-size: 0.75rem;
+    }
+
+    .ticket-info-card .ticket-status {
+        padding: 4px 10px;
+        font-size: 0.75rem;
+    }
+
+    .ticket-info-card .ticket-subject {
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+    }
+
+    .ticket-info-card .ticket-meta {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .ticket-info-card .meta-item {
+        font-size: 0.8rem;
+        flex-wrap: wrap;
+    }
+
+    .ticket-info-card .order-product {
+        margin-left: 0;
+        display: block;
+        /* margin-top: 2px; */
+    }
+
+    .messages-list {
+        padding: 16px;
+        max-height: 400px;
+    }
+
+    .message-item {
+        gap: 10px;
+    }
+
+    .message-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+
+    .message-header {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .message-sender {
+        font-size: 0.85rem;
+    }
+
+    .message-time {
+        font-size: 0.75rem;
+    }
+
+    .message-text {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        border-radius: 10px;
+        border-top-left-radius: 3px;
+    }
+
+    .message-input-form {
+        padding: 12px 16px 16px;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .message-input {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+
+    .send-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 20px;
+    }
+
+    .ticket-closed-notice {
+        padding: 16px;
+        font-size: 0.9rem;
+    }
+}

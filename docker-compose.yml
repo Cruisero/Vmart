@@ -1,0 +1,100 @@
+services:
+  # 前端服务 - React + Vite
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kashop-frontend
+    ports:
+      - "3100:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8180/api
+    depends_on:
+      - backend
+    networks:
+      - kashop-network
+
+  # 后端服务 - Node.js + Express
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kashop-backend
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+      - DATABASE_URL=mysql://kashop:kashop123@mysql:3306/kashop
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - kashop-network
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: kashop-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=kashop
+      - MYSQL_USER=kashop
+      - MYSQL_PASSWORD=kashop123
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kashop-network
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: kashop-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kashop-network
+
+  # phpMyAdmin - 数据库管理界面
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: kashop-phpmyadmin
+    ports:
+      - "8181:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=kashop
+      - PMA_PASSWORD=kashop123
+    depends_on:
+      - mysql
+    networks:
+      - kashop-network
+
+networks:
+  kashop-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:

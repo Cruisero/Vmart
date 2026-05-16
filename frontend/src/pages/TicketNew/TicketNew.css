@@ -1,0 +1,409 @@
+/* 提交工单页面样式 */
+.ticket-new-page {
+    padding: 20px 0;
+}
+
+.ticket-new-page .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin-bottom: 24px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.ticket-new-page .back-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.ticket-new-container {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.ticket-new-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.ticket-new-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 12px;
+}
+
+.ticket-new-header p {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* 表单 */
+.ticket-form {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+}
+
+.ticket-form .form-group {
+    margin-bottom: 24px;
+}
+
+.ticket-form label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+/* 类型选择 */
+.type-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.type-option {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.type-option input {
+    position: absolute;
+    opacity: 0;
+}
+
+.type-option:hover {
+    border-color: var(--primary);
+}
+
+.type-option.active {
+    border-color: var(--primary);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.type-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.type-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.type-option.active .type-label {
+    color: var(--primary);
+}
+
+/* 输入框 */
+.ticket-form .input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: all var(--transition-fast);
+}
+
+.ticket-form .input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: var(--bg-card);
+}
+
+.ticket-form .textarea {
+    min-height: 150px;
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.char-count {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+/* 提交按钮 */
+.form-actions {
+    margin-top: 32px;
+    text-align: center;
+}
+
+.form-actions .btn-lg {
+    padding: 16px 48px;
+    font-size: 1rem;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+    .type-options {
+        grid-template-columns: 1fr;
+    }
+
+    .ticket-form {
+        padding: 20px;
+    }
+}
+
+/* 未关闭工单警告 */
+.open-tickets-warning {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+}
+
+.warning-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #b45309;
+    margin-bottom: 12px;
+}
+
+[data-theme="dark"] .warning-title {
+    color: #fbbf24;
+}
+
+.warning-ticket-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.warning-ticket-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: border-color var(--transition-fast);
+}
+
+.warning-ticket-link:hover {
+    border-color: #f59e0b;
+}
+
+.warning-ticket-no {
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.warning-ticket-subject {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.warning-ticket-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    flex-shrink: 0;
+}
+
+.warning-ticket-status.open {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.warning-ticket-status.in-progress {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+/* 自定义下拉弹窗 */
+.custom-dropdown {
+    position: relative;
+}
+
+.dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+}
+
+.dropdown-trigger:hover {
+    border-color: var(--primary);
+}
+
+.dropdown-trigger.open {
+    border-color: var(--primary);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.dropdown-value {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dropdown-arrow {
+    flex-shrink: 0;
+    margin-left: 8px;
+    color: var(--text-muted);
+    transition: transform var(--transition-fast);
+}
+
+.dropdown-trigger.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+/* 下拉菜单 */
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 2px solid var(--primary);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    overflow: hidden;
+}
+
+[data-theme="dark"] .dropdown-menu {
+    background: #1f2937;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.dropdown-item:hover {
+    background: #f3f4f6;
+}
+
+[data-theme="dark"] .dropdown-item:hover {
+    background: #374151;
+}
+
+.dropdown-item.selected {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.dropdown-item.selected:hover {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--border-color);
+    /* margin: 4px 0; */
+}
+
+.item-text {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.item-product {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.item-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.item-order-no {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.item-amount {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.item-check {
+    flex-shrink: 0;
+    margin-left: 8px;
+    color: var(--primary);
+}
+
+.dropdown-hint {
+    padding: 10px 16px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+    background: #f9fafb;
+    border-top: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .dropdown-hint {
+    background: #111827;
+}
