@@ -126,12 +126,12 @@ exports.getAgentProducts = async (req, res, next) => {
                     name: p.name,
                     image: p.image,
                     retailPrice: parseFloat(p.price),
-                    agentBasePrice: p.agentBasePrice ? parseFloat(p.agentBasePrice) : parseFloat(p.price),
+                    agentBasePrice: parseFloat(p.price),
                     category: p.category,
                     // 代理设置
                     enabled: ap?.enabled ?? false,
                     markup: ap ? parseFloat(ap.markup) : 0,
-                    agentSellPrice: ap ? (p.agentBasePrice ? parseFloat(p.agentBasePrice) : parseFloat(p.price)) + parseFloat(ap.markup) : null
+                    agentSellPrice: ap ? parseFloat(p.price) + parseFloat(ap.markup) : null
                 }
             })
         })

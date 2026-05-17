@@ -3,17 +3,17 @@ const router = express.Router()
 const orderController = require('../controllers/orderController')
 const { validateBody, validateQuery } = require('../middleware/validation')
 const { createOrderSchema, queryOrderSchema } = require('../validators/order')
-const { authenticate, optionalAuth } = require('../middleware/auth')
+const { authenticate, optionalAuth, optionalCustomerAuth } = require('../middleware/auth')
 const {
     orderQuerySecurityGuard,
     orderQueryRateLimiter
 } = require('../middleware/security')
 
-// 创建订单 (可选认证 - 登录用户会关联userId)
-router.post('/', optionalAuth, validateBody(createOrderSchema), orderController.createOrder)
+// 创建订单（识别 customer token / user token / 游客）
+router.post('/', optionalCustomerAuth, validateBody(createOrderSchema), orderController.createOrder)
 
-// 获取当前用户的订单列表 (需要登录)
-router.get('/my-orders', authenticate, orderController.getUserOrders)
+// 获取当前用户的订单列表 (需要登录，支持顾客 token 或 user token)
+router.get('/my-orders', optionalCustomerAuth, orderController.getUserOrders)
 
 // 通过订单号或邮箱查询订单
 router.get('/query', orderQueryRateLimiter, orderQuerySecurityGuard, validateQuery(queryOrderSchema), orderController.queryOrder)

@@ -1,0 +1,307 @@
+/* /Man 平台管理后台样式 — 与商城后台统一风格 */
+
+.man-layout {
+    display: flex;
+    min-height: 100vh;
+    height: 100vh;
+    background: var(--bg-primary);
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+/* ── 侧边栏 ── */
+.man-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.man-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(248, 250, 252, 0.5) 100%);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.1);
+}
+
+.man-logo {
+    width: 36px;
+    height: 36px;
+    background: var(--gradient-primary);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+    line-height: 36px;
+    text-align: center;
+}
+
+.man-brand-name { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+.man-brand-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.man-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; }
+
+.man-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.man-nav-item:hover { background: rgba(239, 68, 68, 0.1); color: var(--text-primary); }
+.man-nav-item.active { background: rgba(239, 68, 68, 0.15); color: var(--primary-light); font-weight: 600; }
+
+.man-sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+    margin-top: auto;
+}
+
+.man-logout {
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: inherit;
+}
+
+.man-logout:hover { border-color: var(--error); color: var(--error); background: rgba(239, 68, 68, 0.1); }
+
+/* ── 主区域 ── */
+.man-main { flex: 1; overflow-y: auto; }
+
+.man-page { padding: 24px; }
+
+.man-page-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.man-page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 24px; }
+.man-page-header .man-page-title { margin: 0; }
+
+.man-total-badge {
+    padding: 4px 12px;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--primary-light);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* ── 统计卡片 ── */
+.man-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+}
+
+.man-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-top: 3px solid;
+    border-radius: var(--radius-md);
+    padding: 20px;
+}
+
+.man-stat-value { font-size: 1.75rem; font-weight: 700; }
+.man-stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+
+/* ── 表格 ── */
+.man-loading { color: var(--text-muted); padding: 40px 0; text-align: center; }
+
+.man-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+}
+
+.man-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.man-table th {
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.man-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.man-table tr:last-child td { border-bottom: none; }
+.man-table tr:hover td { background: var(--bg-secondary); }
+
+.slug-link { color: var(--primary-light); text-decoration: none; }
+.slug-link:hover { text-decoration: underline; }
+.time-cell { font-size: 0.78rem; color: var(--text-muted); }
+.plan-chip { padding: 2px 8px; background: rgba(239, 68, 68, 0.1); color: var(--primary-light); border-radius: 20px; font-size: 0.75rem; }
+
+.man-btn-edit {
+    padding: 6px 14px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-sm);
+    color: var(--primary-light);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: inherit;
+}
+
+.man-btn-edit:hover { background: rgba(239, 68, 68, 0.2); }
+
+/* ── 弹窗 ── */
+.man-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999;
+}
+
+.man-modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    width: 420px;
+    max-width: 95vw;
+    box-shadow: var(--shadow-lg);
+}
+
+.man-modal h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 24px; }
+
+.man-modal-form { display: flex; flex-direction: column; gap: 16px; }
+
+.man-modal-form .form-row { display: flex; flex-direction: column; gap: 6px; }
+.man-modal-form label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+
+.man-modal-form input, .man-modal-form select {
+    padding: 10px 14px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-family: inherit;
+    outline: none;
+}
+
+.man-modal-form input:focus, .man-modal-form select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
+}
+
+.man-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+.man-btn-cancel {
+    padding: 9px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.man-btn-cancel:hover { background: var(--bg-tertiary); }
+
+.man-btn-save {
+    padding: 9px 20px;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.man-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── 消息提示 ── */
+.man-msg {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+}
+.man-msg.success { background: rgba(16,185,129,0.1); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
+.man-msg.error { background: rgba(239,68,68,0.1); color: var(--error); border: 1px solid rgba(239,68,68,0.2); }
+
+/* ── 平台设置表单 ── */
+.man-settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 560px;
+}
+
+.man-settings-form .form-row { display: flex; flex-direction: column; gap: 6px; }
+.man-settings-form label { font-size: 0.85rem; color: var(--text-primary); font-weight: 500; }
+
+.man-settings-form input {
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.man-settings-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08); }
+
+.man-btn-save-full {
+    padding: 12px 28px;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    align-self: flex-start;
+    transition: opacity var(--transition-fast);
+}
+
+.man-btn-save-full:hover:not(:disabled) { opacity: 0.88; }
+.man-btn-save-full:disabled { opacity: 0.5; cursor: not-allowed; }

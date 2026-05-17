@@ -27,7 +27,9 @@ const registerSchema = Joi.object({
         'string.min': '用户名至少2位',
         'string.max': '用户名最多50位'
     }),
-    isSaas: Joi.boolean().optional()
+    isSaas: Joi.boolean().optional(),
+    agentSlug: Joi.string().optional().allow('', null),
+    storefrontSlug: Joi.string().optional().allow('', null)
 })
 
 module.exports = { loginSchema, registerSchema }

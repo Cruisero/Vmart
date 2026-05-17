@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { FiCheck, FiClock, FiCopy, FiPackage, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
+import { useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './OrderResult.css'
 
@@ -15,6 +16,7 @@ const statusConfig = {
 
 function OrderResult() {
     const { orderNo } = useParams()
+    const { withPrefix } = useStorefrontPath()
     const [order, setOrder] = useState(null)
     const [loading, setLoading] = useState(true)
     const [showCards, setShowCards] = useState(false)
@@ -244,7 +246,7 @@ function OrderResult() {
                 <FiPackage className="not-found-icon" />
                 <h2>订单不存在</h2>
                 <p>未找到订单号为 {orderNo} 的订单</p>
-                <Link to="/order/query" className="btn btn-primary">
+                <Link to={withPrefix('/order-query')} className="btn btn-primary">
                     重新查询
                 </Link>
             </div>
@@ -538,10 +540,10 @@ function OrderResult() {
 
             {/* 底部操作 */}
             <div className="order-actions">
-                <Link to="/user/orders" className="btn btn-secondary">
+                <Link to={withPrefix('/order-query')} className="btn btn-secondary">
                     查询其他订单
                 </Link>
-                <Link to="/products" className="btn btn-primary">
+                <Link to={withPrefix('/')} className="btn btn-primary">
                     继续购物
                 </Link>
             </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiUser, FiPackage, FiLock, FiLogOut, FiMail, FiCalendar, FiCopy, FiEye, FiEyeOff, FiMessageCircle, FiPlus, FiClock, FiCheck, FiAlertCircle, FiCheckCircle } from 'react-icons/fi'
 import { useAuthStore } from '../../store/authStore'
+import { useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './User.css'
 
@@ -135,6 +136,7 @@ function ProfilePage() {
 // 我的订单页
 function OrdersPage() {
     const { token } = useAuthStore()
+    const { withPrefix } = useStorefrontPath()
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [expandedOrder, setExpandedOrder] = useState(null)
@@ -236,7 +238,7 @@ function OrdersPage() {
                                         <span className="expired-badge">已过期</span>
                                     ) : (
                                         <Link
-                                            to={`/order/${order.orderNo}`}
+                                            to={withPrefix(`/order/${order.orderNo}`)}
                                             className="pay-btn"
                                         >
                                             去支付
@@ -597,6 +599,7 @@ function TicketsPage() {
 function UserCenter() {
     const location = useLocation()
     const navigate = useNavigate()
+    const { withPrefix, prefix } = useStorefrontPath()
     const { user, isAuthenticated, logout } = useAuthStore()
 
     // 未登录跳转
@@ -614,7 +617,7 @@ function UserCenter() {
     const handleLogout = () => {
         logout()
         toast.success('已退出登录')
-        navigate('/')
+        navigate(withPrefix('/'))
     }
 
     return (
@@ -633,14 +636,15 @@ function UserCenter() {
 
                 <nav className="user-nav">
                     {menuItems.map(item => {
+                        const fullPath = `${prefix}${item.path}`
                         const isActive = item.exact
-                            ? location.pathname === item.path
-                            : location.pathname.startsWith(item.path) && item.path !== '/user'
+                            ? location.pathname === fullPath
+                            : location.pathname.startsWith(fullPath) && item.path !== '/user'
                         return (
                             <Link
                                 key={item.path}
-                                to={item.path}
-                                className={`nav-item ${isActive || (item.exact && location.pathname === item.path) ? 'active' : ''}`}
+                                to={fullPath}
+                                className={`nav-item ${isActive || (item.exact && location.pathname === fullPath) ? 'active' : ''}`}
                             >
                                 <item.icon />
                                 <span>{item.label}</span>

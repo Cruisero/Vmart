@@ -27,6 +27,21 @@ function getAlipaySdk() {
     return alipaySdk
 }
 
+// 用商户配置临时构建一个 SDK 实例（不缓存，避免污染全局）
+function buildTenantSdk({ appId, privateKey, alipayPublicKey, gateway }) {
+    if (!appId || !privateKey || !alipayPublicKey) {
+        throw new Error('支付宝配置不完整')
+    }
+    return new AlipaySdk({
+        appId,
+        privateKey,
+        alipayPublicKey,
+        gateway: gateway || 'https://openapi.alipay.com/gateway.do',
+        timeout: 5000,
+        camelcase: true
+    })
+}
+
 /**
  * 生成当面付二维码（扫码支付）
  * @param {Object} order - 订单信息
@@ -35,9 +50,9 @@ function getAlipaySdk() {
  * @param {string} order.productName - 商品名称
  * @returns {Promise<Object>} 包含二维码URL的结果
  */
-async function createQrCodePayment(order) {
+async function createQrCodePayment(order, tenantConfig = null) {
     try {
-        const sdk = getAlipaySdk()
+        const sdk = tenantConfig ? buildTenantSdk(tenantConfig) : getAlipaySdk()
         if (!sdk) {
             throw new Error('支付宝未配置')
         }

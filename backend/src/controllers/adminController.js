@@ -159,7 +159,7 @@ exports.getDashboard = async (req, res, next) => {
                 where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'COMPLETED' },
                 _sum: { totalAmount: true }
             }),
-            prisma.product.count(),
+            prisma.product.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}) } }),
             prisma.user.count(),
             prisma.order.count({
                 where: {
@@ -169,6 +169,7 @@ exports.getDashboard = async (req, res, next) => {
                 }
             }),
             prisma.order.findMany({
+                where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 take: 10,
                 orderBy: { createdAt: 'desc' },
                 include: {
@@ -1253,11 +1254,96 @@ exports.getUsers = async (req, res, next) => {
     try {
         const { page = 1, pageSize = 20, search = '', role = 'all' } = req.query
 
+        // 商户后台：返回该商城的顾客 + 商城管理员（合并展示）
+        if (req.tenantId) {
+            // 1. 查询本商城所有者 + 子管理员（users 表）
+            const tenant = await prisma.tenant.findUnique({
+                where: { id: req.tenantId },
+                select: { userId: true }
+            })
+            const ownerId = tenant?.userId
+            const adminUsers = await prisma.user.findMany({
+                where: {
+                    OR: [
+                        ...(ownerId ? [{ id: ownerId }] : []),
+                        { tenantId: req.tenantId, role: 'ADMIN' }
+                    ]
+                },
+                select: {
+                    id: true, email: true, username: true, role: true, createdAt: true
+                }
+            })
+
+            // 2. 查询本商城顾客（customers 表）
+            const customerWhere = { tenantId: req.tenantId }
+            if (search) {
+                customerWhere.OR = [
+                    { email: { contains: search } },
+                    { username: { contains: search } }
+                ]
+            }
+            const customers = await prisma.customer.findMany({
+                where: customerWhere,
+                select: {
+                    id: true,
+                    email: true,
+                    username: true,
+                    emailVerified: true,
+                    createdAt: true,
+                    _count: { select: { orders: true } }
+                },
+                orderBy: { createdAt: 'desc' }
+            })
+
+            // 3. 合并 + 处理搜索过滤（admin 需在内存中过滤搜索）
+            let allUsers = [
+                ...adminUsers.map(u => ({
+                    id: u.id,
+                    email: u.email,
+                    username: u.username,
+                    role: u.role, // TENANT_ADMIN / ADMIN
+                    emailVerified: true,
+                    createdAt: u.createdAt,
+                    _count: { orders: 0 }
+                })),
+                ...customers.map(c => ({
+                    id: c.id,
+                    email: c.email,
+                    username: c.username,
+                    role: 'CUSTOMER',
+                    emailVerified: c.emailVerified,
+                    createdAt: c.createdAt,
+                    _count: c._count
+                }))
+            ]
+
+            // 搜索过滤（admin 部分）
+            if (search) {
+                const term = search.toLowerCase()
+                allUsers = allUsers.filter(u =>
+                    (u.email || '').toLowerCase().includes(term) ||
+                    (u.username || '').toLowerCase().includes(term)
+                )
+            }
+
+            // role 过滤
+            if (role && role !== 'all') {
+                allUsers = allUsers.filter(u => u.role === role)
+            }
+
+            // 排序
+            allUsers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+            const total = allUsers.length
+            const skip = (parseInt(page) - 1) * parseInt(pageSize)
+            const paged = allUsers.slice(skip, skip + parseInt(pageSize))
+
+            return res.json({ users: paged, total, page: parseInt(page), pageSize: parseInt(pageSize) })
+        }
+
+        // 主站（SUPER_ADMIN）：返回 users 表（平台账号）
         const where = {};
-        if (req.tenantId) where.tenantId = req.tenantId;
-        
-        if (req.tenantId) where.tenantId = req.tenantId
-if (search) {
+        if (search) {
             where.OR = [
                 { email: { contains: search } },
                 { username: { contains: search } }
@@ -1311,7 +1397,7 @@ exports.getSettings = async (req, res, next) => {
             }
             
             const admins = await prisma.user.findMany({
-                where: { tenantId: req.tenantId, role: { in: ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'] } },
+                where: { tenant: { id: req.tenantId }, role: { in: ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'] } },
                 select: { id: true, email: true, username: true, role: true },
                 orderBy: { createdAt: 'asc' }
             });
@@ -1516,6 +1602,14 @@ exports.importCards = async (req, res, next) => {
             return res.status(400).json({ error: '请提供卡密数据' })
         }
 
+        // 校验商品归属（防止跨租户导入）
+        const product = await prisma.product.findFirst({
+            where: { id: productId, ...(req.tenantId ? { tenantId: req.tenantId } : {}) }
+        })
+        if (!product) {
+            return res.status(404).json({ error: '商品不存在或无权限' })
+        }
+
         // 过滤空行并去重
         const uniqueCards = [...new Set(cards.filter(c => c && c.trim()))]
 
@@ -1529,7 +1623,8 @@ exports.importCards = async (req, res, next) => {
                 productId,
                 variantId: variantId || null,
                 content: content.trim(),
-                status: 'AVAILABLE'
+                status: 'AVAILABLE',
+                tenantId: req.tenantId || null
             })),
             skipDuplicates: false
         })
@@ -1945,7 +2040,8 @@ exports.rebuildStockFromCards = async (req, res, next) => {
 // 创建子管理员
 exports.createAdmin = async (req, res, next) => {
     try {
-        const { email, password, username } = req.body
+        const { email, password, username, permissions } = req.body
+        const { DEFAULT_ADMIN_PERMISSIONS, ALL_PERMISSION_KEYS } = require('../constants/permissions')
 
         if (!email || !password) {
             return res.status(400).json({ error: '邮箱和密码为必填项' })
@@ -1955,13 +2051,52 @@ exports.createAdmin = async (req, res, next) => {
             return res.status(400).json({ error: '密码至少6位' })
         }
 
+        // 净化 permissions：只保留预定义的 key
+        const cleanPermissions = {}
+        const inputPerms = permissions || DEFAULT_ADMIN_PERMISSIONS
+        for (const k of ALL_PERMISSION_KEYS) {
+            cleanPermissions[k] = !!inputPerms[k]
+        }
+
         // 检查邮箱是否已存在
         const existing = await prisma.user.findUnique({ where: { email } })
         if (existing) {
+            // 已经是当前商城的子管理员
+            if (existing.role === 'ADMIN' && existing.tenantId === req.tenantId) {
+                return res.status(409).json({ error: '该邮箱已是本商城的子管理员' })
+            }
+            // 是其他商城的所有者或子管理员
+            if (['TENANT_ADMIN', 'SUPER_ADMIN'].includes(existing.role) ||
+                (existing.role === 'ADMIN' && existing.tenantId && existing.tenantId !== req.tenantId)) {
+                return res.status(409).json({ error: '该邮箱已被其他商城使用，请换一个邮箱' })
+            }
+            // 普通用户（USER / AGENT）— 升级为本商城的子管理员
+            if (req.tenantId) {
+                const updated = await prisma.user.update({
+                    where: { id: existing.id },
+                    data: {
+                        role: 'ADMIN',
+                        tenantId: req.tenantId,
+                        permissions: JSON.stringify(cleanPermissions)
+                    }
+                })
+                return res.status(200).json({
+                    message: '该邮箱已存在，已邀请为子管理员',
+                    admin: {
+                        id: updated.id,
+                        email: updated.email,
+                        username: updated.username,
+                        role: updated.role,
+                        tenantId: updated.tenantId,
+                        permissions: cleanPermissions,
+                        createdAt: updated.createdAt
+                    }
+                })
+            }
             return res.status(409).json({ error: '该邮箱已被注册' })
         }
 
-        // 创建子管理员
+        // 创建子管理员（绑定到当前租户）
         const hashedPassword = await bcrypt.hash(password, 10)
         const admin = await prisma.user.create({
             data: {
@@ -1969,7 +2104,9 @@ exports.createAdmin = async (req, res, next) => {
                 password: hashedPassword,
                 username: username || email.split('@')[0],
                 role: 'ADMIN',
-                emailVerified: true
+                emailVerified: true,
+                tenantId: req.tenantId || null,
+                permissions: JSON.stringify(cleanPermissions)
             }
         })
 
@@ -1980,12 +2117,75 @@ exports.createAdmin = async (req, res, next) => {
                 email: admin.email,
                 username: admin.username,
                 role: admin.role,
+                tenantId: admin.tenantId,
+                permissions: cleanPermissions,
                 createdAt: admin.createdAt
             }
         })
     } catch (error) {
         next(error)
     }
+}
+
+// 获取当前租户下的子管理员列表
+exports.getSubAdmins = async (req, res, next) => {
+    try {
+        const where = { role: 'ADMIN' }
+        if (req.tenantId) where.tenantId = req.tenantId
+
+        const admins = await prisma.user.findMany({
+            where,
+            select: { id: true, email: true, username: true, role: true, permissions: true, createdAt: true },
+            orderBy: { createdAt: 'desc' }
+        })
+
+        // 解析 permissions 字段
+        const result = admins.map(a => {
+            let perms = {}
+            try { perms = a.permissions ? JSON.parse(a.permissions) : {} } catch {}
+            return { ...a, permissions: perms }
+        })
+
+        res.json({ admins: result })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 更新子管理员权限
+exports.updateAdminPermissions = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { permissions, username } = req.body
+        const { ALL_PERMISSION_KEYS } = require('../constants/permissions')
+
+        // 查找目标
+        const target = await prisma.user.findFirst({
+            where: { id, role: 'ADMIN', ...(req.tenantId ? { tenantId: req.tenantId } : {}) }
+        })
+        if (!target) return res.status(404).json({ error: '子管理员不存在' })
+
+        const data = {}
+        if (typeof username === 'string') data.username = username
+        if (permissions && typeof permissions === 'object') {
+            const cleanPermissions = {}
+            for (const k of ALL_PERMISSION_KEYS) {
+                cleanPermissions[k] = !!permissions[k]
+            }
+            data.permissions = JSON.stringify(cleanPermissions)
+        }
+
+        await prisma.user.update({ where: { id }, data })
+        res.json({ message: '已更新' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 获取权限配置元数据（供前端渲染）
+exports.getPermissionGroups = async (req, res) => {
+    const { PERMISSION_GROUPS, DEFAULT_ADMIN_PERMISSIONS } = require('../constants/permissions')
+    res.json({ groups: PERMISSION_GROUPS, defaults: DEFAULT_ADMIN_PERMISSIONS })
 }
 
 // 删除子管理员
@@ -2015,8 +2215,8 @@ exports.deleteAdmin = async (req, res, next) => {
 
         // 将角色降为普通用户而非物理删除
         await prisma.user.update({
-            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
-            data: { role: 'USER' }
+            where: { id },
+            data: { role: 'USER', tenantId: null }
         })
 
         res.json({ message: '子管理员已移除（降级为普通用户）' })

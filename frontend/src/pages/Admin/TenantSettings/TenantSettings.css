@@ -1,9 +1,480 @@
-.alert {
+/* 店铺设置 — 使用后台统一变量 */
+
+.ts-loading {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.ts-page {
+    padding: 0;
+}
+
+.ts-header {
+    margin-bottom: 24px;
+}
+
+.ts-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 6px;
+}
+
+.ts-header p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Tabs — 与后台 tab-btn 风格统一 */
+.ts-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+}
+
+.ts-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.ts-tab:hover {
+    border-color: var(--primary);
+    color: var(--primary-light);
+}
+
+.ts-tab.active {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: var(--primary);
+    color: var(--primary-light);
+    font-weight: 600;
+}
+
+/* Section */
+.ts-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 28px;
+}
+
+.ts-section-desc {
+    margin-bottom: 20px;
+}
+
+.ts-section-desc h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+}
+
+.ts-section-desc p {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Messages - 浮动 Toast（右上角） */
+.ts-msg {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    min-width: 240px;
+    max-width: 360px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    animation: ts-msg-slide-in 0.25s ease-out;
+}
+
+@keyframes ts-msg-slide-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.ts-msg.success { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.ts-msg.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+.ts-msg.info { background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; }
+.ts-msg.warning { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+
+/* Form */
+.ts-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.ts-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ts-form-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ts-form-group input,
+.ts-form-group textarea {
     padding: 12px 16px;
-    border-radius: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color var(--transition-fast);
+    font-family: inherit;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.ts-form-group input:focus,
+.ts-form-group textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
+}
+
+.ts-form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.ts-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.ts-readonly {
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
     font-size: 0.9rem;
 }
-.alert-success { background: rgba(16,185,129,0.1); color: #10b981; }
-.alert-error { background: rgba(239,68,68,0.1); color: #ef4444; }
-.alert-warning { background: rgba(245,158,11,0.1); color: #f59e0b; }
-.alert-info { background: rgba(59,130,246,0.1); color: #3b82f6; }
+
+.ts-readonly a {
+    color: var(--primary-light);
+    text-decoration: none;
+}
+
+.ts-readonly a:hover {
+    text-decoration: underline;
+}
+
+/* Skin selector */
+.ts-skin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.ts-skin-card {
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+    background: var(--bg-secondary);
+}
+
+.ts-skin-card:hover {
+    border-color: var(--primary-light);
+}
+
+.ts-skin-card.active {
+    border-color: var(--primary);
+    background: var(--gradient-card);
+}
+
+.ts-skin-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.ts-skin-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* Buttons */
+.ts-btn-primary {
+    padding: 11px 24px;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+    align-self: flex-start;
+    font-family: inherit;
+}
+
+.ts-btn-primary:hover:not(:disabled) { opacity: 0.88; }
+.ts-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ts-btn-secondary {
+    padding: 11px 18px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition-fast);
+}
+
+.ts-btn-secondary:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-light); }
+.ts-btn-secondary:disabled { opacity: 0.5; }
+
+/* Toggle switches — 与后台 toggle-switch 统一 */
+.ts-toggle-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.ts-toggle {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    user-select: none;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ts-toggle:last-child { border-bottom: none; }
+
+.ts-toggle input { display: none; }
+
+.ts-toggle-slider {
+    width: 42px;
+    height: 24px;
+    background: var(--border-color);
+    border-radius: 12px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.ts-toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.ts-toggle input:checked + .ts-toggle-slider {
+    background: var(--primary);
+}
+
+.ts-toggle input:checked + .ts-toggle-slider::after {
+    transform: translateX(18px);
+}
+
+.ts-toggle-label {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* Payment config fields */
+.ts-pay-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 4px;
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.ts-pay-field label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    display: block;
+}
+
+.ts-pay-field input {
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: monospace;
+}
+
+.ts-pay-field input:focus {
+    border-color: var(--primary);
+}
+
+/* Info card */
+.ts-info-card {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 20px;
+}
+
+.ts-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.88rem;
+}
+
+.ts-info-row:last-child { border-bottom: none; }
+.ts-info-row span:first-child { color: var(--text-muted); }
+.ts-info-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+/* DNS guide */
+.ts-dns-guide {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.ts-dns-title {
+    padding: 10px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.ts-dns-table {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ts-dns-table > div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.82rem;
+}
+
+.ts-dns-table span {
+    width: 70px;
+    color: var(--text-muted);
+}
+
+.ts-dns-table code {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--primary-light);
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.ts-success-box {
+    padding: 14px 18px;
+    background: rgba(16,185,129,0.1);
+    color: var(--success);
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    font-weight: 500;
+}
+
+/* Plan card */
+.ts-plan-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.ts-plan-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: var(--gradient-card);
+}
+
+.ts-plan-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ts-plan-status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.ts-plan-status.active { background: rgba(16,185,129,0.15); color: var(--success); }
+.ts-plan-status.expired { background: rgba(239,68,68,0.15); color: var(--error); }
+.ts-plan-status.suspended { background: rgba(245,158,11,0.15); color: var(--warning); }
+
+.ts-plan-details {
+    padding: 16px 24px;
+}
+
+.ts-plan-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+}
+
+.ts-plan-row:last-child { border-bottom: none; }
+.ts-plan-row span:first-child { color: var(--text-muted); }
+.ts-plan-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+@media (max-width: 640px) {
+    .ts-tabs { flex-wrap: wrap; }
+    .ts-skin-grid { grid-template-columns: 1fr; }
+    .ts-section { padding: 20px; }
+}

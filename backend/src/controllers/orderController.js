@@ -26,8 +26,9 @@ const generateOrderNo = () => {
 // 创建订单
 exports.createOrder = async (req, res, next) => {
     try {
-        const { productId, variantId, quantity = 1, email, paymentMethod, remark, agentSlug } = req.body
+        const { productId, variantId, quantity = 1, email, paymentMethod, remark, agentSlug, queryPassword } = req.body
         const userId = req.user?.id || null
+        const customerId = req.customer?.id || null
 
         // ---- 代理分站定价 ----
         let agentInfo = null
@@ -60,6 +61,21 @@ exports.createOrder = async (req, res, next) => {
             return res.status(400).json({ error: '商品已下架' })
         }
 
+        // ---- 套餐商品数量限制检查 ----
+        if (product.tenantId) {
+            const { getPlanLimits } = require('../middleware/planLimits')
+            const tenant = await prisma.tenant.findUnique({
+                where: { id: product.tenantId },
+                select: { shopSlug: true }
+            })
+            if (tenant) {
+                const shop = await prisma.shop.findUnique({ where: { slug: tenant.shopSlug } })
+                if (shop && shop.status === 'EXPIRED') {
+                    return res.status(403).json({ error: '该商城套餐已到期，暂停接单' })
+                }
+            }
+        }
+
         // 如果有规格，查找对应规格
         let variant = null
         let unitPrice = parseFloat(product.price)
@@ -78,8 +94,8 @@ exports.createOrder = async (req, res, next) => {
         // ---- 代理价格计算 ----
         let costPrice = unitPrice // 平台底价
         if (agentInfo) {
-            // 如果商品设了代理底价，用代理底价；否则用零售价
-            costPrice = product.agentBasePrice ? parseFloat(product.agentBasePrice) : unitPrice
+            // 代理底价 = 商品零售价
+            costPrice = unitPrice
             // 代理售价 = 底价 + 加价
             unitPrice = costPrice + agentInfo.markup
         }
@@ -132,7 +148,10 @@ exports.createOrder = async (req, res, next) => {
                 paymentMethod,
                 ipAddress: req.ip,
                 userAgent: req.get('User-Agent'),
-                remark: remark || null
+                remark: remark || null,
+                queryPassword: (!userId && !customerId && queryPassword) ? String(queryPassword).trim() : null,
+                tenantId: product.tenantId || null,
+                customerId
             }
         })
 
@@ -170,28 +189,41 @@ exports.createOrder = async (req, res, next) => {
 // 查询订单
 exports.queryOrder = async (req, res, next) => {
     try {
-        const { orderNo, email } = req.query
+        const { orderNo, email, password, slug } = req.query
 
         if (!orderNo && !email) {
             return res.status(400).json({ error: '请输入订单号或邮箱' })
+        }
+        if (!password || !String(password).trim()) {
+            return res.status(400).json({ error: '请输入查询密码' })
+        }
+
+        const queryPwd = String(password).trim()
+
+        // 解析租户范围（多租户隔离）
+        // 优先级：req.tenantId（自定义域名）> ?slug=xxx
+        let scopedTenantId = req.tenantId !== undefined ? req.tenantId : undefined
+        if (scopedTenantId === undefined && slug) {
+            const t = await prisma.tenant.findUnique({
+                where: { shopSlug: slug },
+                select: { id: true, status: true }
+            })
+            scopedTenantId = (t && t.status === 'ACTIVE') ? t.id : null
         }
 
         // 通过订单号查询（精确查找单个订单）
         if (orderNo) {
             const where = { orderNo }
-            if (email) {
-                where.email = email
+            if (email) where.email = email
+            if (scopedTenantId !== undefined) {
+                where.tenantId = scopedTenantId === null ? null : scopedTenantId
             }
 
             const order = await prisma.order.findFirst({
                 where,
                 include: {
-                    product: {
-                        select: { id: true, name: true, image: true, deliveryNote: true }
-                    },
-                    cards: {
-                        select: { id: true, content: true }
-                    }
+                    product: { select: { id: true, name: true, image: true, deliveryNote: true } },
+                    cards: { select: { id: true, content: true } }
                 }
             })
 
@@ -199,23 +231,31 @@ exports.queryOrder = async (req, res, next) => {
                 return res.status(404).json({ error: '订单不存在' })
             }
 
+            // 校验查询密码
+            if (!order.queryPassword || order.queryPassword !== queryPwd) {
+                return res.status(403).json({ error: '查询密码错误' })
+            }
+
             return res.json({ order: formatOrder(order) })
         }
 
-        // 通过邮箱查询（仅返回最新 3 条订单）
+        // 通过邮箱查询（凭查询密码返回所有订单）
+        const where = { email, queryPassword: queryPwd }
+        if (scopedTenantId !== undefined) {
+            where.tenantId = scopedTenantId === null ? null : scopedTenantId
+        }
+
         const orders = await prisma.order.findMany({
-            where: { email },
+            where,
             include: {
-                product: {
-                    select: { id: true, name: true, image: true, deliveryNote: true }
-                }
+                product: { select: { id: true, name: true, image: true, deliveryNote: true } }
             },
             orderBy: { createdAt: 'desc' },
-            take: 3
+            take: 100
         })
 
         if (orders.length === 0) {
-            return res.status(404).json({ error: '未找到该邮箱关联的订单' })
+            return res.status(404).json({ error: '未找到该邮箱关联的订单，或查询密码不正确' })
         }
 
         res.json({ orders: orders.map(formatOrder) })
@@ -332,13 +372,16 @@ function formatOrder(order) {
 // 获取当前用户订单列表
 exports.getUserOrders = async (req, res, next) => {
     try {
-        if (!req.user) {
+        if (!req.user && !req.customer) {
             return res.status(401).json({ error: '请先登录' })
         }
 
         const { status } = req.query
 
-        const where = { userId: req.user.id }
+        // 同时支持顾客 token 和 user token
+        const where = req.customer
+            ? { customerId: req.customer.id }
+            : { userId: req.user.id }
         if (status && status !== 'all') {
             where.status = status.toUpperCase()
         }

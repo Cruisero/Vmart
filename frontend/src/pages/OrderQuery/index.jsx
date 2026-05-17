@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { FiSearch, FiPackage, FiClock, FiCheckCircle, FiXCircle, FiAlertCircle } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
+import { useStorefront } from '../../store/storefrontStore'
 import './OrderQuery.css'
 
 const statusMap = {
@@ -18,7 +19,9 @@ const statusMap = {
 function OrderQuery() {
     const navigate = useNavigate()
     const { isAuthenticated } = useAuthStore()
+    const storefront = useStorefront()
     const [query, setQuery] = useState('')
+    const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [orders, setOrders] = useState(null)
 
@@ -32,19 +35,21 @@ function OrderQuery() {
             toast.error('请输入订单号或邮箱')
             return
         }
-
-        // 如果是订单号，直接跳转订单详情
-        if (!isEmail(input)) {
-            navigate(`/order/${input}`)
+        if (!password.trim()) {
+            toast.error('请输入查询密码')
             return
         }
 
-        // 如果是邮箱，查询该邮箱下的所有订单
         setLoading(true)
         setOrders(null)
 
         try {
-            const res = await fetch(`/api/orders/query?email=${encodeURIComponent(input)}`)
+            const params = new URLSearchParams({ password: password.trim() })
+            if (isEmail(input)) params.set('email', input)
+            else params.set('orderNo', input)
+            if (storefront?.slug) params.set('slug', storefront.slug)
+
+            const res = await fetch(`/api/orders/query?${params.toString()}`)
             const data = await res.json()
 
             if (data.error) {
@@ -78,11 +83,6 @@ function OrderQuery() {
                 <p className="query-desc">
                     输入订单号或下单邮箱，查询订单状态和卡密信息
                 </p>
-                {!isAuthenticated && (
-                    <p className="query-desc" style={{ color: '#ef4444', fontWeight: 600 }}>
-                        未登录用户只显示最近三个订单
-                    </p>
-                )}
 
                 <form className="query-form" onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -95,9 +95,19 @@ function OrderQuery() {
                         />
                         {query.trim() && (
                             <span className="input-hint">
-                                {isEmail(query.trim()) ? '📧 将按邮箱查询最近 3 个订单' : '📋 将按订单号查询'}
+                                {isEmail(query.trim()) ? '📧 将按邮箱查询所有订单' : '📋 将按订单号查询'}
                             </span>
                         )}
+                    </div>
+
+                    <div className="form-group">
+                        <input
+                            type="password"
+                            className="input query-input"
+                            placeholder="请输入查询密码"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
                     </div>
 
                     <button
@@ -164,7 +174,7 @@ function OrderQuery() {
                         <h3>📌 温馨提示</h3>
                         <ul>
                             <li>订单号可在支付成功页面或邮件中找到</li>
-                            <li>通过邮箱最多查询最近 3 个订单</li>
+                            <li>邮箱+查询密码可查看该邮箱下的所有订单</li>
                             <li>卡密信息将在支付成功后自动发放</li>
                             <li>如有问题请通过工单联系客服</li>
                         </ul>

@@ -20,6 +20,8 @@ model User {
   updatedAt         DateTime  @updatedAt @map("updated_at")
   resetToken        String?   @map("reset_token")
   resetTokenExpiry  DateTime? @map("reset_token_expiry")
+  tenantId          String?   @map("tenant_id")
+  permissions       String?   @db.LongText
   orders            Order[]
   tickets           Ticket[]
   ticketMessages    TicketMessage[]
@@ -29,6 +31,7 @@ model User {
   referralAgent     Agent?    @relation("ReferredUsers", fields: [referralAgentId], references: [id])
 
   @@index([referralAgentId])
+  @@index([tenantId], map: "users_tenant_id_idx")
   @@map("users")
 }
 
@@ -55,7 +58,6 @@ model Product {
   fullDescription String?          @map("full_description") @db.Text
   price           Decimal          @db.Decimal(10, 2)
   originalPrice   Decimal?         @map("original_price") @db.Decimal(10, 2)
-  agentBasePrice  Decimal?         @map("agent_base_price") @db.Decimal(10, 2)
   stock           Int              @default(0)
   soldCount       Int              @default(0) @map("sold_count")
   image           String?
@@ -65,7 +67,6 @@ model Product {
   sortOrder       Int              @default(0) @map("sort_order")
   weight          Int              @default(0)
   viewCount       Int              @default(0) @map("view_count")
-  sortScore       Float            @default(0) @map("sort_score")
   deliveryNote    String?          @map("delivery_note") @db.Text
   wholesalePrices Json?            @map("wholesale_prices")
   tenantId        String?          @map("tenant_id")
@@ -149,10 +150,13 @@ model Order {
   usdtAmount    Decimal?    @map("usdt_amount") @db.Decimal(10, 2)
   bscUsdtAmount Decimal?    @map("bsc_usdt_amount") @db.Decimal(10, 2)
   remark        String?     @db.Text
+  queryPassword String?     @map("query_password")
   tenantId      String?     @map("tenant_id")
+  customerId    String?     @map("customer_id")
   cards         Card[]
   product       Product     @relation(fields: [productId], references: [id])
   user          User?       @relation(fields: [userId], references: [id])
+  customer      Customer?   @relation(fields: [customerId], references: [id])
   payment       Payment?
   tickets       Ticket[]
   agentOrder    AgentOrder?
@@ -161,6 +165,7 @@ model Order {
   @@index([productId], map: "orders_product_id_fkey")
   @@index([userId], map: "orders_user_id_fkey")
   @@index([tenantId], map: "orders_tenant_id_fkey")
+  @@index([customerId], map: "orders_customer_id_idx")
   @@map("orders")
 }
 
@@ -194,6 +199,7 @@ model Ticket {
   id               String       @id @default(uuid())
   ticketNo         String       @unique @map("ticket_no")
   userId           String       @map("user_id")
+  customerId       String?      @map("customer_id")
   orderId          String?      @map("order_id")
   orderNo          String?      @map("order_no")
   type             TicketType
@@ -207,10 +213,12 @@ model Ticket {
   updatedAt        DateTime     @updatedAt @map("updated_at")
   closedAt         DateTime?    @map("closed_at")
   user             User         @relation(fields: [userId], references: [id])
+  customer         Customer?    @relation(fields: [customerId], references: [id])
   order            Order?       @relation(fields: [orderId], references: [id])
   messages         TicketMessage[]
 
   @@index([userId], map: "tickets_user_id_fkey")
+  @@index([customerId], map: "tickets_customer_id_idx")
   @@index([orderId], map: "tickets_order_id_fkey")
   @@map("tickets")
 }
@@ -417,6 +425,7 @@ model Tenant {
   domains      TenantDomain[]
   products     Product[]
   orders       Order[]
+  customers    Customer[]
   settings     TenantSetting?
 
   @@map("tenants")
@@ -456,4 +465,110 @@ model TenantSetting {
   tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_settings")
+}
+
+// 店面顾客（每个 tenant 独立维护，类似 Shopify Customer）
+model Customer {
+  id                String    @id @default(uuid())
+  tenantId          String    @map("tenant_id")
+  email             String
+  password          String
+  username          String?
+  avatar            String?
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  verificationToken String?   @map("verification_token")
+  resetToken        String?   @map("reset_token")
+  resetTokenExpiry  DateTime? @map("reset_token_expiry")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders            Order[]
+  tickets           Ticket[]
+
+  @@unique([tenantId, email], map: "customers_tenant_email_unique")
+  @@index([tenantId], map: "customers_tenant_id_idx")
+  @@map("customers")
+}
+
+// ==================== SaaS 商户系统 ====================
+
+model Merchant {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String
+  shopName     String    @map("shop_name")
+  isSuperAdmin Boolean   @default(false) @map("is_super_admin")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  shop         Shop?
+  planOrders   PlanOrder[]
+
+  @@map("merchants")
+}
+
+model Shop {
+  id            String     @id @default(uuid())
+  slug          String     @unique
+  name          String
+  merchantId    String     @unique @map("merchant_id")
+  merchant      Merchant   @relation(fields: [merchantId], references: [id])
+  plan          ShopPlan   @default(FREE)
+  trialEndsAt   DateTime   @map("trial_ends_at")
+  planExpiresAt DateTime?  @map("plan_expires_at")
+  status        ShopStatus @default(ACTIVE)
+  customDomain  String?    @map("custom_domain")
+  logo          String?
+  notice        String?
+  skin          String     @default("classic")
+  contactEmail  String?    @map("contact_email")
+  settings      String?    @db.LongText
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  planOrders    PlanOrder[]
+
+  @@map("shops")
+}
+
+model PlanOrder {
+  id            String    @id @default(uuid())
+  merchantId    String    @map("merchant_id")
+  shopId        String    @map("shop_id")
+  merchant      Merchant  @relation(fields: [merchantId], references: [id])
+  shop          Shop      @relation(fields: [shopId], references: [id])
+  plan          ShopPlan
+  months        Int
+  amount        Decimal   @db.Decimal(10, 2)
+  paymentMethod String?   @map("payment_method")
+  paymentStatus String    @default("PENDING") @map("payment_status")
+  tradeNo       String?   @map("trade_no")
+  paidAt        DateTime? @map("paid_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("plan_orders")
+}
+
+// 平台全局配置（键值对，存储试用时长、支付配置等）
+model PlatformSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String?  @db.Text
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
+}
+
+enum ShopPlan {
+  FREE
+  BASIC
+  STANDARD
+  PRO
+}
+
+enum ShopStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
 }

@@ -1,0 +1,179 @@
+/**
+ * 通知分发器
+ * 根据订单/事件的 tenantId 决定使用商户通知配置还是全局配置
+ */
+const prisma = require('../config/database')
+const logger = require('../utils/logger')
+const { sendTenantEmail } = require('./tenantEmailService')
+const adminNotifyService = require('./adminNotifyService')
+
+/**
+ * 获取商户的通知配置
+ */
+async function getTenantNotifyConfig(tenantId) {
+    try {
+        const settings = await prisma.tenantSetting.findUnique({ where: { tenantId } })
+        if (!settings?.paymentConfig) return null
+        const config = JSON.parse(settings.paymentConfig)
+        return {
+            notifyOrderPaid: config.notify_order_paid !== false,
+            notifyShipRemind: config.notify_ship_remind !== false,
+            notifyNewTicket: config.notify_new_ticket !== false,
+            notifyNewUser: config.notify_new_user || false,
+            notifyStockAlert: config.notify_stock_alert !== false,
+            notifyOrderCancel: config.notify_order_cancel || false,
+            notifyRefund: config.notify_refund !== false,
+            notifyEmail: config.notify_email || null
+        }
+    } catch {
+        return null
+    }
+}
+
+/**
+ * 获取商户的收信邮箱
+ */
+async function getTenantNotifyEmail(tenantId) {
+    const config = await getTenantNotifyConfig(tenantId)
+    if (config?.notifyEmail) return config.notifyEmail
+
+    // 回退到商户注册邮箱
+    const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { user: { select: { email: true } } }
+    })
+    return tenant?.user?.email || null
+}
+
+/**
+ * 发送通知（自动判断走商户通知还是全局通知）
+ */
+async function dispatch(eventKey, tenantId, subject, htmlContent) {
+    // 如果有 tenantId，走商户通知逻辑
+    if (tenantId) {
+        const config = await getTenantNotifyConfig(tenantId)
+        if (!config) {
+            logger.info(`[notifyDispatcher] 租户 ${tenantId} 无通知配置，跳过`)
+            return
+        }
+
+        // 检查该事件是否开启
+        const eventMap = {
+            'notifyOrderPaid': config.notifyOrderPaid,
+            'notifyPendingShip': config.notifyShipRemind,
+            'notifyNewTicket': config.notifyNewTicket,
+            'notifyNewUser': config.notifyNewUser,
+            'notifyLowStock': config.notifyStockAlert,
+            'notifyOrderCancelled': config.notifyOrderCancel,
+            'notifyRefund': config.notifyRefund,
+        }
+
+        if (!eventMap[eventKey]) {
+            logger.info(`[notifyDispatcher] 租户 ${tenantId} 事件 ${eventKey} 未开启`)
+            return
+        }
+
+        const toEmail = await getTenantNotifyEmail(tenantId)
+        if (!toEmail) {
+            logger.warn(`[notifyDispatcher] 租户 ${tenantId} 无收信邮箱`)
+            return
+        }
+
+        // 用 tenantEmailService 发送
+        return sendTenantEmail(tenantId, { to: toEmail, subject, html: htmlContent })
+    }
+
+    // 无 tenantId，走全局通知（旧逻辑）
+    return adminNotifyService.sendAdminNotification(eventKey, subject, htmlContent)
+}
+
+/**
+ * 通知：订单支付成功
+ */
+async function notifyOrderPaid(order) {
+    const subject = `订单支付成功 - ${order.orderNo}`
+    const html = `<h3 style="color:#10b981;">💰 收到新订单付款</h3>
+        <p>订单号：<strong>${order.orderNo}</strong></p>
+        <p>商品：${order.productName || '—'} × ${order.quantity || 1}</p>
+        <p>金额：<strong style="color:#ef4444;">¥${order.totalAmount}</strong></p>
+        <p>客户邮箱：${order.email || '—'}</p>`
+    return dispatch('notifyOrderPaid', order.tenantId, subject, html)
+}
+
+/**
+ * 通知：待手动发货
+ */
+async function notifyPendingShip(order) {
+    const subject = `⚡ 待发货 - ${order.orderNo}`
+    const html = `<h3 style="color:#f59e0b;">📦 订单已支付，等待手动发货</h3>
+        <p style="color:#92400e;background:#fffbeb;padding:10px;border-radius:6px;">该订单无可用卡密，需要手动发货！</p>
+        <p>订单号：<strong>${order.orderNo}</strong></p>
+        <p>商品：${order.productName || '—'} × ${order.quantity || 1}</p>
+        <p>金额：¥${order.totalAmount}</p>
+        <p>客户邮箱：${order.email || '—'}</p>`
+    return dispatch('notifyPendingShip', order.tenantId, subject, html)
+}
+
+/**
+ * 通知：新工单
+ */
+async function notifyNewTicket(ticket, tenantId) {
+    const subject = `新工单 - ${ticket.ticketNo || ticket.id}`
+    const html = `<h3 style="color:#f59e0b;">🎫 收到新工单</h3>
+        <p>工单号：${ticket.ticketNo || ticket.id}</p>
+        <p>主题：<strong>${ticket.subject}</strong></p>
+        <p>类型：${ticket.type}</p>`
+    return dispatch('notifyNewTicket', tenantId, subject, html)
+}
+
+/**
+ * 通知：库存不足
+ */
+async function notifyLowStock(product) {
+    const subject = `库存预警 - ${product.name}`
+    const html = `<h3 style="color:#ef4444;">⚠️ 商品库存不足</h3>
+        <p>商品：<strong>${product.name}</strong></p>
+        <p>当前库存：<strong style="color:#ef4444;">0 件</strong></p>
+        <p>请及时补充库存！</p>`
+    return dispatch('notifyLowStock', product.tenantId, subject, html)
+}
+
+/**
+ * 通知：订单取消
+ */
+async function notifyOrderCancelled(order, reason = '超时未支付') {
+    const subject = `订单取消 - ${order.orderNo}`
+    const html = `<h3 style="color:#94a3b8;">🚫 订单已取消</h3>
+        <p>订单号：${order.orderNo}</p>
+        <p>商品：${order.productName || '—'}</p>
+        <p>金额：¥${order.totalAmount}</p>
+        <p>原因：${reason}</p>`
+    return dispatch('notifyOrderCancelled', order.tenantId, subject, html)
+}
+
+/**
+ * 通知：新用户注册
+ */
+async function notifyNewUser(user) {
+    // 新用户注册走全局通知（用户还没有 tenantId）
+    return adminNotifyService.notifyNewUser(user)
+}
+
+/**
+ * 通知：工单新回复
+ */
+async function notifyTicketReply(ticket, message, user) {
+    // 走全局通知（工单系统暂不按租户隔离）
+    return adminNotifyService.notifyTicketReply(ticket, message, user)
+}
+
+module.exports = {
+    notifyOrderPaid,
+    notifyPendingShip,
+    notifyNewTicket,
+    notifyLowStock,
+    notifyOrderCancelled,
+    notifyNewUser,
+    notifyTicketReply,
+    dispatch
+}

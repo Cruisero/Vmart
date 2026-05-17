@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { FiShoppingCart, FiMinus, FiPlus, FiCheck, FiShield, FiZap, FiArrowLeft } from 'react-icons/fi'
 import { useCartStore } from '../../store/cartStore'
+import { useStorefront } from '../../store/storefrontStore'
+import { getStorefrontBasePath } from '../../utils/agentDomain'
 import toast from 'react-hot-toast'
 import './ProductDetail.css'
 
@@ -27,13 +29,21 @@ function ProductDetail() {
     const [selectedVariant, setSelectedVariant] = useState(null) // 选中的规格
     const [selectedType, setSelectedType] = useState('') // 选中的规格类型
     const addItem = useCartStore((state) => state.addItem)
+    const storefront = useStorefront()
+    const linkPrefix = storefront ? getStorefrontBasePath(storefront) : ''
+
+    const productUrl = storefront
+        ? `${storefront.apiBase || '/api/v'}/${storefront.slug}/products/${id}`
+        : `/api/products/${id}`
 
     useEffect(() => {
         // 从 API 获取商品详情
         setLoading(true)
-        fetch(`/api/products/${id}`)
+        fetch(productUrl)
             .then(res => res.json())
-            .then(data => {
+            .then(payload => {
+                // 主站返回商品本身；商户店面返回 { product: {...} }
+                const data = payload?.product || payload
                 if (data && data.id) {
                     // 转换数据格式
                     const formattedProduct = {
@@ -48,7 +58,6 @@ function ProductDetail() {
                         sold: data.soldCount || 0,
                         image: data.image || 'https://via.placeholder.com/800x600?text=No+Image',
                         images: data.images || (data.image ? [data.image] : []),
-                        tags: data.tags || [],
                         variants: data.variants || [],
                     }
                     setProduct(formattedProduct)
@@ -79,7 +88,7 @@ function ProductDetail() {
                 setProduct(null)
                 setLoading(false)
             })
-    }, [id])
+    }, [id, productUrl])
 
     // 获取当前选中规格的库存
     const currentStock = selectedVariant?.stock ?? product?.stock ?? 0
@@ -102,7 +111,7 @@ function ProductDetail() {
     const handleBuyNow = () => {
         if (product && currentStock > 0) {
             addItem(product, quantity, selectedVariant)
-            navigate('/cart')
+            navigate(`${linkPrefix}/cart`)
         }
     }
 
@@ -122,7 +131,7 @@ function ProductDetail() {
             <div className="product-not-found">
                 <h2>商品不存在</h2>
                 <p>您访问的商品可能已下架或不存在</p>
-                <Link to="/products" className="btn btn-primary">
+                <Link to={`${linkPrefix}/`} className="btn btn-primary">
                     返回商品列表
                 </Link>
             </div>
@@ -150,13 +159,6 @@ function ProductDetail() {
                                 : product.image)}
                             alt={product.name}
                         />
-                        {product.tags.length > 0 && (
-                            <div className="detail-tags">
-                                {product.tags.map((tag, index) => (
-                                    <span key={index} className="detail-tag">{tag}</span>
-                                ))}
-                            </div>
-                        )}
                         {/* 左右切换按钮 */}
                         {product.images && product.images.length > 1 && (
                             <>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { FiTag, FiBox } from 'react-icons/fi'
+import { useStorefront } from '../../store/storefrontStore'
+import { getStorefrontBasePath } from '../../utils/agentDomain'
 import './Products.css'
 
 const API_BASE = '/api'
@@ -38,11 +40,21 @@ function Products() {
     const [categories, setCategories] = useState([{ id: 'all', name: '全部商品', icon: '🏠' }])
     const [categoriesLoaded, setCategoriesLoaded] = useState(false)
     const [loading, setLoading] = useState(true)
+    const storefront = useStorefront()
+    const linkPrefix = storefront ? getStorefrontBasePath(storefront) : ''
+
+    // 商品/分类 API URL（店面下走 /api/v/:slug；主站走 /api）
+    const productsBase = storefront
+        ? `${storefront.apiBase || `${API_BASE}/v`}/${storefront.slug}/products`
+        : `${API_BASE}/products`
+    const categoriesUrl = storefront
+        ? `${storefront.apiBase || `${API_BASE}/v`}/${storefront.slug}/categories`
+        : `${API_BASE}/categories`
 
 
     // 获取分类
     useEffect(() => {
-        fetch(`${API_BASE}/categories`)
+        fetch(categoriesUrl)
             .then(res => res.json())
             .then(data => {
                 const categoryList = data.categories || data || []
@@ -62,14 +74,14 @@ function Products() {
             })
             .catch(err => console.log('获取分类失败:', err))
             .finally(() => setCategoriesLoaded(true))
-    }, [])
+    }, [categoriesUrl])
 
     // 获取商品列表
     useEffect(() => {
         setLoading(true)
         const url = activeCategory === 'all'
-            ? `${API_BASE}/products`
-            : `${API_BASE}/products?categoryId=${encodeURIComponent(activeCategory)}`
+            ? productsBase
+            : `${productsBase}?categoryId=${encodeURIComponent(activeCategory)}`
 
         fetch(url)
             .then(res => res.json())
@@ -85,7 +97,6 @@ function Products() {
                     stock: p.stock,
                     sold: p.soldCount || 0,
                     image: p.image || 'https://via.placeholder.com/400x300?text=No+Image',
-                    tags: p.tags || [],
                 }))
                 setProducts(formattedProducts)
                 setLoading(false)
@@ -94,7 +105,7 @@ function Products() {
                 console.error('获取商品失败:', err)
                 setLoading(false)
             })
-    }, [activeCategory])
+    }, [activeCategory, productsBase])
 
     // 排序商品
     const filteredProducts = useMemo(() => {
@@ -175,7 +186,7 @@ function Products() {
 
                         return (
                             <Link
-                                to={`/products/${product.id}`}
+                                to={`${linkPrefix}/products/${product.id}`}
                                 key={product.id}
                                 className={`product-card${product.stock <= 0 ? ' product-card-oos' : ''}`}
                             >
@@ -185,15 +196,6 @@ function Products() {
                                         <source media="(max-width: 767px)" srcSet={getImageUrl(product.image, 'medium')} />
                                         <img src={getImageUrl(product.image, 'large')} alt={product.name} />
                                     </picture>
-                                    {product.tags && product.tags.length > 0 && (
-                                        <div className="product-tags">
-                                            {product.tags.slice(0, 2).map((tag, index) => (
-                                                <span key={index} className="product-tag">
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
                                     {discount > 0 && (
                                         <span className="discount-label">-{discount}%</span>
                                     )}

@@ -161,7 +161,7 @@ exports.createTicket = async (req, res, next) => {
         })
 
         // 通知管理员（异步，不阻塞响应）
-        const { notifyNewTicket } = require('../services/adminNotifyService')
+        const { notifyNewTicket } = require('../services/notifyDispatcher')
         notifyNewTicket({ ...ticket, contactEmail: req.user?.email, content }).catch(e => console.error('管理员通知失败:', e))
     } catch (error) {
         next(error)
@@ -232,7 +232,7 @@ exports.getTicketDetail = async (req, res, next) => {
         }
 
         // 验证权限
-        const isAdminRole = ['ADMIN', 'SUPER_ADMIN', 'SAAS_ADMIN'].includes(req.user.role)
+        const isAdminRole = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)
         if (ticket.userId !== userId && !isAdminRole) {
             return res.status(403).json({ error: '无权限查看此工单' })
         }
@@ -319,7 +319,7 @@ exports.addMessage = async (req, res, next) => {
         })
 
         // 通知管理员（异步，不阻塞响应）
-        const { notifyTicketReply } = require('../services/adminNotifyService')
+        const { notifyTicketReply } = require('../services/notifyDispatcher')
         notifyTicketReply(ticket, content, req.user).catch(e => console.error('管理员回复通知失败:', e))
     } catch (error) {
         next(error)

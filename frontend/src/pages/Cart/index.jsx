@@ -1,11 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { FiTrash2, FiMinus, FiPlus, FiShoppingBag, FiArrowRight } from 'react-icons/fi'
 import { useCartStore } from '../../store/cartStore'
+import { useStorefront } from '../../store/storefrontStore'
+import { getStorefrontBasePath } from '../../utils/agentDomain'
 import toast from 'react-hot-toast'
 import './Cart.css'
 
 function Cart() {
     const navigate = useNavigate()
+    const storefront = useStorefront()
+    const prefix = storefront ? getStorefrontBasePath(storefront) : ''
     const { items, updateQuantity, removeItem, clearCart, getTotalPrice } = useCartStore()
 
     const totalPrice = getTotalPrice()
@@ -13,9 +17,13 @@ function Cart() {
 
     const handleQuantityChange = (item, delta) => {
         const newQty = item.quantity + delta
-        if (newQty >= 1 && newQty <= item.stock) {
-            updateQuantity(item.cartItemId, newQty)
+        if (newQty < 1) return
+        // 减少数量永远允许；增加时受 stock 限制（stock 未定义则不限制）
+        if (delta > 0 && typeof item.stock === 'number' && newQty > item.stock) {
+            toast.error(`库存仅剩 ${item.stock} 件`)
+            return
         }
+        updateQuantity(item.cartItemId, newQty)
     }
 
     const handleRemove = (item) => {
@@ -32,7 +40,7 @@ function Cart() {
 
     const handleCheckout = () => {
         // 跳转到结算页
-        navigate('/checkout')
+        navigate(`${prefix}/checkout`)
     }
 
     if (items.length === 0) {
@@ -42,7 +50,7 @@ function Cart() {
                     <FiShoppingBag className="empty-icon" />
                     <h2>购物车是空的</h2>
                     <p>快去挑选心仪的商品吧~</p>
-                    <Link to="/products" className="btn btn-primary">
+                    <Link to={`${prefix}/`} className="btn btn-primary">
                         去购物
                         <FiArrowRight />
                     </Link>

@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff } from 'react-icons/fi'
 import { useAuthStore } from '../../../store/authStore'
+import { useStorefront, useStorefrontPath } from '../../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './Auth.css'
 
 function Register() {
     const navigate = useNavigate()
+    const { withPrefix } = useStorefrontPath()
+    const storefront = useStorefront()
     const login = useAuthStore((state) => state.login)
     const [formData, setFormData] = useState({
         username: '',
@@ -43,14 +46,17 @@ function Register() {
         setLoading(true)
 
         try {
-            const response = await fetch('/api/auth/register', {
+            const url = storefront?._tenantMode ? '/api/customer/register' : '/api/auth/register'
+            const body = {
+                email: formData.email,
+                password: formData.password,
+                username: formData.username
+            }
+            if (storefront?._tenantMode) body.storefrontSlug = storefront.slug
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: formData.email,
-                    password: formData.password,
-                    username: formData.username
-                })
+                body: JSON.stringify(body)
             })
 
             const data = await response.json()
@@ -69,7 +75,7 @@ function Register() {
                 toast.success('注册成功')
             }
 
-            navigate('/')
+            navigate(withPrefix('/'))
         } catch (error) {
             toast.error(error.message)
         } finally {
@@ -170,7 +176,7 @@ function Register() {
                 </form>
 
                 <div className="auth-footer">
-                    <p>已有账号？ <Link to="/login">立即登录</Link></p>
+                    <p>已有账号？ <Link to={withPrefix('/login')}>立即登录</Link></p>
                 </div>
             </div>
         </div>

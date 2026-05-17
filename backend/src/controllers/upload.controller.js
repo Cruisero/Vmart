@@ -28,11 +28,11 @@ const storage = multer.diskStorage({
 })
 
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml']
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true)
     } else {
-        cb(new Error('不支持的图片格式，仅支持 JPG、PNG、GIF、WebP、BMP'), false)
+        cb(new Error('不支持的图片格式，仅支持 JPG、PNG、GIF、WebP、SVG、ICO'), false)
     }
 }
 

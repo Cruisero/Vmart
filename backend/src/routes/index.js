@@ -14,6 +14,8 @@ const statsRoutes = require('./stats.routes')
 const agentRoutes = require('./agent.routes')
 const storefrontRoutes = require('./storefront.routes')
 const tenantRoutes = require('./tenant.routes')
+const platformRoutes = require('./platform.routes')
+const customerRoutes = require('./customer.routes')
 
 // API 版本信息
 router.get('/', (req, res) => {
@@ -97,7 +99,20 @@ router.use('/agent', agentRoutes)
 // 代理分站前台路由
 router.use('/s', storefrontRoutes)
 
+// SaaS 商户店面路由（/api/v/:slug/*）
+const { getMerchantStorefront, getMerchantProducts, getMerchantProduct, getMerchantCategories } = require('../controllers/storefront.controller')
+router.get('/v/:slug', getMerchantStorefront)
+router.get('/v/:slug/products', getMerchantProducts)
+router.get('/v/:slug/products/:productId', getMerchantProduct)
+router.get('/v/:slug/categories', getMerchantCategories)
+
 // 租户管理路由
 router.use('/tenant', tenantRoutes)
+
+// 店面顾客路由（注册/登录/订单/修改密码 — 每个 tenant 独立）
+router.use('/customer', customerRoutes)
+
+// SaaS 平台路由（/api/platform/*, /api/man/*, /api/shop/*）
+router.use('/', platformRoutes)
 
 module.exports = router

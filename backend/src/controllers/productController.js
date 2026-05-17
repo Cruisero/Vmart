@@ -9,7 +9,7 @@ exports.getProducts = async (req, res, next) => {
             categoryId,
             search,
             status = 'ACTIVE',
-            sort = 'sortScore',
+            sort = 'weight',
             order = 'desc',
             page = 1,
             pageSize = 20
@@ -64,8 +64,8 @@ exports.getProducts = async (req, res, next) => {
             orderBy.price = order
         } else if (sort === 'sales') {
             orderBy.soldCount = order
-        } else if (sort === 'sortScore') {
-            orderBy.sortScore = 'desc'
+        } else if (sort === 'weight') {
+            orderBy.weight = 'desc'
         } else {
             orderBy.createdAt = order
         }
@@ -123,7 +123,7 @@ exports.getHotProducts = async (req, res, next) => {
         const [products, stockModeSetting] = await Promise.all([
             prisma.product.findMany({
                 where: { status: 'ACTIVE' },
-                orderBy: { sortScore: 'desc' },
+                orderBy: { weight: 'desc' },
                 take: parseInt(limit),
                 include: {
                     category: {

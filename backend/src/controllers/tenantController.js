@@ -201,7 +201,7 @@ exports.updateSettings = async (req, res) => {
                 wechatEnabled: !!wechatEnabled,
                 usdtEnabled: !!usdtEnabled,
                 bscUsdtEnabled: !!bscUsdtEnabled,
-                paymentConfig: paymentConfig ? JSON.stringify(paymentConfig) : null,
+                paymentConfig: typeof paymentConfig === 'string' ? paymentConfig : (paymentConfig ? JSON.stringify(paymentConfig) : null),
                 notificationEnabled: !!notificationEnabled,
                 notificationText, notificationLink
             },
@@ -210,7 +210,7 @@ exports.updateSettings = async (req, res) => {
                 wechatEnabled: !!wechatEnabled,
                 usdtEnabled: !!usdtEnabled,
                 bscUsdtEnabled: !!bscUsdtEnabled,
-                paymentConfig: paymentConfig ? JSON.stringify(paymentConfig) : undefined,
+                paymentConfig: typeof paymentConfig === 'string' ? paymentConfig : (paymentConfig ? JSON.stringify(paymentConfig) : undefined),
                 notificationEnabled: !!notificationEnabled,
                 notificationText, notificationLink
             }

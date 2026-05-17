@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import toast from 'react-hot-toast'
 import Navbar from './components/common/Navbar'
@@ -26,26 +26,26 @@ import OrderQuery from './pages/OrderQuery'
 import { useThemeStore } from './store/themeStore'
 import { useAuthStore } from './store/authStore'
 import { useSkinStore } from './store/skinStore'
-import FreshNavbar from './themes/fresh/Navbar'
-import FreshProducts from './themes/fresh/Products'
-import FreshProductDetail from './themes/fresh/ProductDetail'
-import FreshCheckout from './themes/fresh/Checkout'
-import FreshOrderResult from './themes/fresh/OrderResult'
-import FreshUserCenter from './themes/fresh/UserCenter'
-import FreshOrderQuery from './themes/fresh/OrderQuery'
-import FreshLogin from './themes/fresh/Auth/Login'
-import FreshRegister from './themes/fresh/Auth/Register'
-import FreshNotFound from './themes/fresh/NotFound'
-import ZenNavbar from './themes/zen/Navbar'
-import ZenProducts from './themes/zen/Products'
-import ZenProductDetail from './themes/zen/ProductDetail'
-import ZenCheckout from './themes/zen/Checkout'
-import ZenOrderResult from './themes/zen/OrderResult'
-import ZenUserCenter from './themes/zen/UserCenter'
-import ZenOrderQuery from './themes/zen/OrderQuery'
-import ZenLogin from './themes/zen/Auth/Login'
-import ZenRegister from './themes/zen/Auth/Register'
-import ZenNotFound from './themes/zen/NotFound'
+import FreshNavbar from './themes/minimal/fresh/Navbar'
+import FreshProducts from './themes/minimal/fresh/Products'
+import FreshProductDetail from './themes/minimal/fresh/ProductDetail'
+import FreshCheckout from './themes/minimal/fresh/Checkout'
+import FreshOrderResult from './themes/minimal/fresh/OrderResult'
+import FreshUserCenter from './themes/minimal/fresh/UserCenter'
+import FreshOrderQuery from './themes/minimal/fresh/OrderQuery'
+import FreshLogin from './themes/minimal/fresh/Auth/Login'
+import FreshRegister from './themes/minimal/fresh/Auth/Register'
+import FreshNotFound from './themes/minimal/fresh/NotFound'
+import ZenNavbar from './themes/minimal/zen/Navbar'
+import ZenProducts from './themes/minimal/zen/Products'
+import ZenProductDetail from './themes/minimal/zen/ProductDetail'
+import ZenCheckout from './themes/minimal/zen/Checkout'
+import ZenOrderResult from './themes/minimal/zen/OrderResult'
+import ZenUserCenter from './themes/minimal/zen/UserCenter'
+import ZenOrderQuery from './themes/minimal/zen/OrderQuery'
+import ZenLogin from './themes/minimal/zen/Auth/Login'
+import ZenRegister from './themes/minimal/zen/Auth/Register'
+import ZenNotFound from './themes/minimal/zen/NotFound'
 import NotificationBanner from './components/NotificationBanner'
 import AgentDashboard from './pages/Agent/Dashboard'
 import AgentApply from './pages/AgentApply'
@@ -53,6 +53,13 @@ import Storefront from './pages/Storefront'
 import SaasPage from './pages/Saas'
 import SaasLogin from './pages/Saas/Login'
 import SaasRegister from './pages/Saas/Register'
+// ── SaaS 平台新增页面 ────────────────────────────────────
+import MerchantRegister from './pages/MerchantAuth/Register'
+import MerchantLogin from './pages/MerchantAuth/Login'
+import ManDashboard from './pages/Man/Dashboard'
+import Landing from './pages/Landing'
+import AdminDashboardWithProvider from './pages/Admin/Dashboard'
+import MerchantStorefront from './pages/MerchantStorefront'
 
 // 邮箱验证提示组件
 function EmailVerificationBanner() {
@@ -171,7 +178,7 @@ function ClassicLayoutShell() {
 
 function App() {
     const initTheme = useThemeStore((state) => state.initTheme)
-    const { isAuthenticated, token, updateUser, logout } = useAuthStore()
+    const { isAuthenticated, token, user, updateUser, logout } = useAuthStore()
     const { skin, fetchSkin, skinReady, siteName, siteFavicon } = useSkinStore()
 
     useEffect(() => { initTheme() }, [initTheme])
@@ -217,7 +224,9 @@ function App() {
     // 刷新用户信息（确保 emailVerified 等状态是最新的）
     useEffect(() => {
         if (isAuthenticated && token) {
-            fetch('/api/auth/me', {
+            // 顾客 token 走 customer API；其他角色走 auth API
+            const url = user?.role === 'CUSTOMER' ? '/api/customer/me' : '/api/auth/me'
+            fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
                 .then(res => res.json())
@@ -233,7 +242,7 @@ function App() {
                     // 网络错误，不做处理
                 })
         }
-    }, [isAuthenticated, token])
+    }, [isAuthenticated, token, user?.role])
 
     if (!skinReady) return null
 
@@ -242,9 +251,9 @@ function App() {
             <div className="app">
                 <EmailVerificationBanner />
                 <Routes>
-                    {/* Admin 路由：完全独立，不受皮肤影响 */}
+                    {/* Admin 路由：仅平台超管可访问 /admin */}
                     <Route path="/admin/*" element={
-                        ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'].includes(useAuthStore.getState().user?.role)
+                        ['ADMIN', 'SUPER_ADMIN'].includes(useAuthStore.getState().user?.role)
                             ? <AdminDashboard />
                             : <NotFound />
                     } />
@@ -256,8 +265,22 @@ function App() {
                             : <NotFound />
                     } />
 
-                    {/* 代理分站 */}
+                    {/* 代理分站 /s/:slug */}
                     <Route path="/s/:slug/*" element={<Storefront />} />
+
+                    {/* SaaS 商户店面 /v/:slug （必须在 /v/:slug/admin 之前） */}
+                    <Route path="/v/:slug/admin/*" element={<ShopAdminWrapper />} />
+                    <Route path="/v/:slug/*" element={<MerchantStorefront />} />
+
+                    {/* 商户注册（公开） */}
+                    <Route path="/register" element={<MerchantRegister />} />
+
+                    {/* 商户登录（公开） */}
+                    <Route path="/login" element={<MerchantLogin />} />
+
+                    {/* 平台超管后台 /Man */}
+                    <Route path="/Man/login" element={<MerchantLogin />} />
+                    <Route path="/Man/*" element={<ManDashboard />} />
 
                     {/* SaaS 商户首页 + 独立登录/注册 */}
                     <Route path="/saas" element={<SaasPage />} />
@@ -268,7 +291,10 @@ function App() {
                     {/* 代理申请 */}
                     <Route path="/agent-apply" element={<AgentApply />} />
 
-                    {/* 皮肤路由 */}
+                    {/* 主页 = 招商落地页 */}
+                    <Route path="/" element={<Landing />} />
+
+                    {/* 皮肤路由（原主站商城，现在通过 /store 访问）*/}
                     {skin === 'zen' ? (
                         <Route element={<ZenLayoutShell />}>
                             <Route path="/" element={<ZenProducts />} />
@@ -339,6 +365,16 @@ function App() {
             </div>
         </Router>
     )
+}
+
+// ShopAdmin 路由包装器（商户后台，需要 TENANT_ADMIN 角色）
+function ShopAdminWrapper() {
+    const { slug } = useParams()
+    const role = useAuthStore((s) => s.user?.role)
+    if (!['TENANT_ADMIN', 'SUPER_ADMIN', 'ADMIN'].includes(role)) {
+        return <NotFound />
+    }
+    return <AdminDashboardWithProvider basePath={`/v/${slug}/admin`} />
 }
 
 export default App

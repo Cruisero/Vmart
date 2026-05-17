@@ -79,7 +79,7 @@ exports.getStorefrontProducts = async (req, res, next) => {
 
         const result = products.map(ap => {
             const p = ap.product
-            const basePrice = p.agentBasePrice ? parseFloat(p.agentBasePrice) : parseFloat(p.price)
+            const basePrice = parseFloat(p.price)
             const agentPrice = basePrice + parseFloat(ap.markup)
 
             // 计算库存
@@ -169,7 +169,7 @@ exports.getStorefrontProduct = async (req, res, next) => {
         }
 
         const p = agentProduct.product
-        const basePrice = p.agentBasePrice ? parseFloat(p.agentBasePrice) : parseFloat(p.price)
+        const basePrice = parseFloat(p.price)
         const agentPrice = basePrice + parseFloat(agentProduct.markup)
 
         const stockModeSetting = await prisma.setting.findUnique({ where: { key: 'stockMode' } })
@@ -250,7 +250,7 @@ exports.getTenantProducts = async (req, res, next) => {
                     include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
                 }
             },
-            orderBy: [{ sortScore: 'desc' }, { createdAt: 'desc' }],
+            orderBy: [{ weight: 'desc' }, { createdAt: 'desc' }],
             skip: (page - 1) * Number(limit),
             take: Number(limit)
         })
@@ -310,5 +310,178 @@ exports.getTenantProduct = async (req, res, next) => {
                 _tenantId: req.tenantId
             }
         })
+    } catch (error) { next(error) }
+}
+
+// ==================== SaaS 商户店面（/v/:slug 路由）====================
+// 通过 Tenant.shopSlug 直接查找，无需自定义域名中间件
+
+// 通用：通过 slug 找到 tenant（辅助函数）
+async function findTenantBySlug(slug) {
+    return prisma.tenant.findUnique({
+        where: { shopSlug: slug },
+        select: {
+            id: true, shopName: true, shopSlug: true,
+            shopLogo: true, shopSkin: true, shopNotice: true, status: true
+        }
+    })
+}
+
+// GET /api/v/:slug — 商户店面基础信息
+exports.getMerchantStorefront = async (req, res, next) => {
+    try {
+        const { slug } = req.params
+        const tenant = await findTenantBySlug(slug)
+        if (!tenant || tenant.status !== 'ACTIVE') {
+            return res.status(404).json({ error: '商城不存在或已关闭' })
+        }
+
+        // shop 表保存了 logo 和 settings(含 favicon)
+        const shop = await prisma.shop.findUnique({
+            where: { slug: tenant.shopSlug },
+            select: { logo: true, settings: true, name: true, notice: true, skin: true }
+        })
+
+        let shopFavicon = null
+        if (shop?.settings) {
+            try { shopFavicon = JSON.parse(shop.settings)?.favicon || null } catch {}
+        }
+
+        res.json({
+            storefront: {
+                shopName: tenant.shopName || shop?.name || null,
+                shopSlug: tenant.shopSlug,
+                shopLogo: tenant.shopLogo || shop?.logo || null,
+                shopSkin: tenant.shopSkin || shop?.skin || 'fresh',
+                shopNotice: tenant.shopNotice || shop?.notice || null,
+                shopFavicon,
+                tenantId: tenant.id,
+                _tenantMode: true
+            }
+        })
+    } catch (error) { next(error) }
+}
+
+// GET /api/v/:slug/products — 商户商品列表
+exports.getMerchantProducts = async (req, res, next) => {
+    try {
+        const { slug } = req.params
+        const tenant = await findTenantBySlug(slug)
+        if (!tenant || tenant.status !== 'ACTIVE') {
+            return res.status(404).json({ error: '商城不存在' })
+        }
+
+        const { categoryId, search, page = 1, limit = 20 } = req.query
+        const where = { tenantId: tenant.id, status: 'ACTIVE' }
+        if (categoryId) where.categoryId = categoryId
+        if (search) where.name = { contains: search }
+
+        const products = await prisma.product.findMany({
+            where,
+            include: {
+                category: { select: { id: true, name: true, icon: true } },
+                cards: { where: { status: 'AVAILABLE', tenantId: tenant.id }, select: { id: true } },
+                variants: {
+                    where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
+                    include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+                }
+            },
+            orderBy: [{ weight: 'desc' }, { createdAt: 'desc' }],
+            skip: (page - 1) * Number(limit),
+            take: Number(limit)
+        })
+
+        const categoriesMap = new Map()
+        const result = products.map(p => {
+            if (p.category) categoriesMap.set(p.category.id, p.category)
+            return {
+                id: p.id, name: p.name, description: p.description,
+                image: p.image, images: p.images, price: parseFloat(p.price),
+                originalPrice: p.originalPrice ? parseFloat(p.originalPrice) : null,
+                stock: p.cards.length || p.variants.reduce((s, v) => s + v.cards.length, 0),
+                soldCount: p.soldCount, category: p.category, tags: p.tags,
+                variants: p.variants.map(v => ({
+                    id: v.id, name: v.name, price: parseFloat(v.price), stock: v.cards.length
+                }))
+            }
+        })
+
+        res.json({ products: result, categories: Array.from(categoriesMap.values()) })
+    } catch (error) { next(error) }
+}
+
+// GET /api/v/:slug/products/:productId — 商户商品详情
+exports.getMerchantProduct = async (req, res, next) => {
+    try {
+        const { slug, productId } = req.params
+        const tenant = await findTenantBySlug(slug)
+        if (!tenant || tenant.status !== 'ACTIVE') {
+            return res.status(404).json({ error: '商城不存在' })
+        }
+
+        const product = await prisma.product.findFirst({
+            where: { id: productId, tenantId: tenant.id, status: 'ACTIVE' },
+            include: {
+                category: { select: { id: true, name: true } },
+                cards: { where: { status: 'AVAILABLE', tenantId: tenant.id }, select: { id: true } },
+                variants: {
+                    where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
+                    include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+                }
+            }
+        })
+
+        if (!product) return res.status(404).json({ error: '商品不存在' })
+
+        res.json({
+            product: {
+                id: product.id, name: product.name, description: product.description,
+                fullDescription: product.fullDescription, image: product.image, images: product.images,
+                price: parseFloat(product.price),
+                originalPrice: product.originalPrice ? parseFloat(product.originalPrice) : null,
+                stock: product.cards.length || product.variants.reduce((s, v) => s + v.cards.length, 0),
+                soldCount: product.soldCount, category: product.category, tags: product.tags,
+                deliveryNote: product.deliveryNote, wholesalePrices: product.wholesalePrices,
+                variants: product.variants.map(v => ({
+                    id: v.id, name: v.name, price: parseFloat(v.price), stock: v.cards.length
+                })),
+                _tenantId: tenant.id
+            }
+        })
+    } catch (error) { next(error) }
+}
+
+// GET /api/v/:slug/categories — 商户分类列表（带商品数）
+exports.getMerchantCategories = async (req, res, next) => {
+    try {
+        const { slug } = req.params
+        const tenant = await findTenantBySlug(slug)
+        if (!tenant || tenant.status !== 'ACTIVE') {
+            return res.status(404).json({ error: '商城不存在' })
+        }
+
+        // 取该 tenant 下所有商品涉及到的分类
+        const categories = await prisma.category.findMany({
+            where: {
+                products: { some: { tenantId: tenant.id, status: 'ACTIVE' } }
+            },
+            include: {
+                _count: {
+                    select: {
+                        products: { where: { tenantId: tenant.id, status: 'ACTIVE' } }
+                    }
+                }
+            },
+            orderBy: { sortOrder: 'asc' }
+        })
+
+        const result = categories.map(c => ({
+            id: c.id,
+            name: c.name,
+            icon: c.icon,
+            productCount: c._count.products
+        }))
+
+        res.json({ categories: result })
     } catch (error) { next(error) }
 }

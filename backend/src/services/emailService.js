@@ -268,7 +268,7 @@ const sendVerificationEmail = async (user, token, baseUrl = 'http://localhost:30
     try {
         const config = await getEmailConfig()
 
-        const transporter = await createTransporter(tenantId || product.tenantId)
+        const transporter = await createTransporter(user?.tenantId)
         if (!transporter) {
             console.log('邮件配置不完整，无法发送验证邮件')
             return { success: false, reason: 'config_missing' }

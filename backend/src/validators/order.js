@@ -22,13 +22,22 @@ const createOrderSchema = Joi.object({
     }),
     remark: Joi.string().max(500).optional().allow('', null).messages({
         'string.max': '备注最多500个字符'
-    })
+    }),
+    queryPassword: Joi.string().min(4).max(20).optional().allow(null, '').messages({
+        'string.min': '查询密码至少4位',
+        'string.max': '查询密码最多20位'
+    }),
+    agentSlug: Joi.string().optional().allow(null, '')
 })
 
 // 订单查询验证
 const queryOrderSchema = Joi.object({
     orderNo: Joi.string().optional(),
-    email: Joi.string().email().optional()
+    email: Joi.string().email().optional(),
+    password: Joi.string().min(1).max(50).required().messages({
+        'any.required': '请输入查询密码'
+    }),
+    slug: Joi.string().optional().allow(null, '')
 }).or('orderNo', 'email').messages({
     'object.missing': '请输入订单号或邮箱'
 })

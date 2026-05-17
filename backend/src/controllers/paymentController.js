@@ -15,7 +15,33 @@ const defaultPaymentMethods = [
 // 获取支付方式列表（从数据库读取启用状态）
 exports.getPaymentMethods = async (req, res, next) => {
     try {
-        // 获取支付相关设置
+        // 解析租户：优先 req.tenantId（自定义域名），其次 query.slug 或 query.tenantId（路径模式 /v/:slug）
+        let tenantId = req.tenantId || null
+        if (!tenantId && req.query.slug) {
+            const t = await prisma.tenant.findUnique({
+                where: { shopSlug: req.query.slug },
+                select: { id: true, status: true }
+            })
+            if (t && t.status === 'ACTIVE') tenantId = t.id
+        }
+        if (!tenantId && req.query.tenantId) tenantId = req.query.tenantId
+
+        // 商户店面：从 TenantSetting 读取
+        if (tenantId) {
+            const ts = await prisma.tenantSetting.findUnique({ where: { tenantId } })
+            const methods = defaultPaymentMethods
+                .filter(m => m.id !== 'wechat') // 商户暂不支持微信支付
+                .map(m => {
+                    let enabled = false
+                    if (m.id === 'alipay') enabled = !!ts?.alipayEnabled
+                    else if (m.id === 'usdt') enabled = !!ts?.usdtEnabled
+                    else if (m.id === 'bsc_usdt') enabled = !!ts?.bscUsdtEnabled
+                    return { id: m.id, name: m.name, icon: m.icon, enabled }
+                })
+            return res.json({ methods })
+        }
+
+        // 主站：从 Setting 读取
         const settings = await prisma.setting.findMany({
             where: {
                 key: {
@@ -29,12 +55,11 @@ exports.getPaymentMethods = async (req, res, next) => {
             settingsMap[s.key] = s.value === 'true'
         })
 
-        // 构建支付方式列表，根据设置决定启用状态
         const methods = defaultPaymentMethods.map(method => ({
             id: method.id,
             name: method.name,
             icon: method.icon,
-            enabled: settingsMap[method.settingKey] ?? (method.id === 'alipay') // 默认只支付宝启用
+            enabled: settingsMap[method.settingKey] === true
         }))
 
         res.json({ methods })
@@ -48,19 +73,7 @@ exports.createPayment = async (req, res, next) => {
     try {
         const { orderNo, paymentMethod } = req.body
 
-        // 【安全修复】校验支付方式是否启用
-        const methodConfig = defaultPaymentMethods.find(m => m.id === paymentMethod)
-        if (methodConfig) {
-            const setting = await prisma.setting.findFirst({
-                where: { key: methodConfig.settingKey }
-            })
-            if (!setting || setting.value !== 'true') {
-                logger.warn(`拒绝未启用的支付方式: ${paymentMethod}`)
-                return res.status(400).json({ error: '该支付方式未启用' })
-            }
-        }
-
-        // 查询订单
+        // 查询订单（先查到 tenantId 才能正确判断启用状态）
         const order = await prisma.order.findUnique({
             where: { orderNo }
         })
@@ -71,6 +84,27 @@ exports.createPayment = async (req, res, next) => {
 
         if (order.status !== 'PENDING') {
             return res.status(400).json({ error: '订单状态异常' })
+        }
+
+        // 【安全修复】校验支付方式是否启用（区分租户/主站）
+        const methodConfig = defaultPaymentMethods.find(m => m.id === paymentMethod)
+        if (methodConfig) {
+            let enabled = false
+            if (order.tenantId) {
+                const ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
+                if (paymentMethod === 'alipay') enabled = !!ts?.alipayEnabled
+                else if (paymentMethod === 'usdt') enabled = !!ts?.usdtEnabled
+                else if (paymentMethod === 'bsc_usdt') enabled = !!ts?.bscUsdtEnabled
+            } else {
+                const setting = await prisma.setting.findFirst({
+                    where: { key: methodConfig.settingKey }
+                })
+                enabled = setting?.value === 'true'
+            }
+            if (!enabled) {
+                logger.warn(`拒绝未启用的支付方式: ${paymentMethod} (订单 ${orderNo}, tenantId=${order.tenantId || 'main'})`)
+                return res.status(400).json({ error: '该支付方式未启用' })
+            }
         }
 
         // 创建支付记录
@@ -88,11 +122,25 @@ exports.createPayment = async (req, res, next) => {
             }
         })
 
+        // 解析租户支付配置（如果是租户订单）
+        let tenantPayConfig = null
+        if (order.tenantId) {
+            const ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
+            if (ts?.paymentConfig) {
+                try { tenantPayConfig = JSON.parse(ts.paymentConfig) } catch {}
+            }
+        }
+
         // 根据支付方式生成支付信息
         let paymentData = {}
         if (paymentMethod === 'alipay') {
-            // 使用当面付二维码
-            const result = await generateAlipayQrCode(order, payment)
+            // 使用当面付二维码（租户订单使用商户配置）
+            const tenantSdkConfig = tenantPayConfig ? {
+                appId: tenantPayConfig.alipay_app_id,
+                privateKey: tenantPayConfig.alipay_private_key,
+                alipayPublicKey: tenantPayConfig.alipay_public_key
+            } : null
+            const result = await generateAlipayQrCode(order, payment, tenantSdkConfig)
             paymentData = {
                 paymentType: 'qrcode',
                 qrCode: result.qrCode,
@@ -107,7 +155,12 @@ exports.createPayment = async (req, res, next) => {
             }
         } else if (paymentMethod === 'usdt') {
             const usdtService = require('../services/usdtService')
-            const usdtInfo = await usdtService.createUsdtPayment(order)
+            const overrideConfig = tenantPayConfig ? {
+                WALLET_ADDRESS: tenantPayConfig.usdt_wallet || '',
+                EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
+                ENABLED: true
+            } : null
+            const usdtInfo = await usdtService.createUsdtPayment(order, overrideConfig)
             paymentData = {
                 paymentType: 'usdt',
                 walletAddress: usdtInfo.walletAddress,
@@ -117,7 +170,12 @@ exports.createPayment = async (req, res, next) => {
             }
         } else if (paymentMethod === 'bsc_usdt') {
             const bscUsdtService = require('../services/bscUsdtService')
-            const usdtInfo = await bscUsdtService.createBscUsdtPayment(order)
+            const overrideConfig = tenantPayConfig ? {
+                WALLET_ADDRESS: tenantPayConfig.bsc_usdt_wallet || '',
+                EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
+                ENABLED: true
+            } : null
+            const usdtInfo = await bscUsdtService.createBscUsdtPayment(order, overrideConfig)
             paymentData = {
                 paymentType: 'bsc_usdt',
                 walletAddress: usdtInfo.walletAddress,
@@ -139,13 +197,13 @@ exports.createPayment = async (req, res, next) => {
 }
 
 // 生成支付宝二维码（当面付）
-async function generateAlipayQrCode(order, payment) {
+async function generateAlipayQrCode(order, payment, tenantSdkConfig = null) {
     try {
         const result = await alipayService.createQrCodePayment({
             orderNo: order.orderNo,
             totalAmount: order.totalAmount,
             productName: order.productName
-        })
+        }, tenantSdkConfig)
         return result
     } catch (error) {
         logger.error('支付宝二维码生成失败:', error)
@@ -332,7 +390,7 @@ async function processPaymentSuccess(orderNo, tradeNo, paymentMethod) {
             }
 
             // 通知管理员
-            const { notifyOrderPaid } = require('../services/adminNotifyService')
+            const { notifyOrderPaid } = require('../services/notifyDispatcher')
             notifyOrderPaid(fullOrder).catch(e => logger.error('管理员通知失败:', e))
         } catch (error) {
             logger.error(`订单 ${orderNo} 邮件发送失败:`, error)
@@ -340,7 +398,7 @@ async function processPaymentSuccess(orderNo, tradeNo, paymentMethod) {
     } else {
         logger.info(`订单 ${orderNo} 无卡密，等待管理员手动发货后发送邮件`)
         // 通知管理员需要手动发货
-        const { notifyPendingShip } = require('../services/adminNotifyService')
+        const { notifyPendingShip } = require('../services/notifyDispatcher')
         notifyPendingShip(order).catch(e => logger.error('管理员通知失败:', e))
     }
 }

@@ -3,7 +3,8 @@ const router = express.Router()
 const adminController = require('../controllers/adminController')
 const adminAgent = require('../controllers/adminAgent.controller')
 const sslController = require('../controllers/sslController')
-const { authenticate, isAdmin, isSuperAdmin } = require('../middleware/auth')
+const { authenticate, isAdmin, isSuperAdmin, requirePermission } = require('../middleware/auth')
+const { checkProductLimit } = require('../middleware/planLimits')
 
 // 所有管理员路由需要认证 + 管理员权限（ADMIN 和 SUPER_ADMIN 均可访问）
 router.use(authenticate, isAdmin)
@@ -11,60 +12,63 @@ router.use(authenticate, isAdmin)
 // ==================== 所有管理员可访问 ====================
 
 // 仪表盘统计
-router.get('/dashboard', adminController.getDashboard)
-router.get('/dashboard/trend', adminController.getDashboardTrend)
+router.get('/dashboard', requirePermission('dashboard.view'), adminController.getDashboard)
+router.get('/dashboard/trend', requirePermission('dashboard.view'), adminController.getDashboardTrend)
 
 // 商品管理
-router.get('/products', adminController.getProducts)
-router.post('/products', adminController.createProduct)
-router.put('/products/:id', adminController.updateProduct)
-router.delete('/products/:id', adminController.deleteProduct)
+router.get('/products', requirePermission('products.view'), adminController.getProducts)
+router.post('/products', requirePermission('products.edit'), checkProductLimit, adminController.createProduct)
+router.put('/products/:id', requirePermission('products.edit'), adminController.updateProduct)
+router.delete('/products/:id', requirePermission('products.delete'), adminController.deleteProduct)
 
 // 分类管理
-router.get('/categories', adminController.getCategories)
-router.post('/categories', adminController.createCategory)
-router.put('/categories/:id', adminController.updateCategory)
-router.delete('/categories/:id', adminController.deleteCategory)
+router.get('/categories', requirePermission('products.view'), adminController.getCategories)
+router.post('/categories', requirePermission('products.categories'), adminController.createCategory)
+router.put('/categories/:id', requirePermission('products.categories'), adminController.updateCategory)
+router.delete('/categories/:id', requirePermission('products.categories'), adminController.deleteCategory)
 
 // 订单管理 - 查看 & 发货 & 重发
-router.get('/orders', adminController.getOrders)
-router.put('/orders/:id/status', adminController.updateOrderStatus)
-router.post('/orders/:id/ship', adminController.shipOrder)
-router.post('/orders/:id/resend', adminController.resendCards)
+router.get('/orders', requirePermission('orders.view'), adminController.getOrders)
+router.put('/orders/:id/status', requirePermission('orders.ship'), adminController.updateOrderStatus)
+router.post('/orders/:id/ship', requirePermission('orders.ship'), adminController.shipOrder)
+router.post('/orders/:id/resend', requirePermission('orders.ship'), adminController.resendCards)
 
 // 卡密管理 - 查看 & 导入 & 编辑
-router.get('/cards', adminController.getCards)
-router.post('/cards/import', adminController.importCards)
-router.put('/cards/:id', adminController.updateCard)
+router.get('/cards', requirePermission('cards.view'), adminController.getCards)
+router.post('/cards/import', requirePermission('cards.import'), adminController.importCards)
+router.put('/cards/:id', requirePermission('cards.import'), adminController.updateCard)
 
 // 用户管理 - 查看
-router.get('/users', adminController.getUsers)
+router.get('/users', requirePermission('customers.view'), adminController.getUsers)
 
 // 代理管理
-router.get('/agents', adminAgent.getAgents)
-router.put('/agents/:id/status', adminAgent.updateAgentStatus)
-router.get('/agents/:id/orders', adminAgent.getAgentOrders)
-router.get('/withdrawals', adminAgent.getWithdrawals)
-router.put('/withdrawals/:id', adminAgent.processWithdrawal)
+router.get('/agents', requirePermission('agents.review'), adminAgent.getAgents)
+router.put('/agents/:id/status', requirePermission('agents.review'), adminAgent.updateAgentStatus)
+router.get('/agents/:id/orders', requirePermission('agents.review'), adminAgent.getAgentOrders)
+router.get('/withdrawals', requirePermission('agents.withdraw'), adminAgent.getWithdrawals)
+router.put('/withdrawals/:id', requirePermission('agents.withdraw'), adminAgent.processWithdrawal)
 
 // ==================== 仅超级管理员可访问 ====================
 
-// 订单管理 - 退款 & 删除（高危操作）
-router.post('/orders/:id/refund', isSuperAdmin, adminController.refundOrder)
-router.post('/orders/:id/refund/complete', isSuperAdmin, adminController.completeRefundOrder)
+// 订单管理 - 退款 & 删除（高危操作，所有者可用，子管理员需要权限）
+router.post('/orders/:id/refund', requirePermission('orders.refund'), adminController.refundOrder)
+router.post('/orders/:id/refund/complete', requirePermission('orders.refund'), adminController.completeRefundOrder)
 router.delete('/orders/:id', isSuperAdmin, adminController.deleteOrder)
 
-// 卡密管理 - 删除（高危操作）
-router.delete('/cards/:id', isSuperAdmin, adminController.deleteCard)
-router.post('/cards/batch-delete', isSuperAdmin, adminController.deleteCards)
+// 卡密管理 - 删除（仅子管理员有 cards.delete 才行；所有者直接通过）
+router.delete('/cards/:id', requirePermission('cards.delete'), adminController.deleteCard)
+router.post('/cards/batch-delete', requirePermission('cards.delete'), adminController.deleteCards)
 
 // 用户管理 - 清理 & 角色修改
 router.post('/users/cleanup-unverified', isSuperAdmin, adminController.cleanupUnverifiedAccounts)
 router.patch('/users/:id/role', isSuperAdmin, adminController.updateUserRole)
 
-// 管理员管理（创建 / 删除子管理员）
-router.post('/admins', isSuperAdmin, adminController.createAdmin)
-router.delete('/admins/:id', isSuperAdmin, adminController.deleteAdmin)
+// 管理员管理（创建 / 删除 / 编辑权限）
+router.get('/admins', adminController.getSubAdmins)
+router.get('/admins/permissions/groups', adminController.getPermissionGroups)
+router.post('/admins', adminController.createAdmin)
+router.put('/admins/:id', adminController.updateAdminPermissions)
+router.delete('/admins/:id', adminController.deleteAdmin)
 
 // 系统设置
 router.get('/settings', isAdmin, adminController.getSettings)

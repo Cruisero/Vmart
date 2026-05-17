@@ -173,7 +173,7 @@ exports.dispenseCards = async (orderId, productId, quantity, variantId = null) =
             const alertSetting = await prisma.setting.findUnique({ where: { key: 'stockAlertProductIds' } })
             const alertIds = alertSetting?.value ? JSON.parse(alertSetting.value) : []
             if (alertIds.includes(productId)) {
-                const { notifyLowStock } = require('../services/adminNotifyService')
+                const { notifyLowStock } = require('../services/notifyDispatcher')
                 notifyLowStock(updatedProduct, 0).catch(e => console.error('库存警报邮件发送失败:', e))
             }
         }

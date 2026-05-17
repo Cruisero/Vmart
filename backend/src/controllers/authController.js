@@ -15,7 +15,7 @@ const generateToken = (user) => {
 // 用户注册
 exports.register = async (req, res, next) => {
     try {
-        const { email, password, username, agentSlug } = req.body
+        const { email, password, username, agentSlug, storefrontSlug } = req.body
 
         // 检查邮箱是否已存在
         const existingUser = await prisma.user.findUnique({
@@ -38,6 +38,20 @@ exports.register = async (req, res, next) => {
             }
         }
 
+        // 自动识别店面租户：
+        // 1. 自定义域名场景 — tenantDetect 中间件已通过 Host 头注入 req.tenantId
+        // 2. 路径模式（/v/:slug）— 前端传入 storefrontSlug
+        let tenantId = req.tenantId || null
+        if (!tenantId && storefrontSlug) {
+            const t = await prisma.tenant.findUnique({
+                where: { shopSlug: storefrontSlug },
+                select: { id: true, status: true }
+            })
+            if (t && t.status === 'ACTIVE') {
+                tenantId = t.id
+            }
+        }
+
         // 加密密码
         const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -56,8 +70,8 @@ exports.register = async (req, res, next) => {
                 role,
                 emailVerified: false,
                 verificationToken,
-                referralAgentId
-            
+                referralAgentId,
+                tenantId
             }
         })
         
@@ -122,7 +136,7 @@ exports.register = async (req, res, next) => {
         })
 
         // 通知管理员（异步，不阻塞响应）
-        const { notifyNewUser } = require('../services/adminNotifyService')
+        const { notifyNewUser } = require('../services/notifyDispatcher')
         notifyNewUser(user).catch(e => console.error('管理员通知失败:', e))
     } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
@@ -181,6 +195,8 @@ exports.getCurrentUser = async (req, res, next) => {
                 role: true,
                 avatar: true,
                 emailVerified: true,
+                permissions: true,
+                tenantId: true,
                 createdAt: true
             }
         })
@@ -189,7 +205,18 @@ exports.getCurrentUser = async (req, res, next) => {
             return res.status(404).json({ error: '用户不存在' })
         }
 
-        res.json({ user })
+        // 解析 permissions JSON
+        let permissions = null
+        if (user.role === 'ADMIN' && user.permissions) {
+            try { permissions = JSON.parse(user.permissions) } catch {}
+        }
+
+        res.json({
+            user: {
+                ...user,
+                permissions: user.role === 'ADMIN' ? (permissions || {}) : null
+            }
+        })
     } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 

@@ -7,11 +7,12 @@ import {
     FiCheckCircle, FiAlertCircle, FiInfo, FiAlertTriangle,
     FiChevronDown, FiCheck, FiImage, FiMessageCircle,
     FiClock, FiBell, FiBellOff, FiSend,
-    FiShield, FiUser, FiSearch, FiShare2
+    FiShield, FiUser, FiSearch, FiShare2, FiMonitor
 } from 'react-icons/fi'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuthStore } from '../../../store/authStore'
 import { useSkinStore } from '../../../store/skinStore'
+import { useMerchantStore } from '../../../store/merchantStore'
 import './Dashboard.css'
 import TenantSettings from '../TenantSettings'
 
@@ -173,25 +174,25 @@ function CustomSelect({ value, onChange, options, placeholder, name, required })
 
 // 侧边栏菜单
 const menuItems = [
+    { path: '/admin', icon: FiHome, label: '仪表盘', exact: true, permission: 'dashboard.view' },
+    { path: '/admin/products', icon: FiPackage, label: '商品管理', permission: 'products.view' },
+    { path: '/admin/orders', icon: FiShoppingBag, label: '订单管理', permission: 'orders.view' },
+    { path: '/admin/tickets', icon: FiMessageCircle, label: '工单管理', permission: 'tickets.view' },
+    { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理', permission: 'cards.view' },
+    { path: '/admin/users', icon: FiUsers, label: '用户管理', permission: 'customers.view' },
+    { path: '/admin/agents', icon: FiShare2, label: '代理管理', permission: 'agents.review' },
+    { path: '/admin/settings', icon: FiSettings, label: '商城设置', ownerOnly: true },
     { path: '/admin/setup', icon: FiFlag, label: '新手起航', tenantOnly: true },
-    { path: '/admin/shop-settings', icon: FiMonitor, label: '店铺设置', tenantOnly: true },
-    { path: '/admin', icon: FiHome, label: '仪表盘', exact: true },
-    { path: '/admin/products', icon: FiPackage, label: '商品管理' },
-    { path: '/admin/orders', icon: FiShoppingBag, label: '订单管理' },
-    { path: '/admin/tickets', icon: FiMessageCircle, label: '工单管理' },
-    { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理' },
-    { path: '/admin/users', icon: FiUsers, label: '用户管理', superOnly: true },
-    { path: '/admin/agents', icon: FiShare2, label: '代理管理', superOnly: true },
-    { path: '/admin/tenants', icon: FiUsers, label: '租户商城', superOnly: true },
-    { path: '/admin/settings', icon: FiSettings, label: '系统设置' },
 ]
 
 // 仪表盘首页
 function DashboardHome() {
+    const location = useLocation()
+    const basePath = location.pathname.replace(/\/?$/, '') || '/admin'
     const navigate = useNavigate()
     const token = useAuthStore(state => state.token)
     const user = useAuthStore(state => state.user)
-    const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+    const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)
     const [stats, setStats] = useState({
         totalOrders: 0,
         totalRevenue: 0,
@@ -362,9 +363,9 @@ function DashboardHome() {
                             onClick={() => {
                                 const firstId = stats.stockAlertProducts[0]?.id
                                 if (firstId) {
-                                    navigate(`/admin/cards?productId=${firstId}`)
+                                    navigate(`${basePath}/cards?productId=${firstId}`)
                                 } else {
-                                    navigate('/admin/cards')
+                                    navigate(`${basePath}/cards`)
                                 }
                             }}
                             role="button"
@@ -374,9 +375,9 @@ function DashboardHome() {
                                     e.preventDefault()
                                     const firstId = stats.stockAlertProducts[0]?.id
                                     if (firstId) {
-                                        navigate(`/admin/cards?productId=${firstId}`)
+                                        navigate(`${basePath}/cards?productId=${firstId}`)
                                     } else {
-                                        navigate('/admin/cards')
+                                        navigate(`${basePath}/cards`)
                                     }
                                 }
                             }}
@@ -389,7 +390,7 @@ function DashboardHome() {
                                 {stats.stockAlertProducts.map((p) => (
                                     <Link
                                         key={p.id}
-                                        to={`/admin/cards?productId=${p.id}`}
+                                        to={`${basePath}/cards?productId=${p.id}`}
                                         className="alert-stock-link"
                                         onClick={(e) => e.stopPropagation()}
                                     >
@@ -612,6 +613,9 @@ function DashboardHome() {
 
 // 商品管理
 function ProductsManage() {
+    const location = useLocation()
+    // 推导 basePath：从当前路径反向计算（admin 路径是 .../admin/products）
+    const basePath = location.pathname.replace(/\/products.*$/, '') || '/admin'
     const { showToast, showConfirm } = useToast()
     const token = useAuthStore(state => state.token)
     const navigate = useNavigate()
@@ -625,18 +629,16 @@ function ProductsManage() {
     const [categories, setCategories] = useState([]) // 分类列表
     const [loading, setLoading] = useState(true)
     const [stockMode, setStockMode] = useState('auto') // 'auto' = 库存=卡密数量, 'manual' = 手动设置
-    const [newCategory, setNewCategory] = useState({ name: '', icon: '📦', description: '' })
+    const [newCategory, setNewCategory] = useState({ name: '', icon: '📦' })
+    const [editingCategory, setEditingCategory] = useState(null) // { id, name, icon }
     const [formData, setFormData] = useState({
         name: '',
         description: '',
         fullDescription: '',
         price: '',
-        originalPrice: '',
-        agentBasePrice: '',
         stock: '',
         categoryId: '',
         images: [],
-        tags: '',
         weight: 0,
         variants: [], // 商品规格
         wholesalePrices: [], // 批发价阶梯（无规格时用）
@@ -749,7 +751,7 @@ function ProductsManage() {
             })
             if (!response.ok) throw new Error('添加失败')
             showToast('分类添加成功', 'success')
-            setNewCategory({ name: '', icon: '📦', description: '' })
+            setNewCategory({ name: '', icon: '📦' })
             fetchCategories()
         } catch (error) {
             showToast('添加分类失败', 'error')
@@ -775,6 +777,34 @@ function ProductsManage() {
         })
     }
 
+    // 更新分类
+    const handleUpdateCategory = async () => {
+        if (!editingCategory) return
+        if (!editingCategory.name.trim()) {
+            showToast('请输入分类名称', 'error')
+            return
+        }
+        try {
+            const response = await fetch(`/api/admin/categories/${editingCategory.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: editingCategory.name,
+                    icon: editingCategory.icon
+                })
+            })
+            if (!response.ok) throw new Error('更新失败')
+            showToast('分类已更新', 'success')
+            setEditingCategory(null)
+            fetchCategories()
+        } catch (error) {
+            showToast('更新分类失败', 'error')
+        }
+    }
+
     // 打开分类管理弹窗
     const openCategoryModal = () => {
         fetchCategories()
@@ -790,11 +820,9 @@ function ProductsManage() {
             description: '',
             fullDescription: '',
             price: '',
-            originalPrice: '',
             stock: '',
             categoryId: '',
             images: [],
-            tags: '',
             weight: 0,
             variants: [],
             wholesalePrices: [],
@@ -815,18 +843,14 @@ function ProductsManage() {
             description: product.description || '',
             fullDescription: product.fullDescription || '',
             price: product.price.toString(),
-            originalPrice: product.originalPrice?.toString() || '',
-            agentBasePrice: product.agentBasePrice?.toString() || '',
             stock: product.stock?.toString() || '',
             categoryId: product.categoryId || '',
             images: product.images || [],
-            tags: (product.tags || []).join(', '),
             weight: product.weight || 0,
             variants: (product.variants || []).map(v => ({
                 type: v.type || '',
                 name: v.name,
                 price: v.price.toString(),
-                originalPrice: v.originalPrice?.toString() || '',
                 stock: v.stock?.toString() || '0',
                 wholesalePrices: []
             })),
@@ -879,6 +903,14 @@ function ProductsManage() {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
+        // 校验：必须有规格价格 或 顶层售价
+        const validVariants = formData.variants.filter(v => v.name && v.price)
+        const topPrice = parseFloat(formData.price)
+        if (validVariants.length === 0 && (!topPrice || topPrice <= 0)) {
+            showToast('请添加商品规格，或在"售价"中填写商品价格', 'error')
+            return
+        }
+
         // 准备商品数据
         // 提取图片路径数组
         const imagePaths = formData.images.map(img => {
@@ -886,17 +918,15 @@ function ProductsManage() {
             return img.urls?.medium || img.urls?.original || img
         })
 
+        // 价格：有规格则后端自动取最低；没规格用顶层售价
         const productData = {
             name: formData.name,
             description: formData.description,
             fullDescription: formData.fullDescription,
-            price: parseFloat(formData.price),
-            originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
-            agentBasePrice: formData.agentBasePrice ? parseFloat(formData.agentBasePrice) : null,
+            price: validVariants.length > 0 ? 0 : (parseFloat(formData.price) || 0),
             stock: formData.stock ? parseInt(formData.stock) : 0,
             image: imagePaths[0] || null,
             images: imagePaths,
-            tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : [],
             weight: parseInt(formData.weight) || 0,
             variants: formData.variants.filter(v => v.name && v.price).map(v => ({
                 ...v,
@@ -1069,7 +1099,6 @@ function ProductsManage() {
                             <th>库存</th>
                             <th>已售</th>
                             <th>权重</th>
-                            <th>评分</th>
                             <th>状态</th>
                             <th>操作</th>
                         </tr>
@@ -1097,28 +1126,13 @@ function ProductsManage() {
                                     }}>{product.weight || 0}</span>
                                 </td>
                                 <td>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <div style={{
-                                            width: '40px', height: '4px', borderRadius: '2px',
-                                            background: 'rgba(148,163,184,0.2)', overflow: 'hidden'
-                                        }}>
-                                            <div style={{
-                                                width: `${Math.min(100, (product.sortScore || 0))}%`,
-                                                height: '100%', borderRadius: '2px',
-                                                background: (product.sortScore || 0) > 50 ? '#22c55e' : (product.sortScore || 0) > 20 ? '#f59e0b' : '#94a3b8'
-                                            }} />
-                                        </div>
-                                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{(product.sortScore || 0).toFixed(1)}</span>
-                                    </div>
-                                </td>
-                                <td>
                                     <span className={`status-badge ${product.status?.toLowerCase()}`}>
                                         {product.status === 'ACTIVE' ? '上架' : '下架'}
                                     </span>
                                 </td>
                                 <td className="actions">
                                     <button className="action-btn edit" onClick={() => handleEdit(product)}>编辑</button>
-                                    <button className="action-btn cards" onClick={() => navigate(`/admin/cards?productId=${product.id}`)}>卡密</button>
+                                    <button className="action-btn cards" onClick={() => navigate(`${basePath}/cards?productId=${product.id}`)}>卡密</button>
                                     <button
                                         className={`action-btn ${stockAlertIds.includes(product.id) ? 'alert-on' : 'alert-off'}`}
                                         onClick={(e) => { e.stopPropagation(); toggleStockAlert(product.id) }}
@@ -1287,18 +1301,7 @@ function ProductsManage() {
                                                                     step="0.01"
                                                                     style={{ flex: 1 }}
                                                                 />
-                                                                <input
-                                                                    type="number"
-                                                                    placeholder="原价"
-                                                                    value={variant.originalPrice}
-                                                                    onChange={(e) => {
-                                                                        const newVariants = [...formData.variants]
-                                                                        newVariants[variant.originalIndex].originalPrice = e.target.value
-                                                                        setFormData({ ...formData, variants: newVariants })
-                                                                    }}
-                                                                    step="0.01"
-                                                                    style={{ flex: 1 }}
-                                                                />
+                                                                {stockMode === 'manual' && (
                                                                 <input
                                                                     type="number"
                                                                     placeholder="库存"
@@ -1310,6 +1313,7 @@ function ProductsManage() {
                                                                     }}
                                                                     style={{ flex: 1 }}
                                                                 />
+                                                                )}
                                                                 <button
                                                                     type="button"
                                                                     className="remove-variant-btn"
@@ -1334,7 +1338,7 @@ function ProductsManage() {
                                                                     type: typeName === '默认' ? '' : typeName,
                                                                     name: '',
                                                                     price: '',
-                                                                    originalPrice: '',
+                                                                    
                                                                     stock: '0'
                                                                 }]
                                                             })
@@ -1359,7 +1363,7 @@ function ProductsManage() {
                                                         type: newTypeName,
                                                         name: '',
                                                         price: '',
-                                                        originalPrice: '',
+                                                        
                                                         stock: '0'
                                                     }]
                                                 })
@@ -1409,18 +1413,7 @@ function ProductsManage() {
                                                     step="0.01"
                                                     style={{ flex: 1 }}
                                                 />
-                                                <input
-                                                    type="number"
-                                                    placeholder="原价"
-                                                    value={variant.originalPrice}
-                                                    onChange={(e) => {
-                                                        const newVariants = [...formData.variants]
-                                                        newVariants[index].originalPrice = e.target.value
-                                                        setFormData({ ...formData, variants: newVariants })
-                                                    }}
-                                                    step="0.01"
-                                                    style={{ flex: 1 }}
-                                                />
+                                                {stockMode === 'manual' && (
                                                 <input
                                                     type="number"
                                                     placeholder="库存"
@@ -1432,6 +1425,7 @@ function ProductsManage() {
                                                     }}
                                                     style={{ flex: 1 }}
                                                 />
+                                                )}
                                                 <button
                                                     type="button"
                                                     className="remove-variant-btn"
@@ -1451,7 +1445,7 @@ function ProductsManage() {
                                             onClick={() => {
                                                 setFormData({
                                                     ...formData,
-                                                    variants: [...formData.variants, { name: '', price: '', originalPrice: '', stock: '0' }]
+                                                    variants: [...formData.variants, { name: '', price: '',  stock: '0' }]
                                                 })
                                             }}
                                         >
@@ -1461,60 +1455,38 @@ function ProductsManage() {
                                 )}
                             </div>
 
-                            {/* 无规格时显示价格和库存输入 */}
-                            {!(formData.variants.length > 0 && formData.variants.some(v => v.name)) && (
-                                <div className="form-row">
+                            {/* 售价 + 库存（始终显示售价；手动库存模式 + 无规格才显示库存） */}
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>售价 *</label>
+                                    <input
+                                        type="number"
+                                        name="price"
+                                        value={formData.price}
+                                        onChange={handleChange}
+                                        placeholder="0.00"
+                                        step="0.01"
+                                        required={!(formData.variants.length > 0 && formData.variants.some(v => v.name))}
+                                    />
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                        添加商品规格后，售价以规格价格为准
+                                    </span>
+                                </div>
+                                {!(formData.variants.length > 0 && formData.variants.some(v => v.name)) && stockMode === 'manual' && (
                                     <div className="form-group">
-                                        <label>售价 *</label>
+                                        <label>库存 *</label>
                                         <input
                                             type="number"
-                                            name="price"
-                                            value={formData.price}
+                                            name="stock"
+                                            value={formData.stock}
                                             onChange={handleChange}
-                                            placeholder="0.00"
-                                            step="0.01"
+                                            placeholder="0"
+                                            min="0"
                                             required
                                         />
                                     </div>
-                                    <div className="form-group">
-                                        <label>原价</label>
-                                        <input
-                                            type="number"
-                                            name="originalPrice"
-                                            value={formData.originalPrice}
-                                            onChange={handleChange}
-                                            placeholder="0.00"
-                                            step="0.01"
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>代理底价</label>
-                                        <input
-                                            type="number"
-                                            name="agentBasePrice"
-                                            value={formData.agentBasePrice}
-                                            onChange={handleChange}
-                                            placeholder="留空则使用售价"
-                                            step="0.01"
-                                        />
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>代理商的进货底价，留空则使用商品售价</span>
-                                    </div>
-                                    {stockMode === 'manual' && (
-                                        <div className="form-group">
-                                            <label>库存 *</label>
-                                            <input
-                                                type="number"
-                                                name="stock"
-                                                value={formData.stock}
-                                                onChange={handleChange}
-                                                placeholder="0"
-                                                min="0"
-                                                required
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                )}
+                            </div>
 
                             {/* 批发价设置 —— 独立区块，有规格时通过下拉绑定规格名称 */}
                             <div className="form-group wholesale-section">
@@ -1684,7 +1656,7 @@ function ProductsManage() {
                             </div>
 
                             <div className="form-group">
-                                <label>商品类别 *</label>
+                                <label>商品类别</label>
                                 <CustomSelect
                                     name="categoryId"
                                     value={formData.categoryId}
@@ -1694,16 +1666,6 @@ function ProductsManage() {
                                         value: cat.id,
                                         label: `${cat.icon} ${cat.name}`
                                     }))}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>商品标签 <span style={{ color: '#999', fontWeight: 'normal' }}>(多个标签用逗号分隔，如：热销, 推荐, 限时)</span></label>
-                                <input
-                                    type="text"
-                                    name="tags"
-                                    value={formData.tags}
-                                    onChange={handleChange}
-                                    placeholder="热销, 推荐, 限时优惠"
                                 />
                             </div>
                             <div className="form-group">
@@ -1865,16 +1827,6 @@ function ProductsManage() {
                                         className="input"
                                         style={{ flex: 1 }}
                                     />
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <input
-                                        type="text"
-                                        placeholder="分类描述 (可选)"
-                                        value={newCategory.description}
-                                        onChange={e => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-                                        className="input"
-                                        style={{ flex: 1 }}
-                                    />
                                     <button className="btn btn-primary" onClick={handleAddCategory}>添加</button>
                                 </div>
                             </div>
@@ -1889,32 +1841,78 @@ function ProductsManage() {
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {categories.map(cat => (
-                                            <div key={cat.id} style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '12px 16px',
-                                                background: 'var(--bg-secondary)',
-                                                borderRadius: '8px',
-                                                border: '1px solid var(--border-color)'
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <span style={{ fontSize: '24px' }}>{cat.icon}</span>
-                                                    <div>
-                                                        <div style={{ fontWeight: '500' }}>{cat.name}</div>
-                                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                            {cat.productCount || 0} 个商品
-                                                        </div>
+                                            editingCategory?.id === cat.id ? (
+                                                <div key={cat.id} style={{
+                                                    padding: '12px 16px',
+                                                    background: 'var(--bg-secondary)',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid var(--primary, #ff6b35)',
+                                                    display: 'flex', flexDirection: 'column', gap: 8
+                                                }}>
+                                                    <div style={{ display: 'flex', gap: 8 }}>
+                                                        <input
+                                                            type="text"
+                                                            value={editingCategory.icon}
+                                                            onChange={e => setEditingCategory(prev => ({ ...prev, icon: e.target.value }))}
+                                                            className="input"
+                                                            style={{ width: 70, textAlign: 'center', fontSize: 18 }}
+                                                            placeholder="图标"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={editingCategory.name}
+                                                            onChange={e => setEditingCategory(prev => ({ ...prev, name: e.target.value }))}
+                                                            className="input"
+                                                            style={{ flex: 1 }}
+                                                            placeholder="分类名称"
+                                                        />
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            className="btn btn-secondary"
+                                                            onClick={() => setEditingCategory(null)}
+                                                            style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                                                        >取消</button>
+                                                        <button
+                                                            className="btn btn-primary"
+                                                            onClick={handleUpdateCategory}
+                                                            style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                                                        >保存</button>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    className="action-btn delete"
-                                                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                                                    style={{ padding: '6px 12px' }}
-                                                >
-                                                    删除
-                                                </button>
-                                            </div>
+                                            ) : (
+                                                <div key={cat.id} style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '12px 16px',
+                                                    background: 'var(--bg-secondary)',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid var(--border-color)'
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <span style={{ fontSize: '24px' }}>{cat.icon}</span>
+                                                        <div>
+                                                            <div style={{ fontWeight: '500' }}>{cat.name}</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                                {cat.productCount || 0} 个商品
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 8 }}>
+                                                        <button
+                                                            className="action-btn edit"
+                                                            onClick={() => setEditingCategory({ id: cat.id, name: cat.name, icon: cat.icon || '📦' })}
+                                                            style={{ padding: '6px 12px' }}
+                                                        >编辑</button>
+                                                        <button
+                                                            className="action-btn delete"
+                                                            onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                                                            style={{ padding: '6px 12px' }}
+                                                        >删除</button>
+                                                    </div>
+                                                </div>
+                                            )
                                         ))}
                                     </div>
                                 )}
@@ -3561,6 +3559,9 @@ function CardsManage() {
 
 // 用户管理
 function UsersManage() {
+    const location = useLocation()
+    const basePath = location.pathname.replace(/\/users.*$/, '') || '/admin'
+    const [agentEnabled, setAgentEnabled] = useState(true) // 默认显示，待配置加载
     const navigate = useNavigate()
     const { showToast, showConfirm } = useToast()
     const token = useAuthStore(state => state.token)
@@ -3577,6 +3578,18 @@ function UsersManage() {
     const [adminCount, setAdminCount] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
     const pageSize = 20
+
+    // 拉取代理开关状态
+    useEffect(() => {
+        if (!token) return
+        fetch('/api/admin/settings', { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.json())
+            .then(d => {
+                const v = d?.settings?.agentEnabled
+                setAgentEnabled(v === true || v === 'true')
+            })
+            .catch(() => {})
+    }, [token])
     const searchTimerRef = useRef(null)
     const [showCreateAdmin, setShowCreateAdmin] = useState(false)
     const [newAdmin, setNewAdmin] = useState({ email: '', password: '', username: '' })
@@ -3707,7 +3720,10 @@ function UsersManage() {
     const getRoleLabel = (role) => {
         switch (role) {
             case 'SUPER_ADMIN': return '超级管理员'
+            case 'TENANT_ADMIN': return '商城所有者'
             case 'ADMIN': return '管理员'
+            case 'AGENT': return '代理商'
+            case 'CUSTOMER': return '顾客'
             default: return '普通用户'
         }
     }
@@ -3812,7 +3828,7 @@ function UsersManage() {
                     )}
                 </div>
                 <div className="users-role-tabs">
-                    {[['all', '全部'], ['USER', '普通用户'], ['ADMIN', '管理员']].map(([val, label]) => (
+                    {[['all', '全部'], ['CUSTOMER', '顾客'], ['ADMIN', '管理员'], ['TENANT_ADMIN', '所有者']].map(([val, label]) => (
                         <button
                             key={val}
                             className={`users-role-tab${roleFilter === val ? ' active' : ''}`}
@@ -3843,7 +3859,7 @@ function UsersManage() {
                             <tr>
                                 <th>用户</th>
                                 <th>角色</th>
-                                <th>来源</th>
+                                {agentEnabled && <th>来源</th>}
                                 <th>订单数</th>
                                 <th>注册时间</th>
                                 <th>操作</th>
@@ -3880,18 +3896,18 @@ function UsersManage() {
                                         )}
                                     </td>
                                     <td>
-                                        {user.referralAgent ? (
+                                        {agentEnabled && (user.referralAgent ? (
                                             <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5' }}>
                                                 {user.referralAgent.shopName}
                                             </span>
                                         ) : (
                                             <span style={{ fontSize: '0.78rem', color: '#D1D5DB' }}>主站</span>
-                                        )}
+                                        ))}
                                     </td>
                                     <td>{user._count?.orders || 0}</td>
                                     <td className="time">{new Date(user.createdAt).toLocaleDateString('zh-CN')}</td>
                                     <td className="actions">
-                                        <button className="action-btn edit" onClick={() => navigate(`/admin/orders?userId=${user.id}`)}>查看订单</button>
+                                        <button className="action-btn edit" onClick={() => navigate(`${basePath}/orders?userId=${user.id}`)}>查看订单</button>
                                         {isSuperAdmin && user.role === 'ADMIN' && (
                                             <button className="action-btn delete" onClick={() => handleDeleteAdmin(user.id, user.username || user.email)}>移除管理</button>
                                         )}
@@ -4896,7 +4912,6 @@ function SettingsPage() {
         // 基本设置
         siteName: 'HaoDongXi',
         siteDescription: '虚拟物品自动发卡平台',
-        contactEmail: 'support@kashop.com',
         frontend_skin: 'classic',
         siteLogo: '',
         siteFavicon: '',
@@ -5101,9 +5116,7 @@ function SettingsPage() {
         { id: 'order', label: '订单设置' },
         { id: 'email', label: '邮件设置' },
         { id: 'notify', label: '通知设置' },
-        { id: 'admin', label: '管理员设置' },
-        { id: 'security', label: '安全策略' },
-        { id: 'backup', label: '数据库备份' }
+        { id: 'admin', label: '管理员设置' }
     ]
 
     return (
@@ -5153,15 +5166,6 @@ function SettingsPage() {
                                 onChange={(e) => handleChange('siteDescription', e.target.value)}
                                 placeholder="网站描述"
                                 rows={3}
-                            />
-                        </div>
-                        <div className="setting-item">
-                            <label>联系邮箱</label>
-                            <input
-                                type="email"
-                                value={settings.contactEmail}
-                                onChange={(e) => handleChange('contactEmail', e.target.value)}
-                                placeholder="客服邮箱"
                             />
                         </div>
 
@@ -5290,131 +5294,6 @@ function SettingsPage() {
                                 )}
                             </div>
                         </div>
-
-                        <div className="setting-item">
-                            <label>前台界面主题</label>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
-                                {/* 原生主题 */}
-                                <div style={{
-                                    borderRadius: 12,
-                                    border: `2px solid ${settings.frontend_skin === 'classic' ? '#4F46E5' : 'var(--border-color)'}`,
-                                    overflow: 'hidden',
-                                    transition: 'border-color 0.2s',
-                                }}>
-                                    <div style={{
-                                        padding: '10px 16px',
-                                        background: 'var(--bg-secondary)',
-                                        borderBottom: '1px solid var(--border-color)',
-                                        display: 'flex', alignItems: 'center', gap: 8,
-                                    }}>
-                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>原生主题</span>
-                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: 4, fontWeight: 500 }}>功能完整</span>
-                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>搜索 · 购物车 · 工单 · 完整用户中心</span>
-                                    </div>
-                                    <label style={{
-                                        display: 'flex', alignItems: 'center', gap: 10,
-                                        padding: '12px 16px', cursor: 'pointer',
-                                        background: settings.frontend_skin === 'classic' ? 'rgba(79,70,229,0.06)' : 'transparent',
-                                        transition: 'background 0.15s',
-                                    }}>
-                                        <input type="radio" name="frontend_skin" value="classic"
-                                            checked={settings.frontend_skin === 'classic'}
-                                            onChange={() => handleChange('frontend_skin', 'classic')}
-                                            style={{ accentColor: '#4F46E5' }}
-                                        />
-                                        <div>
-                                            <div style={{ fontWeight: 600, fontSize: '0.88rem', color: settings.frontend_skin === 'classic' ? '#4F46E5' : 'var(--text-primary)' }}>经典风格</div>
-                                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 1 }}>深色顶部导航栏</div>
-                                        </div>
-                                    </label>
-                                </div>
-
-                                {/* 简约主题 */}
-                                <div style={{
-                                    borderRadius: 12,
-                                    border: `2px solid ${['fresh','zen'].includes(settings.frontend_skin) ? '#4F46E5' : 'var(--border-color)'}`,
-                                    overflow: 'hidden',
-                                    transition: 'border-color 0.2s',
-                                }}>
-                                    <div style={{
-                                        padding: '10px 16px',
-                                        background: 'var(--bg-secondary)',
-                                        borderBottom: '1px solid var(--border-color)',
-                                        display: 'flex', alignItems: 'center', gap: 8,
-                                    }}>
-                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>简约主题</span>
-                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(59,130,246,0.1)', padding: '2px 8px', borderRadius: 4, fontWeight: 500 }}>精简轻量</span>
-                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>快速下单 · 订单查询</span>
-                                    </div>
-                                    {[
-                                        { value: 'fresh', label: 'Fresh 清新', desc: '白色左侧边栏布局' },
-                                        { value: 'zen',   label: 'Zen 极简',   desc: '日式极简留白设计' },
-                                    ].map((opt, i) => (
-                                        <label key={opt.value} style={{
-                                            display: 'flex', alignItems: 'center', gap: 10,
-                                            padding: '12px 16px', cursor: 'pointer',
-                                            background: settings.frontend_skin === opt.value ? 'rgba(79,70,229,0.06)' : 'transparent',
-                                            borderTop: i > 0 ? '1px solid var(--border-color)' : 'none',
-                                            transition: 'background 0.15s',
-                                        }}>
-                                            <input type="radio" name="frontend_skin" value={opt.value}
-                                                checked={settings.frontend_skin === opt.value}
-                                                onChange={() => handleChange('frontend_skin', opt.value)}
-                                                style={{ accentColor: '#4F46E5' }}
-                                            />
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '0.88rem', color: settings.frontend_skin === opt.value ? '#4F46E5' : 'var(--text-primary)' }}>{opt.label}</div>
-                                                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 1 }}>{opt.desc}</div>
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 通知栏设置 */}
-                    <div className="settings-section" style={{ marginTop: 24 }}>
-                        <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            📢 首页通知栏
-                        </h3>
-                        <div className="setting-item toggle-item">
-                            <div className="toggle-info">
-                                <span className="toggle-label">启用通知栏</span>
-                                <span className="toggle-desc">开启后，前台页面导航栏下方将显示滚动通知</span>
-                            </div>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.notificationEnabled}
-                                    onChange={(e) => handleChange('notificationEnabled', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </div>
-                        {settings.notificationEnabled && (
-                            <>
-                                <div className="setting-item">
-                                    <label>通知内容</label>
-                                    <input
-                                        type="text"
-                                        value={settings.notificationText}
-                                        onChange={(e) => handleChange('notificationText', e.target.value)}
-                                        placeholder="例如：全场商品限时8折，欢迎选购！"
-                                    />
-                                    <span className="setting-hint">支持纯文本内容，会在通知栏中滚动展示</span>
-                                </div>
-                                <div className="setting-item">
-                                    <label>跳转链接（可选）</label>
-                                    <input
-                                        type="url"
-                                        value={settings.notificationLink}
-                                        onChange={(e) => handleChange('notificationLink', e.target.value)}
-                                        placeholder="https://example.com（留空则通知栏不可点击）"
-                                    />
-                                </div>
-                            </>
-                        )}
                     </div>
                     </>
                 )}
@@ -5852,165 +5731,6 @@ function SettingsPage() {
                     </div>
                 )}
 
-                {activeTab === 'security' && (
-                    <div className="settings-section">
-                        <div className="setting-item toggle-item">
-                            <div className="toggle-info">
-                                <label>启用安全策略</label>
-                                <span className="toggle-desc">总开关，关闭后将跳过黑名单与专项限流</span>
-                            </div>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.securityEnabled}
-                                    onChange={(e) => handleChange('securityEnabled', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div className="setting-item toggle-item">
-                            <div className="toggle-info">
-                                <label>IP 黑名单拦截</label>
-                                <span className="toggle-desc">支持单 IP 和 CIDR 网段，命中后直接拒绝请求</span>
-                            </div>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.securityEnableIpBlock}
-                                    onChange={(e) => handleChange('securityEnableIpBlock', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div className="setting-item">
-                            <label>IP 黑名单（每行或逗号分隔）</label>
-                            <textarea
-                                value={settings.securityBlockedIps}
-                                onChange={(e) => handleChange('securityBlockedIps', e.target.value)}
-                                placeholder={'示例:\n1.2.3.4\n45.67.0.0/16'}
-                                rows={4}
-                            />
-                            <span className="setting-hint">将作用于注册、订单查询、工单创建等关键接口</span>
-                        </div>
-
-                        <div className="setting-item toggle-item">
-                            <div className="toggle-info">
-                                <label>邮箱后缀黑名单</label>
-                                <span className="toggle-desc">拦截指定邮箱域名的注册、订单查询、工单创建</span>
-                            </div>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.securityEnableEmailSuffixBlock}
-                                    onChange={(e) => handleChange('securityEnableEmailSuffixBlock', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div className="setting-item">
-                            <label>邮箱后缀黑名单（每行或逗号分隔）</label>
-                            <textarea
-                                value={settings.securityBlockedEmailSuffixes}
-                                onChange={(e) => handleChange('securityBlockedEmailSuffixes', e.target.value)}
-                                placeholder={'示例:\nsharebot.net\nmailinator.com'}
-                                rows={4}
-                            />
-                            <span className="setting-hint">只写域名后缀即可，不需要带 @</span>
-                        </div>
-
-                        <div className="setting-item toggle-item">
-                            <div className="toggle-info">
-                                <label>工单要求已验证邮箱</label>
-                                <span className="toggle-desc">未验证邮箱账号无法提交新工单</span>
-                            </div>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.securityRequireVerifiedForTicket}
-                                    onChange={(e) => handleChange('securityRequireVerifiedForTicket', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div className="setting-item">
-                            <label>注册限流（次数 / 窗口分钟）</label>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={500}
-                                    value={settings.securityRegisterLimitMax}
-                                    onChange={(e) => handleChange('securityRegisterLimitMax', parseInt(e.target.value) || 1)}
-                                    style={{ width: '120px' }}
-                                />
-                                <span>/</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={1440}
-                                    value={settings.securityRegisterLimitWindowMinutes}
-                                    onChange={(e) => handleChange('securityRegisterLimitWindowMinutes', parseInt(e.target.value) || 1)}
-                                    style={{ width: '120px' }}
-                                />
-                                <span>分钟</span>
-                            </div>
-                        </div>
-
-                        <div className="setting-item">
-                            <label>订单查询限流（次数 / 窗口分钟）</label>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={1000}
-                                    value={settings.securityOrderQueryLimitMax}
-                                    onChange={(e) => handleChange('securityOrderQueryLimitMax', parseInt(e.target.value) || 1)}
-                                    style={{ width: '120px' }}
-                                />
-                                <span>/</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={1440}
-                                    value={settings.securityOrderQueryLimitWindowMinutes}
-                                    onChange={(e) => handleChange('securityOrderQueryLimitWindowMinutes', parseInt(e.target.value) || 1)}
-                                    style={{ width: '120px' }}
-                                />
-                                <span>分钟</span>
-                            </div>
-                        </div>
-
-                        <div className="setting-item">
-                            <label>工单创建限流（次数 / 窗口分钟）</label>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={200}
-                                    value={settings.securityTicketCreateLimitMax}
-                                    onChange={(e) => handleChange('securityTicketCreateLimitMax', parseInt(e.target.value) || 1)}
-                                    style={{ width: '120px' }}
-                                />
-                                <span>/</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={1440}
-                                    value={settings.securityTicketCreateLimitWindowMinutes}
-                                    onChange={(e) => handleChange('securityTicketCreateLimitWindowMinutes', parseInt(e.target.value) || 1)}
-                                    style={{ width: '120px' }}
-                                />
-                                <span>分钟</span>
-                            </div>
-                            <span className="setting-hint">按“用户ID+IP”联合维度计数，更适合拦截机器人轰炸</span>
-                        </div>
-                    </div>
-                )}
-
                 {activeTab === 'admin' && (
                     <div className="settings-section">
                         <div className="setting-item toggle-item">
@@ -6094,21 +5814,40 @@ function SettingsPage() {
                     </div>
                 )}
 
-                {activeTab === 'backup' && (
-                    <BackupSettings token={token} settings={settings} handleChange={handleChange} showToast={showToast} />
-                )}
             </div>
         </div>
     )
 }
 
 // 管理后台主组件
-function AdminDashboard() {
+function AdminDashboard({ basePath = '/admin' }) {
     const location = useLocation()
     const navigate = useNavigate()
     const { logout, user } = useAuthStore()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+    const [agentEnabled, setAgentEnabled] = useState(false)
+    const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)
+
+    // 拉取代理开关状态
+    useEffect(() => {
+        // 已登录管理员（含 TENANT_ADMIN）：用 /api/admin/settings 拿到当前租户的 agentEnabled
+        const token = useAuthStore.getState().token
+        if (token) {
+            fetch('/api/admin/settings', { headers: { Authorization: `Bearer ${token}` } })
+                .then(r => r.json())
+                .then(d => {
+                    const v = d?.settings?.agentEnabled
+                    setAgentEnabled(v === true || v === 'true')
+                })
+                .catch(() => {})
+        } else {
+            // 兜底：访问公开设置（主站时使用）
+            fetch('/api/settings/public')
+                .then(r => r.json())
+                .then(d => setAgentEnabled(d.settings?.agentEnabled === 'true'))
+                .catch(() => {})
+        }
+    }, [])
 
     const handleLogout = () => {
         logout()
@@ -6117,10 +5856,27 @@ function AdminDashboard() {
 
     // 根据角色过滤菜单项
     const isTenantAdmin = user?.role === 'TENANT_ADMIN';
-    const visibleMenuItems = menuItems.filter(item => {
-        if (item.superOnly && !isSuperAdmin) return false;
-        if (item.path === '/admin/settings' && !isSuperAdmin && !isTenantAdmin) return false;
+
+    // 将 menuItems 里的 /admin 前缀替换为实际 basePath
+    const resolvedMenuItems = menuItems.map(item => ({
+        ...item,
+        resolvedPath: item.path === '/admin'
+            ? basePath
+            : item.path.replace('/admin/', basePath + '/')
+    }))
+
+    const visibleMenuItems = resolvedMenuItems.filter(item => {
+        if (item.superOnly && user?.role !== 'SUPER_ADMIN') return false;
         if (item.tenantOnly && !isTenantAdmin) return false;
+        // 仅所有者可见的菜单（如商城设置）
+        if (item.ownerOnly && !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)) return false;
+        // 代理管理仅在开启代理体系时显示
+        if (item.path === '/admin/agents' && !agentEnabled) return false;
+        // 子管理员（ADMIN）按 permissions 过滤
+        if (user?.role === 'ADMIN' && item.permission) {
+            const perms = user.permissions || {}
+            if (!perms[item.permission]) return false
+        }
         return true;
     })
 
@@ -6138,12 +5894,12 @@ function AdminDashboard() {
                 <nav className="sidebar-nav">
                     {visibleMenuItems.map(item => {
                         const isActive = item.exact
-                            ? location.pathname === item.path
-                            : location.pathname.startsWith(item.path)
+                            ? location.pathname === item.resolvedPath
+                            : location.pathname.startsWith(item.resolvedPath)
                         return (
                             <Link
-                                key={item.path}
-                                to={item.path}
+                                key={item.resolvedPath}
+                                to={item.resolvedPath}
                                 className={`nav-item ${isActive ? 'active' : ''}`}
                             >
                                 <item.icon />
@@ -6181,7 +5937,7 @@ function AdminDashboard() {
                     <Route path="tenants" element={<TenantsManage />} />
                     <Route path="setup" element={<SetupGuidePage />} />
                     <Route path="shop-settings" element={<TenantSettings />} />
-                    <Route path="settings" element={<SettingsPage />} />
+                    <Route path="settings" element={<TenantSettings />} />
                 </Routes>
             </main>
         </div>
@@ -6191,62 +5947,230 @@ function AdminDashboard() {
 
 // 新手起航页面
 function SetupGuidePage() {
-    const [stats, setStats] = useState({ totalProducts: 0 });
+    const location = useLocation()
+    const basePath = location.pathname.replace(/\/setup.*$/, '') || '/admin'
+    const [stats, setStats] = useState({ totalProducts: 0, totalOrders: 0 });
+    const [tenant, setTenant] = useState(null);
+    const [shop, setShop] = useState(null);
+    const [copiedKey, setCopiedKey] = useState(null);
     const token = useAuthStore(state => state.token);
+    const mShop = useMerchantStore(state => state.shop);
 
     useEffect(() => {
         if (token) {
             fetch('/api/admin/dashboard', { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(r => r.json())
                 .then(data => {
-                    if(data.stats) setStats(data.stats);
+                    setStats({
+                        totalProducts: data.totalProducts || 0,
+                        totalOrders: data.totalOrders || 0
+                    })
                 })
-                .catch(e => console.error(e));
+                .catch(() => {});
+            fetch('/api/tenant/me', { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(r => r.json())
+                .then(data => { if (data.tenant) setTenant(data.tenant) })
+                .catch(() => {});
         }
     }, [token]);
 
+    const hasProducts = stats.totalProducts > 0;
+    const hasDomain = tenant?.domains?.some(d => d.dnsVerified);
+    const hasPaidPlan = mShop?.plan && mShop.plan !== 'FREE';
+    const hasPayment = tenant?.settings?.alipayEnabled || tenant?.settings?.usdtEnabled || tenant?.settings?.bscUsdtEnabled;
+    const hasOrders = stats.totalOrders > 0;
+
+    const handleCopyShopLink = async () => {
+        const url = `${window.location.origin}/v/${tenant?.shopSlug || mShop?.slug || ''}`
+        try {
+            await navigator.clipboard.writeText(url)
+        } catch {
+            // fallback for non-secure context
+            const ta = document.createElement('textarea')
+            ta.value = url; document.body.appendChild(ta)
+            ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+        }
+        setCopiedKey('share')
+        setTimeout(() => setCopiedKey(null), 1500)
+    }
+
+    const steps = [
+        {
+            key: 'product',
+            icon: '📦',
+            title: '发布第一款商品',
+            desc: '添加商品信息和卡密库存，让买家可以下单购买',
+            done: hasProducts,
+            action: { label: '去上架', to: `${basePath}/products` }
+        },
+        {
+            key: 'payment',
+            icon: '💳',
+            title: '配置收款方式',
+            desc: '设置支付宝或 USDT 收款，买家付款后资金直达您的账户',
+            done: hasPayment,
+            action: { label: '去配置', to: `${basePath}/shop-settings` }
+        },
+        {
+            key: 'plan',
+            icon: '💎',
+            title: '升级套餐',
+            desc: '免费试用到期后需升级套餐才能继续接单，升级后解锁更多功能',
+            done: hasPaidPlan,
+            action: { label: '选择套餐', to: `${basePath}/shop-settings` },
+            highlight: !hasPaidPlan
+        },
+        {
+            key: 'domain',
+            icon: '🌐',
+            title: '绑定独立域名',
+            desc: '使用自己的域名访问商城，提升品牌专业度（专业版功能）',
+            done: hasDomain,
+            action: { label: '去绑定', to: `${basePath}/shop-settings` },
+            optional: true
+        },
+        {
+            key: 'share',
+            icon: '🚀',
+            title: '完成第一笔订单',
+            desc: '将商城地址分享给客户，开始接收第一笔订单',
+            done: hasOrders,
+            action: {
+                label: copiedKey === 'share' ? '✓ 已复制' : '复制链接',
+                onClick: handleCopyShopLink,
+                copied: copiedKey === 'share'
+            }
+        },
+    ];
+
+    const completedCount = steps.filter(s => s.done).length;
+    const progress = Math.round((completedCount / steps.length) * 100);
+
     return (
         <div className="dashboard-content">
-            <h2 className="page-title">新手向导</h2>
-            <div className="setup-guide-card" style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border-color)', maxWidth: '800px', margin: '0 auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-                    <div style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8', padding: '12px', borderRadius: '12px' }}><FiPackage size={24} /></div>
-                    <div>
-                        <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>开启您的数字商城营业之旅</h3>
-                        <p style={{ margin: '6px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>完成以下基础设置，即可正式营业并接收订单</p>
-                    </div>
+            <div style={{ marginBottom: 28 }}>
+                <h2 className="page-title" style={{ marginBottom: 4 }}>新手起航</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>按照以下步骤完成设置，快速开启你的商城之旅</p>
+            </div>
+
+            {/* 进度条 */}
+            <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)', padding: '24px', marginBottom: 24
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        设置进度
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {completedCount} / {steps.length} 已完成
+                    </span>
                 </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div style={{ color: stats.totalProducts > 0 ? '#10b981' : 'var(--text-muted)' }}>
-                                {stats.totalProducts > 0 ? <FiCheckCircle size={24} /> : <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border-color)' }} />}
-                            </div>
-                            <span style={{ fontSize: '1.05rem', color: stats.totalProducts > 0 ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: stats.totalProducts > 0 ? 'line-through' : 'none' }}>发布第一款商品</span>
-                        </div>
-                        <Link to="/admin/products" className="btn btn-secondary" style={{ padding: '8px 16px' }}>去上架</Link>
+                <div style={{ height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{
+                        height: '100%', width: `${progress}%`,
+                        background: progress === 100 ? 'var(--success)' : 'var(--gradient-primary)',
+                        borderRadius: 4, transition: 'width 0.3s ease'
+                    }} />
+                </div>
+                {progress === 100 && (
+                    <div style={{ marginTop: 12, fontSize: '0.85rem', color: 'var(--success)', fontWeight: 500 }}>
+                        🎉 恭喜！所有步骤已完成，你的商城已准备就绪
                     </div>
+                )}
+            </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div style={{ color: 'var(--text-muted)' }}>
-                                <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
-                            </div>
-                            <span style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>绑定专属独立域名</span>
+            {/* 步骤列表 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {steps.map((step, idx) => (
+                    <div key={step.key} style={{
+                        display: 'flex', alignItems: 'center', gap: 16,
+                        padding: '20px 24px',
+                        background: 'var(--bg-card)',
+                        border: `1px solid ${step.highlight && !step.done ? 'var(--primary)' : 'var(--border-color)'}`,
+                        borderRadius: 'var(--radius-md)',
+                        opacity: step.done ? 0.7 : 1,
+                        transition: 'all 0.15s'
+                    }}>
+                        {/* 状态图标 */}
+                        <div style={{
+                            width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '1.2rem',
+                            background: step.done ? 'rgba(16,185,129,0.12)' : 'var(--bg-tertiary)',
+                        }}>
+                            {step.done ? <FiCheckCircle size={20} color="var(--success)" /> : step.icon}
                         </div>
-                        <Link to="/admin/settings" className="btn btn-secondary" style={{ padding: '8px 16px' }}>去配置</Link>
-                    </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div style={{ color: 'var(--text-muted)' }}>
-                                <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
+                        {/* 内容 */}
+                        <div style={{ flex: 1 }}>
+                            <div style={{
+                                fontSize: '0.95rem', fontWeight: 600,
+                                color: step.done ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                textDecoration: step.done ? 'line-through' : 'none',
+                                display: 'flex', alignItems: 'center', gap: 8
+                            }}>
+                                {step.title}
+                                {step.optional && <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 4 }}>可选</span>}
+                                {step.highlight && !step.done && <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'rgba(239,68,68,0.1)', color: 'var(--primary-light)', borderRadius: 4 }}>重要</span>}
                             </div>
-                            <span style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>订阅高级套餐 <span style={{ fontSize: '0.8rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '4px', marginLeft: '12px' }}>未订阅无法前台交易</span></span>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                                {step.desc}
+                            </div>
                         </div>
-                        <Link to="/admin/settings" className="btn btn-primary" style={{ padding: '8px 16px' }}>选择套餐</Link>
+
+                        {/* 操作按钮 */}
+                        {!step.done && (
+                            step.action.to ? (
+                                <Link to={step.action.to} style={{
+                                    padding: '8px 18px', borderRadius: 'var(--radius-sm)',
+                                    background: step.highlight ? 'var(--gradient-primary)' : 'var(--bg-tertiary)',
+                                    color: step.highlight ? '#fff' : 'var(--text-primary)',
+                                    border: step.highlight ? 'none' : '1px solid var(--border-color)',
+                                    textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600,
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {step.action.label}
+                                </Link>
+                            ) : (
+                                <button onClick={step.action.onClick} style={{
+                                    padding: '8px 18px', borderRadius: 'var(--radius-sm)',
+                                    background: step.action.copied ? '#10b981' : 'var(--bg-tertiary)',
+                                    color: step.action.copied ? '#fff' : 'var(--text-primary)',
+                                    border: step.action.copied ? '1px solid #10b981' : '1px solid var(--border-color)',
+                                    fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                    transition: 'all 0.25s ease'
+                                }}>
+                                    {step.action.label}
+                                </button>
+                            )
+                        )}
+                        {step.done && (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 500 }}>✓ 已完成</span>
+                        )}
                     </div>
+                ))}
+            </div>
+
+            {/* 帮助提示 */}
+            <div style={{
+                marginTop: 28, padding: '20px 24px',
+                background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)'
+            }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>💡 小贴士</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    {[
+                        { icon: '📋', text: '商品支持批量导入卡密，一次上传多张' },
+                        { icon: '🎨', text: '在店铺设置中可切换商城主题皮肤' },
+                        { icon: '📧', text: '订单完成后系统自动发送卡密邮件给买家' },
+                        { icon: '📊', text: '仪表盘可查看实时订单和收入数据' },
+                    ].map((tip, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                            <span>{tip.icon}</span>
+                            <span>{tip.text}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
@@ -6254,10 +6178,10 @@ function SetupGuidePage() {
 }
 
 // 包装导出
-function AdminDashboardWithProvider() {
+function AdminDashboardWithProvider({ basePath }) {
     return (
         <ToastProvider>
-            <AdminDashboard />
+            <AdminDashboard basePath={basePath} />
         </ToastProvider>
     )
 }

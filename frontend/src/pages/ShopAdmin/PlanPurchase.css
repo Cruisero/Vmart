@@ -1,0 +1,402 @@
+/* PlanPurchase — 使用后台统一变量 */
+
+.pp2 {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pp2-msg {
+    padding: 10px 16px;
+    border-radius: var(--radius-sm, 8px);
+    font-size: 0.84rem;
+    background: var(--bg-tertiary, #f1f5f9);
+    color: var(--text-primary, #1e293b);
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+/* 套餐卡片 */
+.pp2-plans {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.pp2-plan {
+    border: 2px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 12px);
+    padding: 22px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    background: var(--bg-secondary, #fff);
+}
+
+.pp2-plan:hover {
+    border-color: var(--primary-light, #f87171);
+}
+
+.pp2-plan.active {
+    border-color: var(--primary, #ef4444);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.pp2-plan-tag {
+    position: absolute;
+    top: -10px;
+    right: 16px;
+    background: var(--gradient-primary, linear-gradient(135deg, #ef4444, #f97316));
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+}
+
+.pp2-plan-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    margin-bottom: 8px;
+}
+
+.pp2-plan-price {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--primary, #ef4444);
+    margin-bottom: 14px;
+}
+
+.pp2-plan-price span {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--text-muted, #94a3b8);
+}
+
+.pp2-plan-features {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #475569);
+}
+
+/* 配置区 */
+.pp2-config {
+    background: var(--bg-tertiary, #f1f5f9);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 12px);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.pp2-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.pp2-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-secondary, #475569);
+    min-width: 70px;
+}
+
+.pp2-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pp2-opt {
+    padding: 7px 14px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--bg-secondary, #fff);
+    font-size: 0.8rem;
+    color: var(--text-primary, #1e293b);
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: inherit;
+}
+
+.pp2-opt:hover {
+    border-color: var(--primary-light, #f87171);
+}
+
+.pp2-opt.active {
+    background: var(--primary, #ef4444);
+    border-color: var(--primary, #ef4444);
+    color: #fff;
+    font-weight: 600;
+}
+
+.pp2-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    font-size: 0.9rem;
+    color: var(--text-secondary, #475569);
+}
+
+.pp2-total {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--primary, #ef4444);
+}
+
+.pp2-buy {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: var(--radius-sm, 8px);
+    background: var(--gradient-primary, linear-gradient(135deg, #ef4444, #f97316));
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+}
+
+.pp2-buy:hover:not(:disabled) { opacity: 0.9; }
+.pp2-buy:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 购买记录入口 */
+.pp2-history-link {
+    background: none;
+    border: none;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.82rem;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    text-align: left;
+}
+
+.pp2-history-link:hover { color: var(--primary-light, #f87171); }
+
+/* 支付卡片 */
+.pp2-pay-card {
+    background: var(--bg-secondary, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 12px);
+    padding: 24px;
+}
+
+.pp2-pay-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    margin-bottom: 16px;
+}
+
+.pp2-pay-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.pp2-pay-info > div {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.88rem;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color, #f1f5f9);
+}
+
+.pp2-pay-info span:first-child { color: var(--text-muted, #94a3b8); }
+.pp2-pay-info strong { color: var(--primary, #ef4444); }
+
+.pp2-pay-addr {
+    margin-bottom: 20px;
+}
+
+.pp2-pay-addr label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted, #94a3b8);
+    margin-bottom: 6px;
+}
+
+.pp2-addr-box {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.pp2-addr-box code {
+    flex: 1;
+    padding: 10px 14px;
+    background: var(--bg-tertiary, #f1f5f9);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-sm, 8px);
+    font-size: 0.78rem;
+    word-break: break-all;
+    color: var(--text-primary, #1e293b);
+}
+
+.pp2-addr-box button {
+    padding: 8px 14px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--bg-secondary, #fff);
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--text-secondary, #475569);
+    font-family: inherit;
+}
+
+.pp2-remark {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.pp2-remark code {
+    color: var(--primary-light, #f87171);
+    background: rgba(239,68,68,0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.pp2-proof {
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pp2-proof label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary, #475569);
+}
+
+.pp2-proof input {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-sm, 8px);
+    font-size: 0.88rem;
+    color: var(--text-primary, #1e293b);
+    background: var(--bg-secondary, #fff);
+    outline: none;
+    font-family: inherit;
+}
+
+.pp2-proof input:focus {
+    border-color: var(--primary, #ef4444);
+}
+
+.pp2-submit {
+    padding: 11px;
+    border: none;
+    border-radius: var(--radius-sm, 8px);
+    background: var(--success, #10b981);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.pp2-submit:disabled { opacity: 0.5; }
+
+.pp2-note {
+    font-size: 0.75rem;
+    color: var(--text-muted, #94a3b8);
+    text-align: center;
+    margin-top: 12px;
+}
+
+.pp2-back {
+    background: none;
+    border: none;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.84rem;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+}
+
+.pp2-back:hover { color: var(--text-primary, #1e293b); }
+
+/* 购买记录 */
+.pp2-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pp2-history-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+}
+
+.pp2-empty {
+    text-align: center;
+    color: var(--text-muted, #94a3b8);
+    padding: 40px;
+}
+
+.pp2-orders {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pp2-order {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: var(--bg-secondary, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-sm, 8px);
+}
+
+.pp2-order-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pp2-order-plan {
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    font-size: 0.9rem;
+}
+
+.pp2-order-detail {
+    font-size: 0.8rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.pp2-order-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.pp2-order-amount {
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+}
+
+.pp2-order-status {
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.pp2-order-time {
+    font-size: 0.75rem;
+    color: var(--text-muted, #94a3b8);
+}

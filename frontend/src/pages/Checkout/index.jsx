@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiCreditCard, FiMail, FiArrowLeft, FiCheck, FiEdit3 } from 'react-icons/fi'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
+import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './Checkout.css'
 
@@ -29,8 +30,11 @@ function Checkout() {
 
     const { items: cartItems, getTotalPrice, clearCart } = useCartStore()
     const { user, isAuthenticated } = useAuthStore()
+    const storefront = useStorefront()
+    const { withPrefix } = useStorefrontPath()
 
     const [email, setEmail] = useState(user?.email || '')
+    const [queryPassword, setQueryPassword] = useState('')
     const [paymentMethod, setPaymentMethod] = useState('alipay')
     const [loading, setLoading] = useState(false)
     const [agreed, setAgreed] = useState(false)
@@ -73,7 +77,8 @@ function Checkout() {
     useEffect(() => {
         const fetchPaymentMethods = async () => {
             try {
-                const res = await fetch('/api/payment/methods')
+                const url = storefront?.slug ? `/api/payment/methods?slug=${storefront.slug}` : '/api/payment/methods'
+                const res = await fetch(url)
                 const data = await res.json()
                 if (data.methods) {
                     const methods = data.methods.map(m => ({
@@ -91,13 +96,11 @@ function Checkout() {
                 }
             } catch (error) {
                 console.error('获取支付方式失败:', error)
-                setPaymentMethods([
-                    { id: 'alipay', name: '支付宝', icon: '💳', color: '#1677ff', disabled: false }
-                ])
+                setPaymentMethods([])
             }
         }
         fetchPaymentMethods()
-    }, [])
+    }, [storefront?.slug])
 
     if (!isAgentCheckout && cartItems.length === 0) {
         return (
@@ -137,6 +140,13 @@ function Checkout() {
             return
         }
 
+        if (!isAuthenticated) {
+            if (!queryPassword.trim() || queryPassword.trim().length < 4) {
+                toast.error('请设置至少 4 位的查询密码')
+                return
+            }
+        }
+
         if (!agreed) {
             toast.error('请同意用户协议')
             return
@@ -160,6 +170,7 @@ function Checkout() {
                         email: email,
                         paymentMethod: paymentMethod,
                         remark: remark.trim() || null,
+                        queryPassword: isAuthenticated ? null : queryPassword.trim(),
                         agentSlug: agentSlug
                     })
                 })
@@ -170,7 +181,7 @@ function Checkout() {
                     return
                 }
                 toast.success('订单创建成功')
-                navigate(`/order/${result.order.orderNo}`)
+                navigate(withPrefix(`/order/${result.order.orderNo}`))
             } else {
                 // 普通结账流程
                 const orderPromises = cartItems.map(item =>
@@ -186,7 +197,8 @@ function Checkout() {
                             quantity: item.quantity,
                             email: email,
                             paymentMethod: paymentMethod,
-                            remark: remark.trim() || null
+                            remark: remark.trim() || null,
+                            queryPassword: isAuthenticated ? null : queryPassword.trim()
                         })
                     }).then(res => res.json())
                 )
@@ -202,7 +214,7 @@ function Checkout() {
                 const firstOrder = results[0]
                 clearCart()
                 toast.success('订单创建成功')
-                navigate(`/order/${firstOrder.order.orderNo}`)
+                navigate(withPrefix(`/order/${firstOrder.order.orderNo}`))
             }
         } catch (error) {
             console.error('创建订单失败:', error)
@@ -276,23 +288,38 @@ function Checkout() {
                         )}
                     </div>
 
-                    {/* 接收邮箱 */}
+                    {/* 订单邮箱 */}
                     <div className="checkout-section">
                         <h3>
                             <FiMail />
-                            接收邮箱
+                            订单邮箱
                         </h3>
-                        <p className="section-desc">卡密将发送到此邮箱，请确保填写正确</p>
+                        <p className="section-desc">用于接收或查询订单信息</p>
                         <input
                             type="email"
                             className="input"
-                            placeholder="请输入邮箱地址"
+                            placeholder="邮箱地址"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
                         />
                         {email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
                             <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>请输入正确的邮箱格式</p>
+                        )}
+                        {!isAuthenticated && (
+                            <>
+                                <p className="section-desc" style={{ marginTop: 12 }}>查询密码 - 后续凭此查询订单</p>
+                                <input
+                                    type="password"
+                                    className="input"
+                                    placeholder="设置至少 4 位查询密码"
+                                    value={queryPassword}
+                                    onChange={(e) => setQueryPassword(e.target.value)}
+                                    minLength={4}
+                                    maxLength={20}
+                                    required
+                                />
+                            </>
                         )}
                     </div>
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi'
 import { useAuthStore } from '../../../store/authStore'
+import { useStorefront, useStorefrontPath } from '../../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './Auth.css'
 
@@ -9,6 +10,8 @@ const API_BASE = '/api'
 
 function Login() {
     const navigate = useNavigate()
+    const { withPrefix } = useStorefrontPath()
+    const storefront = useStorefront()
     const login = useAuthStore((state) => state.login)
     const [formData, setFormData] = useState({
         email: '',
@@ -33,15 +36,15 @@ function Login() {
         setLoading(true)
 
         try {
-            const response = await fetch(`${API_BASE}/auth/login`, {
+            const url = storefront?._tenantMode ? `${API_BASE}/customer/login` : `${API_BASE}/auth/login`
+            const body = { email: formData.email, password: formData.password }
+            if (storefront?._tenantMode) body.storefrontSlug = storefront.slug
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    email: formData.email,
-                    password: formData.password
-                })
+                body: JSON.stringify(body)
             })
 
             const data = await response.json()
@@ -55,10 +58,11 @@ function Login() {
             toast.success('登录成功')
 
             // 根据角色跳转
-            if (data.user.role === 'admin') {
+            const role = data.user.role
+            if (!storefront?._tenantMode && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
                 navigate('/admin')
             } else {
-                navigate('/')
+                navigate(withPrefix('/'))
             }
         } catch (error) {
             toast.error(error.message || '邮箱或密码错误')
@@ -131,7 +135,7 @@ function Login() {
                 </form>
 
                 <div className="auth-footer">
-                    <p>还没有账号？ <Link to="/register">立即注册</Link></p>
+                    <p>还没有账号？ <Link to={withPrefix('/register')}>立即注册</Link></p>
                 </div>
 
                 <div className="auth-divider">
@@ -139,7 +143,7 @@ function Login() {
                 </div>
 
                 <div className="guest-option">
-                    <Link to="/products" className="btn btn-secondary">
+                    <Link to={withPrefix('/')} className="btn btn-secondary">
                         游客购物（无需登录）
                     </Link>
                 </div>

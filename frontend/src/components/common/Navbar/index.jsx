@@ -5,6 +5,8 @@ import { useCartStore } from '../../../store/cartStore'
 import { useAuthStore } from '../../../store/authStore'
 import { useThemeStore } from '../../../store/themeStore'
 import { useSkinStore } from '../../../store/skinStore'
+import { useStorefront } from '../../../store/storefrontStore'
+import { getStorefrontBasePath } from '../../../utils/agentDomain'
 import logoImg from '../../../assets/logo.png'
 import logoDarkImg from '../../../assets/logo-dark.png'
 import './Navbar.css'
@@ -19,6 +21,8 @@ function Navbar() {
     const { user, isAuthenticated } = useAuthStore()
     const { theme, toggleTheme } = useThemeStore()
     const { siteLogo } = useSkinStore()
+    const storefront = useStorefront()
+    const prefix = storefront ? getStorefrontBasePath(storefront) : ''
 
     const [searchQuery, setSearchQuery] = useState('')
     const [showDropdown, setShowDropdown] = useState(false)
@@ -105,7 +109,7 @@ function Navbar() {
             setShowDropdown(false)
             setMobileSearchOpen(false)
             setSearchQuery('')
-            navigate(`/search?q=${encodeURIComponent(searchTerm.trim())}`)
+            navigate(`${prefix}/search?q=${encodeURIComponent(searchTerm.trim())}`)
         }
     }
 
@@ -152,7 +156,7 @@ function Navbar() {
         <nav className="navbar">
             <div className="navbar-container">
                 {/* Logo */}
-                <Link to="/" className="navbar-logo">
+                <Link to={`${prefix}/`} className="navbar-logo">
                     <img
                         src={siteLogo || (theme === 'dark' ? logoDarkImg : logoImg)}
                         alt="Logo"
@@ -221,7 +225,7 @@ function Navbar() {
                                         {matchedProducts.map((product) => (
                                             <Link
                                                 key={product.id}
-                                                to={`/products/${product.id}`}
+                                                to={`${prefix}/products/${product.id}`}
                                                 className="recommend-product-card"
                                                 onClick={() => setShowDropdown(false)}
                                             >
@@ -274,7 +278,7 @@ function Navbar() {
                                         {recommendedProducts.map((product) => (
                                             <Link
                                                 key={product.id}
-                                                to={`/products/${product.id}`}
+                                                to={`${prefix}/products/${product.id}`}
                                                 className="recommend-product-card"
                                                 onClick={() => setShowDropdown(false)}
                                             >
@@ -311,20 +315,20 @@ function Navbar() {
                     {/* 导航链接 */}
                     <div className="navbar-links">
                         <Link
-                            to="/"
-                            className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
+                            to={`${prefix}/`}
+                            className={`nav-link ${location.pathname === (prefix || '/') || location.pathname === `${prefix}/` ? 'active' : ''}`}
                         >
                             商品
                         </Link>
                         <Link
-                            to="/order-query"
-                            className={`nav-link ${location.pathname === '/order-query' ? 'active' : ''}`}
+                            to={`${prefix}/order-query`}
+                            className={`nav-link ${location.pathname === `${prefix}/order-query` ? 'active' : ''}`}
                         >
                             订单查询
                         </Link>
                         <Link
-                            to="/tickets/new"
-                            className={`nav-link ${location.pathname === '/tickets/new' ? 'active' : ''}`}
+                            to={`${prefix}/tickets/new`}
+                            className={`nav-link ${location.pathname === `${prefix}/tickets/new` ? 'active' : ''}`}
                         >
                             工单
                         </Link>
@@ -349,7 +353,7 @@ function Navbar() {
                     </button>
 
                     {/* 购物车 */}
-                    <Link to="/cart" className="nav-icon-btn cart-btn" title="购物车">
+                    <Link to={`${prefix}/cart`} className="nav-icon-btn cart-btn" title="购物车">
                         <FiShoppingCart />
                         {cartCount > 0 && (
                             <span className="cart-badge">{cartCount}</span>
@@ -362,7 +366,7 @@ function Navbar() {
                             {user?.role === 'AGENT' && (
                                 <Link to="/agent" className="nav-link" style={{ color: '#10B981', fontWeight: 600 }}>代理后台</Link>
                             )}
-                            <Link to="/user" className="nav-user">
+                            <Link to={`${prefix}/user`} className="nav-user">
                                 <div className="user-avatar">
                                     {user?.avatar ? (
                                         <img src={user.avatar} alt={user.username} />
@@ -374,7 +378,7 @@ function Navbar() {
                             </Link>
                         </>
                     ) : (
-                        <Link to="/login" className="btn btn-primary nav-login-btn">
+                        <Link to={`${prefix}/login`} className="btn btn-primary nav-login-btn">
                             登录
                         </Link>
                     )}
