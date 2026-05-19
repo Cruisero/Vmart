@@ -51,12 +51,16 @@ export default function ZenProductDetail() {
                 }
                 setProduct(p)
                 if (p.variants.length > 0) {
+                    const inStock = (v) => (v?.stock ?? 0) > 0
                     const hasTypes = p.variants.some(v => v.type?.trim())
                     if (hasTypes) {
-                        const firstType = [...new Set(p.variants.map(v => v.type || '').filter(Boolean))][0]
+                        const types = [...new Set(p.variants.map(v => v.type || '').filter(Boolean))]
+                        const firstStockType = types.find(t => p.variants.some(v => v.type === t && inStock(v)))
+                        const firstType = firstStockType || types[0]
                         setSelectedType(firstType)
-                        setSelectedVariant(p.variants.find(v => v.type === firstType) || null)
-                    } else { setSelectedVariant(p.variants[0]) }
+                        const inType = p.variants.filter(v => v.type === firstType)
+                        setSelectedVariant(inType.find(inStock) || inType[0] || null)
+                    } else { setSelectedVariant(p.variants.find(inStock) || p.variants[0]) }
                 }
             })
             .catch(() => setProduct(null))
@@ -119,7 +123,7 @@ export default function ZenProductDetail() {
                         {hasTypes && <>
                             <div className="zd-label">类型</div>
                             <div className="zd-tags">{types.map(t => (
-                                <button key={t} className={`zd-tag${selectedType === t ? ' active' : ''}`} onClick={() => { setSelectedType(t); setSelectedVariant(product.variants.find(v => v.type === t) || null) }}>{t}</button>
+                                <button key={t} className={`zd-tag${selectedType === t ? ' active' : ''}`} onClick={() => { setSelectedType(t); const inType = product.variants.filter(v => v.type === t); setSelectedVariant(inType.find(v => (v.stock ?? 0) > 0) || inType[0] || null) }}>{t}</button>
                             ))}</div>
                         </>}
                         {typeVariants.length > 0 && <>

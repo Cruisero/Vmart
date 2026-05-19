@@ -8,11 +8,40 @@ const router = express.Router()
 const ctrl = require('../controllers/platformController')
 const planCtrl = require('../controllers/planController')
 const { platformAuth, superAdminOnly } = require('../middleware/platformAuth')
+const prisma = require('../config/database')
 
 // ── 公开路由（无需登录）─────────────────────────────────────
 router.post('/platform/register', ctrl.register)
 router.post('/platform/login', ctrl.login)
 router.post('/man/login', ctrl.login)   // 超管也用同一登录接口
+
+// 邮箱 OTP（注册验证）
+const otpService = require('../services/otpService')
+router.post('/platform/otp/send', async (req, res) => {
+    try {
+        const { email, scope, slug } = req.body || {}
+        if (!email || !scope) return res.status(400).json({ error: '参数不完整' })
+        if (!['merchant_register', 'customer_register'].includes(scope)) {
+            return res.status(400).json({ error: '不支持的 scope' })
+        }
+        // 校验对应 scope 的开关是否开启
+        const switchKey = scope === 'merchant_register' ? 'merchant_register_otp' : 'customer_register_otp'
+        const sw = await prisma.platformSetting.findUnique({ where: { key: switchKey } })
+        if (sw?.value !== 'true') {
+            return res.status(400).json({ error: '该场景未启用邮箱验证' })
+        }
+        let tenantId = null
+        if (scope === 'customer_register' && slug) {
+            const t = await prisma.tenant.findUnique({ where: { shopSlug: slug }, select: { id: true } })
+            tenantId = t?.id || null
+        }
+        const result = await otpService.sendOtp({ email, scope, tenantId })
+        if (!result.ok) return res.status(400).json({ error: result.error })
+        res.json({ message: '验证码已发送，请查收' })
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+})
 
 // 商城公开配置（店面加载）
 router.get('/shop/:slug/config', ctrl.getShopPublicConfig)
@@ -50,6 +79,15 @@ router.get('/platform/plan/check/:orderNo', platformAuth, planCtrl.checkPlanPaym
 router.get('/platform/plan/orders', platformAuth, planCtrl.getMyPlanOrders)
 router.get('/platform/plan/limits', platformAuth, planCtrl.getPlanLimits)
 
+// 商户工单
+const merchantTicketCtrl = require('../controllers/merchantTicketController')
+router.post('/platform/tickets', platformAuth, merchantTicketCtrl.create)
+router.get('/platform/tickets', platformAuth, merchantTicketCtrl.list)
+router.get('/platform/tickets/:id', platformAuth, merchantTicketCtrl.detail)
+router.post('/platform/tickets/:id/reply', platformAuth, merchantTicketCtrl.reply)
+router.post('/platform/tickets/:id/reopen', platformAuth, merchantTicketCtrl.reopen)
+router.post('/platform/tickets/:id/close', platformAuth, merchantTicketCtrl.close)
+
 // ── 平台超管路由（/Man 后台使用）─────────────────────────────
 router.get('/man/stats', platformAuth, superAdminOnly, ctrl.getPlatformStats)
 router.get('/man/trend', platformAuth, superAdminOnly, ctrl.getPlatformTrend)
@@ -58,10 +96,59 @@ router.patch('/man/merchants/:id', platformAuth, superAdminOnly, ctrl.updateMerc
 router.get('/man/settings', platformAuth, superAdminOnly, ctrl.getPlatformSettings)
 router.put('/man/settings', platformAuth, superAdminOnly, ctrl.updatePlatformSettings)
 
+// 平台超管：商户工单管理
+const adminMerchantTicketCtrl = require('../controllers/adminMerchantTicketController')
+router.get('/man/tickets', platformAuth, superAdminOnly, adminMerchantTicketCtrl.list)
+router.get('/man/tickets/:id', platformAuth, superAdminOnly, adminMerchantTicketCtrl.detail)
+router.post('/man/tickets/:id/reply', platformAuth, superAdminOnly, adminMerchantTicketCtrl.reply)
+router.post('/man/tickets/:id/close', platformAuth, superAdminOnly, adminMerchantTicketCtrl.close)
+
 // 平台超管：套餐订单管理
 router.get('/man/plan-orders', platformAuth, superAdminOnly, planCtrl.listPlanOrders)
+router.get('/man/all-orders', platformAuth, superAdminOnly, planCtrl.listAllOrders)
 router.post('/man/plan-orders/:id/confirm', platformAuth, superAdminOnly, planCtrl.confirmPlanOrder)
 router.post('/man/plan-orders/:id/reject', platformAuth, superAdminOnly, planCtrl.rejectPlanOrder)
+
+// 平台超管：跨租户订单监控 + 风控
+const manOrderCtrl = require('../controllers/manOrderController')
+router.get('/man/shop-orders', platformAuth, superAdminOnly, manOrderCtrl.listAllShopOrders)
+router.get('/man/shop-orders/:id', platformAuth, superAdminOnly, manOrderCtrl.getShopOrderDetail)
+router.get('/man/risk-keywords', platformAuth, superAdminOnly, manOrderCtrl.getRiskKeywords)
+router.put('/man/risk-keywords', platformAuth, superAdminOnly, manOrderCtrl.saveRiskKeywords)
+router.get('/man/risk-overview', platformAuth, superAdminOnly, manOrderCtrl.getRiskOverview)
+router.post('/man/merchants/:tenantId/suspend', platformAuth, superAdminOnly, manOrderCtrl.suspendMerchant)
+router.post('/man/merchants/:tenantId/unsuspend', platformAuth, superAdminOnly, manOrderCtrl.unsuspendMerchant)
+
+// 平台超管：通知设置
+const manNotifyService = require('../services/manNotifyService')
+router.get('/man/notify-config', platformAuth, superAdminOnly, async (req, res) => {
+    try {
+        const config = await manNotifyService.getNotifyConfig()
+        res.json({ config, eventLabels: manNotifyService.EVENT_LABELS })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+router.put('/man/notify-config', platformAuth, superAdminOnly, async (req, res) => {
+    try {
+        const saved = await manNotifyService.saveNotifyConfig(req.body || {})
+        res.json({ message: '已保存', config: saved })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+router.post('/man/notify-test', platformAuth, superAdminOnly, async (req, res) => {
+    try {
+        const result = await manNotifyService.sendManNotify('newMerchant', '通知测试',
+            '<p>这是一封测试邮件，用于验证平台通知设置是否正常。</p>')
+        if (result.success) res.json({ message: '已发送测试邮件' })
+        else res.status(400).json({ error: result.reason || result.error || '发送失败' })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 平台超管：定制主题管理
+const customThemeCtrl = require('../controllers/customThemeController')
+router.get('/man/custom-themes', platformAuth, superAdminOnly, customThemeCtrl.listThemes)
+router.post('/man/custom-themes', platformAuth, superAdminOnly, customThemeCtrl.createTheme)
+router.patch('/man/custom-themes/:id', platformAuth, superAdminOnly, customThemeCtrl.updateTheme)
+router.delete('/man/custom-themes/:id', platformAuth, superAdminOnly, customThemeCtrl.deleteTheme)
+router.put('/man/custom-themes/:id/assign', platformAuth, superAdminOnly, customThemeCtrl.assignTenants)
 
 // 平台超管：套餐配置管理
 router.get('/man/plan-config', platformAuth, superAdminOnly, planCtrl.getPlanConfig)

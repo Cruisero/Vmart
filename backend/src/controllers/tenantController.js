@@ -33,6 +33,16 @@ exports.setup = async (req, res) => {
         })
         if (existing) return res.status(409).json({ error: '该路径已被占用，请换一个' })
 
+        // 校验定制主题授权
+        if (shopSkin && shopSkin.startsWith('custom:')) {
+            const currentTenant = await prisma.tenant.findUnique({ where: { userId: req.user.id }, select: { id: true } })
+            if (currentTenant) {
+                const { canUseSkin } = require('./customThemeController')
+                const ok = await canUseSkin(currentTenant.id, shopSkin)
+                if (!ok) return res.status(403).json({ error: '该定制主题未授权给当前商户' })
+            }
+        }
+
         const tenant = await prisma.tenant.upsert({
             where: { userId: req.user.id },
             create: {
@@ -66,6 +76,23 @@ exports.addDomain = async (req, res) => {
 
         const tenant = await prisma.tenant.findUnique({ where: { userId: req.user.id } })
         if (!tenant) return res.status(404).json({ error: '请先完成基本信息配置' })
+
+        // 校验：套餐是否允许自定义域名
+        try {
+            const shop = await prisma.shop.findUnique({ where: { slug: tenant.shopSlug } })
+            if (shop) {
+                // 免费试用与专业版同权限：FREE 视同 PRO 读功能配置
+                const effectivePlanKey = shop.plan === 'FREE' ? 'PRO' : shop.plan
+                const setting = await prisma.platformSetting.findUnique({ where: { key: 'plan_config' } })
+                if (setting?.value) {
+                    const cfg = JSON.parse(setting.value)
+                    const plan = (cfg.plans || []).find(p => p.key === effectivePlanKey)
+                    if (plan && plan.features?.customDomain !== true) {
+                        return res.status(403).json({ error: '当前套餐不支持自定义域名，请升级套餐' })
+                    }
+                }
+            }
+        } catch (e) { /* 不阻塞，但若 plan_config 读取失败仍允许 */ }
 
         // 检查是否被其他租户占用
         const existing = await prisma.tenantDomain.findUnique({ where: { domain } })

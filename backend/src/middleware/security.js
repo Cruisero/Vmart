@@ -248,6 +248,16 @@ async function resolveCurrentUser(req) {
         return null
     }
 
+    // 支持 CUSTOMER（从 customers 表查）
+    if (req.user.role === 'CUSTOMER') {
+        const customer = await prisma.customer.findUnique({
+            where: { id: req.user.id },
+            select: { id: true, email: true, emailVerified: true }
+        })
+        req._securityUser = customer
+        return customer
+    }
+
     const user = await prisma.user.findUnique({
         where: { id: req.user.id },
         select: { id: true, email: true, emailVerified: true }

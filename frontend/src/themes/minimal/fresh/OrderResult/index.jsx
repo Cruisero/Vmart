@@ -30,7 +30,8 @@ export default function FreshOrderResult() {
     const fetchOrder = async () => {
         setLoading(true)
         try {
-            const res = await fetch(`/api/orders/${orderNo}`)
+            const url = storefront?.slug ? `/api/orders/${orderNo}?slug=${storefront.slug}` : `/api/orders/${orderNo}`
+            const res = await fetch(url)
             const data = await res.json()
             if (data.error || !data.order) { setOrder(null); return }
             const o = data.order

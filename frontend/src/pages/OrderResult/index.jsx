@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { FiCheck, FiClock, FiCopy, FiPackage, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
-import { useStorefrontPath } from '../../store/storefrontStore'
+import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './OrderResult.css'
 
@@ -17,6 +17,7 @@ const statusConfig = {
 function OrderResult() {
     const { orderNo } = useParams()
     const { withPrefix } = useStorefrontPath()
+    const storefront = useStorefront()
     const [order, setOrder] = useState(null)
     const [loading, setLoading] = useState(true)
     const [showCards, setShowCards] = useState(false)
@@ -26,7 +27,10 @@ function OrderResult() {
         const fetchOrder = async () => {
             setLoading(true)
             try {
-                const res = await fetch(`/api/orders/${orderNo}`)
+                const url = storefront?.slug
+                    ? `/api/orders/${orderNo}?slug=${storefront.slug}`
+                    : `/api/orders/${orderNo}`
+                const res = await fetch(url)
                 const data = await res.json()
 
                 if (data.error || !data.order) {

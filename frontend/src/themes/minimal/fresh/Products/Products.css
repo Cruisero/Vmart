@@ -387,3 +387,67 @@
   .fp-card-name { font-size: 0.85rem; }
   .fp-price { font-size: 1rem; }
 }
+
+
+/* ── 特色卡片（首页大卡片） ── */
+.fp-feature-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #E5E7EB;
+    margin-bottom: 28px;
+}
+
+.fp-feature-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 24px;
+    background: #fff;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.fp-feature-icon {
+    font-size: 1.1rem;
+}
+
+.fp-feature-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.fp-feature-body {
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.fp-feature-desc {
+    font-size: 0.9rem;
+    color: #1F2937;
+    line-height: 1.8;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* 移动端 */
+@media (max-width: 760px) {
+    .fp-feature-header { padding: 12px 18px; }
+    .fp-feature-body { padding: 16px 18px; }
+}
+
+
+.fp-feature-link-inline {
+    color: #2563EB;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+
+.fp-feature-link-inline:hover {
+    color: #1D4ED8;
+}

@@ -165,7 +165,7 @@ function OrdersPage() {
 
 // ── Password tab ──
 function PasswordPage() {
-    const { token } = useAuthStore()
+    const { token, user } = useAuthStore()
     const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
     const [show, setShow] = useState({ old: false, new: false, confirm: false })
     const [loading, setLoading] = useState(false)
@@ -176,14 +176,15 @@ function PasswordPage() {
         if (form.newPassword.length < 6) { toast.error('新密码至少6位'); return }
         setLoading(true)
         try {
-            const res = await fetch('/api/auth/change-password', {
+            const url = user?.role === 'CUSTOMER' ? '/api/customer/password' : '/api/auth/change-password'
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ oldPassword: form.oldPassword, newPassword: form.newPassword })
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || '修改失败')
-            toast.success(data.message)
+            toast.success(data.message || '修改成功')
             setForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
         } catch (err) {
             toast.error(err.message)
@@ -247,9 +248,10 @@ export default function ZenUserCenter() {
             .then(r => r.json())
             .then(data => {
                 const orders = data.orders || []
+                const paidStatuses = ['paid', 'completed']
                 setStats({
                     total: orders.length,
-                    spent: orders.reduce((s, o) => s + o.totalAmount, 0),
+                    spent: orders.filter(o => paidStatuses.includes(o.status)).reduce((s, o) => s + o.totalAmount, 0),
                     completed: orders.filter(o => o.status === 'completed').length,
                 })
             })

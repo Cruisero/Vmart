@@ -4,9 +4,9 @@
   border-bottom: 1px solid #EEECE8;
 }
 .zn-bar-inner {
-  max-width: 960px; margin: 0 auto;
+  max-width: 1280px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between;
-  height: 56px; padding: 0 24px;
+  height: 56px; padding: 0 40px;
 }
 .zn-logo {
   font-size: 1.1rem; font-weight: 800; letter-spacing: 3px;

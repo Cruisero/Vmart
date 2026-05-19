@@ -18,7 +18,7 @@ const ticketTypeLabel = {
     OTHER: '其他'
 }
 
-const validTicketStatuses = ['OPEN', 'IN_PROGRESS', 'PENDING_SUPER_ADMIN', 'COMPLETED', 'CLOSED']
+const validTicketStatuses = ['OPEN', 'IN_PROGRESS', 'PENDING_SUPER_ADMIN', 'CLOSED']
 const superAdminPreviousStatusSettingKey = 'ticketSuperAdminPreviousStatuses'
 
 function getReadUpdateData(isAdmin) {
@@ -91,6 +91,7 @@ function maskTicketStatusForUser(ticket, previousStatusMap) {
 // 创建工单
 exports.createTicket = async (req, res, next) => {
     try {
+        const isCustomer = req.user.role === 'CUSTOMER'
         const userId = req.user.id
         const { type, subject, content, orderId, images } = req.body
 
@@ -104,18 +105,20 @@ exports.createTicket = async (req, res, next) => {
             const order = await prisma.order.findUnique({
                 where: { id: orderId }
             })
-            if (!order || order.userId !== userId) {
+            const ownsOrder = isCustomer
+                ? (order && order.customerId === userId)
+                : (order && order.userId === userId)
+            if (!order || !ownsOrder) {
                 return res.status(400).json({ error: '订单不存在或无权限' })
             }
             orderNo = order.orderNo
 
             // 检查该订单是否已有未关闭的工单
+            const ticketWhere = { orderId, status: { not: 'CLOSED' } }
+            if (isCustomer) ticketWhere.customerId = userId
+            else ticketWhere.userId = userId
             const existingTicket = await prisma.ticket.findFirst({
-                where: {
-                    userId,
-                    orderId,
-                    status: { not: 'CLOSED' }
-                },
+                where: ticketWhere,
                 select: { id: true, ticketNo: true, subject: true, status: true }
             })
             if (existingTicket) {
@@ -127,12 +130,20 @@ exports.createTicket = async (req, res, next) => {
             }
         }
 
+        // 解析 tenantId（CUSTOMER 走 token 里的 tenantId）
+        let tenantId = req.tenantId || null
+        if (!tenantId && isCustomer && req.user.tenantId) {
+            tenantId = req.user.tenantId
+        }
+
         // 创建工单和第一条消息
         const now = new Date()
         const ticket = await prisma.ticket.create({
             data: {
                 ticketNo: generateTicketNo(),
-                userId,
+                userId: isCustomer ? null : userId,
+                customerId: isCustomer ? userId : null,
+                tenantId,
                 orderId: orderId || null,
                 orderNo,
                 type,
@@ -164,6 +175,7 @@ exports.createTicket = async (req, res, next) => {
         const { notifyNewTicket } = require('../services/notifyDispatcher')
         notifyNewTicket({ ...ticket, contactEmail: req.user?.email, content }).catch(e => console.error('管理员通知失败:', e))
     } catch (error) {
+        console.error('[createTicket] ERROR:', error.message)
         next(error)
     }
 }
@@ -172,9 +184,10 @@ exports.createTicket = async (req, res, next) => {
 exports.getMyTickets = async (req, res, next) => {
     try {
         const userId = req.user.id
+        const isCustomer = req.user.role === 'CUSTOMER'
         const { status } = req.query
 
-        const where = { userId }
+        const where = isCustomer ? { customerId: userId } : { userId }
 
         const tickets = await prisma.ticket.findMany({
             where,
@@ -213,6 +226,9 @@ exports.getTicketDetail = async (req, res, next) => {
                 user: {
                     select: { id: true, email: true, username: true }
                 },
+                customer: {
+                    select: { id: true, email: true, username: true }
+                },
                 messages: {
                     orderBy: { createdAt: 'asc' },
                     include: {
@@ -232,8 +248,9 @@ exports.getTicketDetail = async (req, res, next) => {
         }
 
         // 验证权限
-        const isAdminRole = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)
-        if (ticket.userId !== userId && !isAdminRole) {
+        const isAdminRole = ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'].includes(req.user.role)
+        const isCustomer = req.user.role === 'CUSTOMER'
+        if (!isAdminRole && ticket.userId !== userId && !(isCustomer && ticket.customerId === userId)) {
             return res.status(403).json({ error: '无权限查看此工单' })
         }
 
@@ -279,16 +296,22 @@ exports.addMessage = async (req, res, next) => {
             return res.status(404).json({ error: '工单不存在' })
         }
 
-        if (ticket.userId !== userId) {
+        const isCustomer = req.user.role === 'CUSTOMER'
+        if (ticket.userId !== userId && !(isCustomer && ticket.customerId === userId)) {
             return res.status(403).json({ error: '无权限操作此工单' })
         }
 
+        // 已关闭超过 24h 不可回复
         if (ticket.status === 'CLOSED') {
-            return res.status(400).json({ error: '工单已关闭，无法发送消息' })
+            const closedAt = ticket.closedAt ? new Date(ticket.closedAt) : null
+            if (!closedAt || Date.now() - closedAt.getTime() > 24 * 60 * 60 * 1000) {
+                return res.status(400).json({ error: '工单已关闭超过 24 小时，无法发送消息' })
+            }
         }
 
-        // 用户回复已完成的工单，自动重新打开为处理中
-        const shouldReopen = ticket.status === 'COMPLETED'
+        // 用户回复已关闭的工单（24h内），自动重新打开为处理中
+        const shouldReopen = ticket.status === 'CLOSED' && ticket.closedAt &&
+            (Date.now() - new Date(ticket.closedAt).getTime() < 24 * 60 * 60 * 1000)
 
         const now = new Date()
         const [, message] = await prisma.$transaction([
@@ -330,9 +353,11 @@ exports.addMessage = async (req, res, next) => {
 exports.getMyOrders = async (req, res, next) => {
     try {
         const userId = req.user.id
+        const isCustomer = req.user.role === 'CUSTOMER'
 
+        const where = isCustomer ? { customerId: userId } : { userId }
         const orders = await prisma.order.findMany({
-            where: { userId },
+            where,
             orderBy: { createdAt: 'desc' },
             select: {
                 id: true,
@@ -351,10 +376,48 @@ exports.getMyOrders = async (req, res, next) => {
     }
 }
 
+// 用户重新打开工单（关闭后 24 小时内可操作）
+exports.reopenMyTicket = async (req, res, next) => {
+    try {
+        const userId = req.user.id
+        const isCustomer = req.user.role === 'CUSTOMER'
+        const { id } = req.params
+
+        const ticket = await prisma.ticket.findUnique({
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) }
+        })
+
+        if (!ticket) {
+            return res.status(404).json({ error: '工单不存在' })
+        }
+        if (ticket.userId !== userId && !(isCustomer && ticket.customerId === userId)) {
+            return res.status(403).json({ error: '无权限操作此工单' })
+        }
+        if (ticket.status !== 'CLOSED') {
+            return res.status(400).json({ error: '工单未关闭' })
+        }
+
+        const closedAt = ticket.closedAt ? new Date(ticket.closedAt) : null
+        if (!closedAt || Date.now() - closedAt.getTime() > 24 * 60 * 60 * 1000) {
+            return res.status(400).json({ error: '工单已关闭超过 24 小时，无法重新打开。请提交新工单。' })
+        }
+
+        const updated = await prisma.ticket.update({
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+            data: { status: 'IN_PROGRESS', closedAt: null, updatedAt: new Date() }
+        })
+
+        res.json({ message: '工单已重新打开', ticket: updated })
+    } catch (error) {
+        next(error)
+    }
+}
+
 // 用户主动关闭工单
 exports.closeMyTicket = async (req, res, next) => {
     try {
         const userId = req.user.id
+        const isCustomer = req.user.role === 'CUSTOMER'
         const { id } = req.params
 
         const ticket = await prisma.ticket.findUnique({ where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) } })
@@ -362,7 +425,7 @@ exports.closeMyTicket = async (req, res, next) => {
         if (!ticket) {
             return res.status(404).json({ error: '工单不存在' })
         }
-        if (ticket.userId !== userId) {
+        if (ticket.userId !== userId && !(isCustomer && ticket.customerId === userId)) {
             return res.status(403).json({ error: '无权限操作此工单' })
         }
         if (ticket.status === 'CLOSED') {
@@ -420,6 +483,9 @@ exports.getAllTickets = async (req, res, next) => {
                 take: parseInt(limit),
                 include: {
                     user: {
+                        select: { id: true, email: true, username: true }
+                    },
+                    customer: {
                         select: { id: true, email: true, username: true }
                     },
                     messages: {
@@ -501,7 +567,8 @@ exports.adminReply = async (req, res, next) => {
                 ticket.user.username || '用户',
                 ticket.ticketNo,
                 ticket.subject,
-                content
+                content,
+                ticket.tenantId
             )
         } catch (emailError) {
             console.error('发送工单回复邮件失败:', emailError)
@@ -543,8 +610,8 @@ exports.updateTicketStatus = async (req, res, next) => {
             updateData.closedAt = null
         }
 
-        // 状态变更为 COMPLETED / CLOSED 时，给用户加未读提醒
-        const shouldNotifyUser = ['COMPLETED', 'CLOSED'].includes(status) && existing.status !== status
+        // 状态变更为 CLOSED 时，给用户加未读提醒
+        const shouldNotifyUser = status === 'CLOSED' && existing.status !== status
         if (shouldNotifyUser) {
             updateData.userUnreadCount = { increment: 1 }
         }
@@ -572,9 +639,55 @@ exports.updateTicketStatus = async (req, res, next) => {
                 existing.user.username || '用户',
                 existing.ticketNo,
                 existing.subject,
-                status
+                status,
+                existing.tenantId
             ).catch(e => console.error('工单状态通知邮件失败:', e))
         }
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+// 管理员：查看某用户/顾客的历史工单
+exports.getUserTicketHistory = async (req, res, next) => {
+    try {
+        const { userId, customerId, email } = req.query
+        if (!userId && !customerId && !email) {
+            return res.status(400).json({ error: '请提供 userId / customerId / email' })
+        }
+
+        const whereOr = []
+        if (userId) whereOr.push({ userId })
+        if (customerId) whereOr.push({ customerId })
+        // 通过 email 查 customer 和 user
+        if (email) {
+            const [customers, users] = await Promise.all([
+                prisma.customer.findMany({ where: { email, ...(req.tenantId ? { tenantId: req.tenantId } : {}) }, select: { id: true } }),
+                prisma.user.findMany({ where: { email }, select: { id: true } })
+            ])
+            customers.forEach(c => whereOr.push({ customerId: c.id }))
+            users.forEach(u => whereOr.push({ userId: u.id }))
+        }
+
+        if (whereOr.length === 0) return res.json({ tickets: [] })
+
+        const where = { OR: whereOr }
+        if (req.tenantId) where.tenantId = req.tenantId
+
+        const tickets = await prisma.ticket.findMany({
+            where,
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                user: { select: { id: true, email: true, username: true } },
+                customer: { select: { id: true, email: true, username: true } },
+                messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+                _count: { select: { messages: true } }
+            },
+            take: 100
+        })
+
+        res.json({ tickets })
     } catch (error) {
         next(error)
     }

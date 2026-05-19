@@ -478,3 +478,483 @@
     .ts-skin-grid { grid-template-columns: 1fr; }
     .ts-section { padding: 20px; }
 }
+
+/* ======================== 邮件资源包购买弹窗 ======================== */
+
+.ep-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: ep-fade-in 0.2s ease;
+    padding: 20px;
+}
+
+@keyframes ep-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.ep-modal {
+    position: relative;
+    background: var(--bg-card, #fff);
+    border-radius: 18px;
+    padding: 28px 28px 24px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+    animation: ep-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ep-pop {
+    from { transform: translateY(20px) scale(0.96); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.ep-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: var(--bg-tertiary, #f1f5f9);
+    border-radius: 50%;
+    color: var(--text-muted, #64748b);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.ep-close:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* Header */
+.ep-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.ep-icon-bg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(20, 184, 166, 0.12));
+    margin-bottom: 14px;
+    font-size: 28px;
+}
+
+.ep-header h3 {
+    margin: 0 0 6px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ep-header p {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Pack Cards Grid */
+.ep-packs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.ep-pack {
+    position: relative;
+    padding: 18px 12px 14px;
+    border: 2px solid var(--border-color, #e2e8f0);
+    border-radius: 14px;
+    background: var(--bg-card, #fff);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+}
+
+.ep-pack:hover {
+    border-color: rgba(14, 165, 233, 0.5);
+    transform: translateY(-2px);
+}
+
+.ep-pack.active {
+    border-color: #0ea5e9;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.06), rgba(20, 184, 166, 0.06));
+    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.15);
+}
+
+.ep-pack-badge {
+    position: absolute;
+    top: -8px;
+    right: 50%;
+    transform: translateX(50%);
+    padding: 2px 10px;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.ep-pack-count {
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    line-height: 1;
+}
+
+.ep-pack-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.ep-pack-price {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 10px;
+}
+
+.ep-pack-unit {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Section title */
+.ep-section-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Payment methods */
+.ep-pay-methods {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.ep-pay-method {
+    padding: 12px 8px;
+    border: 1.5px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    background: var(--bg-card, #fff);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.ep-pay-method:hover { border-color: rgba(14, 165, 233, 0.5); }
+
+.ep-pay-method.active {
+    border-color: #0ea5e9;
+    background: rgba(14, 165, 233, 0.06);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.ep-pay-icon { font-size: 1.2rem; }
+
+/* Summary footer */
+.ep-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+    background: var(--bg-tertiary, #f8fafc);
+    border-radius: 14px;
+}
+
+.ep-summary-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.ep-summary-amount {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.ep-buy-btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(14, 165, 233, 0.3);
+    transition: all 0.15s;
+    font-family: inherit;
+    flex-shrink: 0;
+}
+
+.ep-buy-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(14, 165, 233, 0.4);
+}
+
+.ep-buy-btn:disabled {
+    background: var(--bg-secondary, #cbd5e1);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ======================== 支付面板 ======================== */
+
+.ep-pay {
+    text-align: center;
+}
+
+/* Header */
+.ep-pay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-right: 44px;
+}
+
+.ep-pay-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ep-timer {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-tertiary, #f1f5f9);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.ep-timer.warning {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    animation: ep-blink 1s infinite;
+}
+
+@keyframes ep-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* QR */
+.ep-qr-block, .ep-usdt-block {
+    margin-bottom: 18px;
+    text-align: center;
+}
+
+.ep-qr-frame {
+    display: inline-block;
+    padding: 14px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--border-color, #e2e8f0);
+    margin-bottom: 12px;
+}
+
+.ep-qr-frame img {
+    display: block;
+    width: 200px;
+    height: 200px;
+}
+
+.ep-qr-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* USDT specific */
+.ep-usdt-network {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.ep-usdt-addr {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-tertiary, #f8fafc);
+    border: 1px dashed var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.ep-usdt-addr:hover {
+    border-color: #0ea5e9;
+    background: rgba(14, 165, 233, 0.04);
+}
+
+.ep-usdt-addr-text {
+    flex: 1;
+    text-align: left;
+    word-break: break-all;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.72rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.ep-usdt-addr-copy {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    background: var(--bg-card, #fff);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    color: #0ea5e9;
+    font-weight: 600;
+    border: 1px solid #0ea5e9;
+}
+
+/* Amount block */
+.ep-pay-amount {
+    padding: 16px;
+    background: var(--bg-tertiary, #f8fafc);
+    border-radius: 12px;
+    margin-bottom: 14px;
+}
+
+.ep-pay-amount-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.ep-pay-amount-value {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.ep-pay-amount-value strong {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin: 0 4px;
+}
+
+.ep-pay-rate {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+/* Status indicator */
+.ep-pay-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.ep-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #14b8a6;
+    box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.6);
+    animation: ep-pulse 1.6s infinite;
+}
+
+@keyframes ep-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.6); }
+    70% { box-shadow: 0 0 0 10px rgba(20, 184, 166, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+}
+
+/* Cancel button */
+.ep-cancel-btn {
+    width: 100%;
+    padding: 12px 20px;
+    background: var(--bg-tertiary, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.ep-cancel-btn:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+/* Mobile */
+@media (max-width: 540px) {
+    .ep-modal { padding: 22px 18px; border-radius: 14px; }
+    .ep-packs { grid-template-columns: 1fr; }
+    .ep-pay-methods { grid-template-columns: 1fr; }
+    .ep-summary { flex-direction: column; align-items: stretch; gap: 12px; }
+    .ep-buy-btn { width: 100%; }
+    .ep-qr-frame img { width: 180px; height: 180px; }
+}

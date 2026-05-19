@@ -306,6 +306,10 @@ async function processBscUsdtPaymentSuccess(order, txHash, usdtAmount) {
         })
     })
 
+    // 邮件资源包：跳过卡密分发逻辑
+    const { processEmailPackIfNeeded } = require('../utils/emailPackHandler')
+    if (await processEmailPackIfNeeded(order)) return
+
     let cards = []
     try {
         cards = await dispenseCards(order.id, order.productId, order.quantity, order.variantId)

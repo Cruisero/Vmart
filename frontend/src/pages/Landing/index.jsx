@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useMerchantStore } from '../../store/merchantStore'
 import './Landing.css'
 
 const features = [
@@ -44,6 +45,15 @@ const plans = [
 ]
 
 export default function Landing() {
+    const { token, merchant, shop, logout } = useMerchantStore()
+    const isLoggedIn = !!token
+    // 登录后跳转目标：超管 → /Man/dashboard，商户 → /v/:slug/admin
+    const dashboardLink = merchant?.isSuperAdmin
+        ? '/Man/dashboard'
+        : shop?.slug
+            ? `/v/${shop.slug}/admin`
+            : '/Man/dashboard'
+
     return (
         <div className="landing">
             {/* 导航 */}
@@ -54,8 +64,22 @@ export default function Landing() {
                         <span className="nav-name">Vmart</span>
                     </div>
                     <div className="nav-actions">
-                        <Link to="/login" className="nav-login">登录</Link>
-                        <Link to="/register" className="nav-cta">免费开始</Link>
+                        {isLoggedIn ? (
+                            <>
+                                <span className="nav-user">{merchant?.email}</span>
+                                <Link to={dashboardLink} className="nav-cta">进入控制台</Link>
+                                <button
+                                    className="nav-login"
+                                    onClick={() => { logout(); window.location.reload() }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                                >退出</button>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/login" className="nav-login">登录</Link>
+                                <Link to="/register" className="nav-cta">免费开始</Link>
+                            </>
+                        )}
                     </div>
                 </div>
             </nav>
@@ -72,7 +96,11 @@ export default function Landing() {
                     像 Shopify 一样简单，专为中文市场设计。
                 </p>
                 <div className="hero-actions">
-                    <Link to="/register" className="btn-primary-lg">免费开通商城 →</Link>
+                    {isLoggedIn ? (
+                        <Link to={dashboardLink} className="btn-primary-lg">进入我的商城 →</Link>
+                    ) : (
+                        <Link to="/register" className="btn-primary-lg">免费开通商城 →</Link>
+                    )}
                     <a href="#features" className="btn-ghost-lg">了解功能</a>
                 </div>
                 <div className="hero-meta">无需信用卡 · 30秒开通 · 随时取消</div>

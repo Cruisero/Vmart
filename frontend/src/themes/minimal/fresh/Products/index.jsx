@@ -16,6 +16,41 @@ const getImageUrl = (url, size = 'large') => {
     return url
 }
 
+// 将文本中的 URL 转为超链接
+function linkifyText(text) {
+    if (!text) return null
+    const urlRegex = /(https?:\/\/[^\s<]+)/g
+    const parts = text.split(urlRegex)
+    return parts.map((part, i) => {
+        if (urlRegex.test(part)) {
+            return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="fp-feature-link-inline">{part}</a>
+        }
+        // 重置 lastIndex（split 后 regex 状态可能残留）
+        urlRegex.lastIndex = 0
+        return <span key={i}>{part}</span>
+    })
+}
+
+function FeatureCard({ data }) {
+    if (!data || !data.description) return null
+    const [open, setOpen] = useState(!data.collapsed)
+    return (
+        <div className="fp-feature-card">
+            {data.title && (
+                <div className="fp-feature-header" onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer' }}>
+                    <h2 className="fp-feature-title">{data.title}</h2>
+                    <span style={{ fontSize: '1rem', color: '#9CA3AF', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
+                </div>
+            )}
+            {(open || !data.title) && (
+                <div className="fp-feature-body">
+                    <p className="fp-feature-desc">{linkifyText(data.description)}</p>
+                </div>
+            )}
+        </div>
+    )
+}
+
 function SkeletonCard() {
     return (
         <div className="fp-skeleton-card">
@@ -97,10 +132,7 @@ export default function FreshProducts() {
 
     return (
         <div className="fp-page">
-            <div className="fp-header">
-                <h1 className="fp-title">{storefront ? storefront.shopName : '全部商品'}</h1>
-                <p className="fp-subtitle">{storefront ? '精选好物，品质保障' : '精选正版虚拟商品，即买即用'}</p>
-            </div>
+            <FeatureCard data={storefront?.featureCard} />
 
             <div className="fp-grid">
                 {loading ? (

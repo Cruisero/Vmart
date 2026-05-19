@@ -154,19 +154,6 @@
     border-radius: 20px;
 }
 
-.search-page .stock-warning {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    padding: 4px 10px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--warning);
-    background: rgba(245, 158, 11, 0.15);
-    border: 1px solid var(--warning);
-    border-radius: 20px;
-}
-
 .search-page .product-info {
     padding: 16px;
     flex: 1;

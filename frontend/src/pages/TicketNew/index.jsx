@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { FiArrowLeft, FiSend, FiPackage, FiChevronDown, FiCheck, FiAlertTriangle } from 'react-icons/fi'
 import { useAuthStore } from '../../store/authStore'
+import { useMerchantStore } from '../../store/merchantStore'
+import { useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './TicketNew.css'
 
@@ -14,7 +16,27 @@ const ticketTypes = [
 
 function TicketNew() {
     const navigate = useNavigate()
-    const { isAuthenticated, token } = useAuthStore()
+    const { isAuthenticated, token, user } = useAuthStore()
+    const mToken = useMerchantStore(state => state.token)
+    const { withPrefix } = useStorefrontPath()
+    // 从 authStore 获取 token（顾客/管理员 JWT）
+    // 不用 merchantStore token（那是 platform JWT，格式不同）
+    const getAuthToken = () => {
+        if (token) return token
+        try {
+            const path = window.location.pathname
+            const m = path.match(/^\/v\/([^/]+)/)
+            const key = m ? `kashop-auth-tenant-${m[1]}` : 'kashop-auth-main'
+            const stored = localStorage.getItem(key)
+            if (stored) {
+                const parsed = JSON.parse(stored)
+                return parsed?.state?.token || null
+            }
+        } catch {}
+        return null
+    }
+    const authToken = getAuthToken()
+    const loggedIn = isAuthenticated || !!authToken
 
     const [type, setType] = useState('')
     const [subject, setSubject] = useState('')
@@ -27,13 +49,16 @@ function TicketNew() {
     const dropdownRef = useRef(null)
 
     useEffect(() => {
-        if (!isAuthenticated) {
-            navigate('/login?redirect=/user/tickets')
+        if (!loggedIn) {
+            navigate(withPrefix('/login'))
             return
         }
         fetchOrders()
         fetchOpenTickets()
-    }, [isAuthenticated])
+    }, [loggedIn])
+
+    // 如果没有有效的 authToken（比如商户所有者从 /login 登录），提示去登录店面账号
+    // 注意：放在所有 hooks 之后
 
     // 点击外部关闭下拉
     useEffect(() => {
@@ -49,12 +74,12 @@ function TicketNew() {
     const fetchOpenTickets = async () => {
         try {
             const res = await fetch('/api/tickets?status=OPEN', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${authToken}` }
             })
             const data = await res.json()
             // 合并未关闭且仍在处理链路中的状态
             const res2 = await fetch('/api/tickets?status=IN_PROGRESS', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${authToken}` }
             })
             const data2 = await res2.json()
             const all = [...(data.tickets || []), ...(data2.tickets || [])]
@@ -67,7 +92,7 @@ function TicketNew() {
     const fetchOrders = async () => {
         try {
             const res = await fetch('/api/tickets/orders', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${authToken}` }
             })
             const data = await res.json()
             setOrders(data.orders || [])
@@ -78,6 +103,14 @@ function TicketNew() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
+
+        // Debug: 检查 token
+        const currentToken = getAuthToken()
+        console.log('[TicketNew] authToken:', currentToken ? currentToken.substring(0, 20) + '...' : 'NULL')
+        if (!currentToken) {
+            toast.error('登录状态异常，请重新登录')
+            return
+        }
 
         if (!type) {
             toast.error('请选择问题类型')
@@ -98,7 +131,7 @@ function TicketNew() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${currentToken}`
                 },
                 body: JSON.stringify({
                     type,
@@ -112,10 +145,10 @@ function TicketNew() {
 
             if (res.ok) {
                 toast.success('工单提交成功')
-                navigate(`/tickets/${data.ticket.id}`)
+                navigate(withPrefix(`/tickets/${data.ticket.id}`))
             } else if (res.status === 409 && data.existingTicket) {
                 toast.error(data.error)
-                navigate(`/tickets/${data.existingTicket.id}`)
+                navigate(withPrefix(`/tickets/${data.existingTicket.id}`))
             } else {
                 toast.error(data.error || '提交失败')
             }
@@ -142,9 +175,22 @@ function TicketNew() {
     // 只显示最新5个订单
     const displayOrders = orders.slice(0, 5)
 
+    if (!authToken) {
+        return (
+            <div className="ticket-new-page" style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <FiAlertTriangle size={40} style={{ color: '#f59e0b', marginBottom: 12 }} />
+                <h3>请使用商城账号登录</h3>
+                <p style={{ color: '#6b7280', marginTop: 8 }}>提交工单需要使用商城顾客账号登录</p>
+                <button onClick={() => navigate(withPrefix('/login'))} className="btn btn-primary" style={{ marginTop: 16 }}>
+                    去登录
+                </button>
+            </div>
+        )
+    }
+
     return (
         <div className="ticket-new-page">
-            <button className="back-btn" onClick={() => navigate('/user/tickets')}>
+            <button className="back-btn" onClick={() => navigate(withPrefix('/user/tickets'))}>
                 <FiArrowLeft />
                 返回工单列表
             </button>
@@ -164,7 +210,7 @@ function TicketNew() {
                         <ul className="warning-ticket-list">
                             {openTickets.map(t => (
                                 <li key={t.id}>
-                                    <Link to={`/tickets/${t.id}`} className="warning-ticket-link">
+                                    <Link to={withPrefix(`/tickets/${t.id}`)} className="warning-ticket-link">
                                         <span className="warning-ticket-no">{t.ticketNo}</span>
                                         <span className="warning-ticket-subject">{t.subject}</span>
                                         <span className={`warning-ticket-status ${t.status === 'OPEN' ? 'open' : 'in-progress'}`}>

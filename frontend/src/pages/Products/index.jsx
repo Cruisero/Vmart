@@ -7,6 +7,38 @@ import './Products.css'
 
 const API_BASE = '/api'
 
+// 将文本中的 URL 转为超链接
+function linkifyText(text) {
+    if (!text) return null
+    const urlRegex = /(https?:\/\/[^\s<]+)/g
+    const parts = text.split(urlRegex)
+    return parts.map((part, i) => {
+        if (urlRegex.test(part)) {
+            return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="cp-info-link">{part}</a>
+        }
+        urlRegex.lastIndex = 0
+        return <span key={i}>{part}</span>
+    })
+}
+
+function InfoCard({ data }) {
+    if (!data || !data.description) return null
+    const [open, setOpen] = useState(!data.collapsed)
+    return (
+        <div className="cp-info-card">
+            <div className="cp-info-header" onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer' }}>
+                <h2 className="cp-info-title">{data.title || '公告'}</h2>
+                <span className={`cp-info-arrow ${open ? 'open' : ''}`}>▾</span>
+            </div>
+            {open && (
+                <div className="cp-info-body">
+                    <p className="cp-info-desc">{linkifyText(data.description)}</p>
+                </div>
+            )}
+        </div>
+    )
+}
+
 // 处理图片 URL，支持不同尺寸
 const getImageUrl = (url, size = 'large') => {
     if (!url) return '/placeholder.png'
@@ -127,6 +159,9 @@ function Products() {
 
     return (
         <div className="products-page">
+            {/* 首页信息卡片（折叠面板） */}
+            <InfoCard data={storefront?.featureCard} />
+
             {/* 分类导航 */}
             <div className={`category-nav${categoriesLoaded ? ' loaded' : ''}`}>
                 {categoriesLoaded ? categories.map((cat) => (

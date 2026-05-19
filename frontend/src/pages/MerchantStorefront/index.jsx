@@ -5,8 +5,8 @@
  *   - 调用 /api/v/:slug（Tenant.shopSlug 查找）而非 /api/s/:slug（Agent 查找）
  *   - StorefrontContext 中注入 apiBase: '/api/v' 供主题组件使用
  */
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useEffect, lazy, Suspense } from 'react'
+import { useParams, Link, useLocation } from 'react-router-dom'
 import { Routes, Route } from 'react-router-dom'
 import { StorefrontContext } from '../../store/storefrontStore'
 
@@ -41,25 +41,30 @@ import OrderQuery from '../../pages/OrderQuery'
 import Login from '../../pages/Auth/Login'
 import Register from '../../pages/Auth/Register'
 import UserCenter from '../../pages/User'
+import Search from '../../pages/Search'
+import TicketNew from '../../pages/TicketNew'
+import TicketDetail from '../../pages/TicketDetail'
 
 import './MerchantStorefront.css'
 
-function NoticeBanner({ text }) {
-    const [dismissed, setDismissed] = useState(false)
-    if (dismissed || !text) return null
+// 定制主题动态加载（vite glob 收集 src/themes/custom/<key>/index.jsx 作为完整主题入口）
+const customThemeModules = import.meta.glob('../../themes/custom/*/index.jsx')
+function loadCustomTheme(key) {
+    const path = `../../themes/custom/${key}/index.jsx`
+    const loader = customThemeModules[path]
+    if (!loader) return null
+    return lazy(() => loader())
+}
+
+function NoticeBanner({ text, slug }) {
+    const location = useLocation()
+    if (!text) return null
+    // 仅首页显示（/v/:slug 或 /v/:slug/）
+    const path = location.pathname.replace(/\/+$/, '')
+    if (path !== `/v/${slug}`) return null
     return (
-        <div style={{
-            background: 'linear-gradient(90deg, #4F46E5, #7C3AED)',
-            color: '#fff', padding: '8px 16px', fontSize: '0.85rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12
-        }}>
-            <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                <span style={{ display: 'inline-block', animation: text.length > 30 ? 'sf-marquee 15s linear infinite' : 'none', paddingLeft: text.length > 30 ? '100%' : 0 }}>
-                    📢 {text}
-                </span>
-            </span>
-            <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16, opacity: 0.7 }}>✕</button>
-            <style>{`@keyframes sf-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-200%); } }`}</style>
+        <div className="sf-notice-bar">
+            <span>{text}</span>
         </div>
     )
 }
@@ -101,6 +106,12 @@ export default function MerchantStorefront() {
         }
     }, [shop])
 
+    // 进入店面时给 html 加 class，离开时移除（用于隐藏全局滚动条）
+    useEffect(() => {
+        document.documentElement.classList.add('sf-no-scrollbar')
+        return () => document.documentElement.classList.remove('sf-no-scrollbar')
+    }, [])
+
     if (loading) return <div className="sf-loading"><div className="sf-spinner" /></div>
 
     if (error || !shop) {
@@ -121,6 +132,7 @@ export default function MerchantStorefront() {
         shopLogo: shop.shopLogo,
         shopSkin: skin,
         shopNotice: shop.shopNotice,
+        featureCard: shop.featureCard || null,
         // 主题组件里凡是用 /api/s/${slug} 的，改为读 apiBase
         apiBase: `/api/v`,
         _tenantMode: true,
@@ -137,35 +149,59 @@ export default function MerchantStorefront() {
             <Route path="order-query" element={skin === 'fresh' ? <FreshOrderQuery /> : skin === 'classic' ? <OrderQuery /> : <ZenOrderQuery />} />
             <Route path="login" element={skin === 'fresh' ? <FreshLogin /> : skin === 'classic' ? <Login /> : <ZenLogin />} />
             <Route path="register" element={skin === 'fresh' ? <FreshRegister /> : skin === 'classic' ? <Register /> : <ZenRegister />} />
+            <Route path="search" element={<Search />} />
+            <Route path="tickets/new" element={<TicketNew />} />
+            <Route path="tickets/:id" element={<TicketDetail />} />
             <Route path="user/*" element={skin === 'fresh' ? <FreshUserCenter /> : skin === 'classic' ? <UserCenter /> : <ZenUserCenter />} />
         </Routes>
     )
 
     return (
         <StorefrontContext.Provider value={ctx}>
-            {skin === 'fresh' && (
-                <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#F3F4F6' }}>
-                    <FreshNavbar />
-                    <NoticeBanner text={shop.shopNotice} />
-                    <main className="fresh-main-content" style={{ flex: 1 }}>{routes}</main>
-                    <Footer shopName={shop.shopName} />
-                </div>
-            )}
-            {skin === 'classic' && (
-                <div>
-                    <Navbar />
-                    <NoticeBanner text={shop.shopNotice} />
-                    <main className="main-content">{routes}</main>
-                    <Footer shopName={shop.shopName} />
-                </div>
-            )}
-            {skin !== 'fresh' && skin !== 'classic' && (
-                <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#FAFAF8' }}>
-                    <ZenNavbar />
-                    <NoticeBanner text={shop.shopNotice} />
-                    <main style={{ flex: 1 }}>{routes}</main>
-                    <Footer shopName={shop.shopName} />
-                </div>
+            {skin?.startsWith?.('custom:') ? (() => {
+                const key = skin.split(':')[1]
+                const CustomTheme = loadCustomTheme(key)
+                if (!CustomTheme) {
+                    return (
+                        <div className="sf-error">
+                            <h2>定制主题 "{key}" 加载失败</h2>
+                            <p style={{ color: '#64748b' }}>主题代码可能尚未部署。请联系平台管理员。</p>
+                            <Link to="/">返回首页</Link>
+                        </div>
+                    )
+                }
+                return (
+                    <Suspense fallback={<div className="sf-loading"><div className="sf-spinner" /></div>}>
+                        <CustomTheme shop={shop} slug={slug} routes={routes} />
+                    </Suspense>
+                )
+            })() : (
+                <>
+                    {skin === 'fresh' && (
+                        <div className="sf-root" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#F3F4F6' }}>
+                            <FreshNavbar />
+                            <NoticeBanner text={shop.shopNotice} slug={slug} />
+                            <main className="fresh-main-content" style={{ flex: 1 }}>{routes}</main>
+                            <Footer shopName={shop.shopName} />
+                        </div>
+                    )}
+                    {skin === 'classic' && (
+                        <div className="sf-root">
+                            <Navbar />
+                            <NoticeBanner text={shop.shopNotice} slug={slug} />
+                            <main className="main-content">{routes}</main>
+                            <Footer shopName={shop.shopName} />
+                        </div>
+                    )}
+                    {skin !== 'fresh' && skin !== 'classic' && !skin?.startsWith?.('custom:') && (
+                        <div className="sf-root" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#FAFAF8' }}>
+                            <ZenNavbar />
+                            <NoticeBanner text={shop.shopNotice} slug={slug} />
+                            <main style={{ flex: 1 }}>{routes}</main>
+                            <Footer shopName={shop.shopName} />
+                        </div>
+                    )}
+                </>
             )}
         </StorefrontContext.Provider>
     )

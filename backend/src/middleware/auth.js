@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken')
 const authenticate = (req, res, next) => {
     try {
         const authHeader = req.headers.authorization
+        console.log('[authenticate] authHeader:', authHeader ? authHeader.substring(0, 30) + '...' : 'MISSING')
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return res.status(401).json({ error: '请先登录' })
@@ -12,10 +13,17 @@ const authenticate = (req, res, next) => {
         const token = authHeader.substring(7)
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
+        // 兼容 platform token（payload 里是 mid 而不是 id）
+        if (decoded.mid && !decoded.id) {
+            decoded.id = decoded.mid
+            decoded.role = decoded.isSuperAdmin ? 'SUPER_ADMIN' : 'TENANT_ADMIN'
+        }
+
         req.user = decoded
         next()
     } catch (error) {
-        next(error)
+        console.log('[authenticate] error:', error.message)
+        return res.status(401).json({ error: '登录已过期，请重新登录' })
     }
 }
 

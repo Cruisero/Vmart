@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { FiArrowLeft, FiSend, FiClock, FiCheck, FiAlertCircle, FiPackage, FiCheckCircle, FiX } from 'react-icons/fi'
+import { FiArrowLeft, FiSend, FiClock, FiCheck, FiAlertCircle, FiPackage, FiCheckCircle, FiX, FiRotateCcw } from 'react-icons/fi'
 import { useAuthStore } from '../../store/authStore'
+import { useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './TicketDetail.css'
 
 const statusMap = {
     OPEN: { label: '待处理', class: 'open', icon: <FiAlertCircle /> },
     IN_PROGRESS: { label: '处理中', class: 'in-progress', icon: <FiClock /> },
-    COMPLETED: { label: '已完成', class: 'completed', icon: <FiCheckCircle /> },
+    PENDING_SUPER_ADMIN: { label: '处理中', class: 'in-progress', icon: <FiClock /> },
     CLOSED: { label: '已关闭', class: 'closed', icon: <FiCheck /> }
 }
 
@@ -23,6 +24,7 @@ function TicketDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
     const { isAuthenticated, token, user } = useAuthStore()
+    const { withPrefix } = useStorefrontPath()
     const messagesEndRef = useRef(null)
 
     const [ticket, setTicket] = useState(null)
@@ -31,10 +33,11 @@ function TicketDetail() {
     const [sending, setSending] = useState(false)
     const [showCloseConfirm, setShowCloseConfirm] = useState(false)
     const [closing, setClosing] = useState(false)
+    const [reopening, setReopening] = useState(false)
 
     useEffect(() => {
         if (!isAuthenticated) {
-            navigate('/login?redirect=/tickets/' + id)
+            navigate(withPrefix('/login'))
             return
         }
         fetchTicket()
@@ -68,7 +71,7 @@ function TicketDetail() {
                 setTicket(data.ticket)
             } else {
                 toast.error(data.error || '获取工单失败')
-                navigate('/user/tickets')
+                navigate(withPrefix('/user/tickets'))
             }
         } catch (error) {
             console.error('获取工单失败:', error)
@@ -134,6 +137,36 @@ function TicketDetail() {
         }
     }
 
+    const handleReopen = async () => {
+        setReopening(true)
+        try {
+            const res = await fetch(`/api/tickets/${id}/reopen`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            if (res.ok) {
+                toast.success('工单已重新打开')
+                fetchTicket()
+            } else {
+                const data = await res.json()
+                toast.error(data.error || '重新打开失败')
+            }
+        } catch {
+            toast.error('重新打开失败')
+        } finally {
+            setReopening(false)
+        }
+    }
+
+    // 计算关闭后剩余的可重新打开时间（小时）
+    const reopenHoursLeft = (() => {
+        if (ticket?.status !== 'CLOSED' || !ticket?.closedAt) return 0
+        const elapsed = Date.now() - new Date(ticket.closedAt).getTime()
+        const left = 24 * 60 * 60 * 1000 - elapsed
+        return left > 0 ? Math.ceil(left / (60 * 60 * 1000)) : 0
+    })()
+    const canReopen = ticket?.status === 'CLOSED' && reopenHoursLeft > 0
+
     const formatTime = (dateStr) => {
         const date = new Date(dateStr)
         return date.toLocaleString('zh-CN', {
@@ -162,7 +195,7 @@ function TicketDetail() {
 
     return (
         <div className="ticket-detail-page">
-            <button className="back-btn" onClick={() => navigate('/user/tickets')}>
+            <button className="back-btn" onClick={() => navigate(withPrefix('/user/tickets'))}>
                 <FiArrowLeft />
                 返回工单列表
             </button>
@@ -184,6 +217,16 @@ function TicketDetail() {
                                 >
                                     <FiX />
                                     关闭工单
+                                </button>
+                            )}
+                            {canReopen && (
+                                <button
+                                    className="btn-reopen-ticket"
+                                    onClick={handleReopen}
+                                    disabled={reopening}
+                                >
+                                    <FiRotateCcw />
+                                    {reopening ? '处理中...' : '重新打开'}
                                 </button>
                             )}
                         </div>
@@ -235,11 +278,6 @@ function TicketDetail() {
                     {/* 发送消息 */}
                     {ticket.status !== 'CLOSED' ? (
                         <>
-                            {ticket.status === 'COMPLETED' && (
-                                <div className="ticket-completed-notice">
-                                    工单已标记为已完成，如有疑问请回复此工单，24小时内无回复将自动关闭
-                                </div>
-                            )}
                             <form className="message-input-form" onSubmit={handleSend}>
                                 <textarea
                                     className="message-input"
@@ -261,7 +299,21 @@ function TicketDetail() {
                         </>
                     ) : (
                         <div className="ticket-closed-notice">
-                            此工单已关闭，如有新问题请提交新工单
+                            {canReopen ? (
+                                <>
+                                    <div>此工单已关闭（{reopenHoursLeft} 小时内可重新打开）</div>
+                                    <button
+                                        className="btn-reopen-inline"
+                                        onClick={handleReopen}
+                                        disabled={reopening}
+                                    >
+                                        <FiRotateCcw />
+                                        {reopening ? '处理中...' : '重新打开工单'}
+                                    </button>
+                                </>
+                            ) : (
+                                '此工单已关闭超过 24 小时，如有新问题请提交新工单'
+                            )}
                         </div>
                     )}
                 </div>

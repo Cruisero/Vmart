@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { FiArrowLeft } from 'react-icons/fi'
+import { useStorefrontPath } from '../../store/storefrontStore'
 import './style.css'
 
 function RefundPolicy() {
+    const { withPrefix } = useStorefrontPath()
     return (
         <div className="policy-page">
             <Link to="/" className="back-btn">
@@ -47,7 +49,7 @@ function RefundPolicy() {
                     <section>
                         <h2>三、退款申请流程</h2>
                         <ol>
-                            <li><strong>提交工单</strong>：通过本平台 <Link to="/tickets/new">工单系统</Link> 提交退款申请，需包含：订单号、问题描述、相关截图证据。</li>
+                            <li><strong>提交工单</strong>：通过本平台 <Link to={withPrefix("/tickets/new")}>工单系统</Link> 提交退款申请，需包含：订单号、问题描述、相关截图证据。</li>
                             <li><strong>客服审核</strong>：客服将在收到工单后 24 小时内进行审核。</li>
                             <li><strong>处理结果</strong>：审核通过后，将在 1-3 个工作日内完成退款操作。</li>
                         </ol>
@@ -103,7 +105,7 @@ function RefundPolicy() {
                     </section>
 
                     <div className="policy-footer">
-                        <p>如有疑问，请通过 <Link to="/tickets/new">工单系统</Link> 联系我们，我们将竭诚为您服务。</p>
+                        <p>如有疑问，请通过 <Link to={withPrefix("/tickets/new")}>工单系统</Link> 联系我们，我们将竭诚为您服务。</p>
                     </div>
                 </div>
             </div>

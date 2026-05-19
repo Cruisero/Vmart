@@ -1,0 +1,108 @@
+/* 示例定制主题：Dark Luxury */
+
+.dl-root {
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+    color: #e8e8e8;
+    font-family: 'Cormorant Garamond', 'PingFang SC', serif;
+    display: flex;
+    flex-direction: column;
+}
+
+.dl-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.dl-header {
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.dl-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 32px;
+}
+
+.dl-brand {
+    color: #d4af37;
+    font-size: 1.6rem;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.dl-brand img {
+    height: 40px;
+    object-fit: contain;
+}
+
+.dl-nav {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+}
+
+.dl-nav a {
+    color: #e8e8e8;
+    text-decoration: none;
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+    transition: color 0.2s;
+    text-transform: uppercase;
+}
+
+.dl-nav a:hover {
+    color: #d4af37;
+}
+
+.dl-cart {
+    padding: 8px 18px;
+    border: 1px solid #d4af37;
+    color: #d4af37 !important;
+    border-radius: 0;
+}
+
+.dl-notice {
+    padding: 10px 32px;
+    text-align: center;
+    background: rgba(212, 175, 55, 0.08);
+    color: #d4af37;
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+}
+
+.dl-main {
+    flex: 1;
+    padding: 60px 32px;
+}
+
+.dl-footer {
+    border-top: 1px solid rgba(212, 175, 55, 0.15);
+    padding: 30px 0;
+    color: #888;
+    font-size: 0.82rem;
+}
+
+.dl-footer .dl-container {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    align-items: center;
+}
+
+@media (max-width: 768px) {
+    .dl-header-inner { flex-direction: column; gap: 14px; padding: 18px 20px; }
+    .dl-nav { gap: 18px; flex-wrap: wrap; justify-content: center; }
+    .dl-main { padding: 32px 20px; }
+}

@@ -1061,3 +1061,28 @@
         white-space: nowrap;
     }
 }
+
+
+/* 修改密码内嵌区 */
+.profile-password-section {
+    margin-top: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px 24px;
+}
+
+.profile-password-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.profile-password-section .password-form {
+    max-width: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+}

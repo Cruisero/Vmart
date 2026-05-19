@@ -7,11 +7,13 @@ const logger = require('../utils/logger')
 
 // 从数据库获取套餐限制
 async function getPlanLimits(planKey) {
+    // 免费试用与专业版同权限
+    const effectivePlanKey = planKey === 'FREE' ? 'PRO' : planKey
     try {
         const setting = await prisma.platformSetting.findUnique({ where: { key: 'plan_config' } })
         if (setting?.value) {
             const config = JSON.parse(setting.value)
-            const plan = config.plans?.find(p => p.key === planKey)
+            const plan = config.plans?.find(p => p.key === effectivePlanKey)
             if (plan?.features) {
                 return { maxProducts: plan.features.maxProducts || -1 }
             }
@@ -19,8 +21,8 @@ async function getPlanLimits(planKey) {
     } catch (e) {
         logger.error('[getPlanLimits] 读取套餐配置失败:', e.message)
     }
-    // 默认限制
-    const defaults = { FREE: 5, BASIC: 10, STANDARD: 50, PRO: 200 }
+    // 默认限制（FREE 视同 PRO）
+    const defaults = { FREE: 200, BASIC: 10, STANDARD: 50, PRO: 200 }
     return { maxProducts: defaults[planKey] || 5 }
 }
 

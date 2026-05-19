@@ -12,6 +12,40 @@ const getImageUrl = (url, size = 'large') => {
     return url
 }
 
+// 将文本中的 URL 转为超链接
+function linkifyText(text) {
+    if (!text) return null
+    const urlRegex = /(https?:\/\/[^\s<]+)/g
+    const parts = text.split(urlRegex)
+    return parts.map((part, i) => {
+        if (urlRegex.test(part)) {
+            return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="zp-feature-link-inline">{part}</a>
+        }
+        urlRegex.lastIndex = 0
+        return <span key={i}>{part}</span>
+    })
+}
+
+function FeatureCard({ data }) {
+    if (!data || !data.description) return null
+    const [open, setOpen] = useState(!data.collapsed)
+    return (
+        <div className="zp-feature-card">
+            {data.title && (
+                <div className="zp-feature-header" onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer' }}>
+                    <h2 className="zp-feature-title">{data.title}</h2>
+                    <span style={{ fontSize: '1rem', color: '#9CA3AF', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
+                </div>
+            )}
+            {(open || !data.title) && (
+                <div className="zp-feature-body">
+                    <p className="zp-feature-desc">{linkifyText(data.description)}</p>
+                </div>
+            )}
+        </div>
+    )
+}
+
 function ProductCard({ product, linkPrefix }) {
     const [imgError, setImgError] = useState(false)
     const imgSrc = getImageUrl(product.image, 'large')
@@ -65,11 +99,7 @@ export default function ZenProducts() {
 
     return (
         <div className="zp-page">
-            <div className="zp-hero">
-                <p className="zp-subtitle">
-                    {storefront ? `${storefront.shopName} · 精选好物` : '虚拟商品 · 即买即用'}
-                </p>
-            </div>
+            <FeatureCard data={storefront?.featureCard} />
             <div className="zp-grid">
                 {loading
                     ? Array.from({ length: 6 }).map((_, i) => (

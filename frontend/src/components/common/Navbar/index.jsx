@@ -11,9 +11,6 @@ import logoImg from '../../../assets/logo.png'
 import logoDarkImg from '../../../assets/logo-dark.png'
 import './Navbar.css'
 
-// 热门搜索关键词
-const hotSearches = ['Netflix', 'ChatGPT', 'Spotify', '游戏账号', 'Adobe', '网盘会员', 'YouTube', 'Office']
-
 function Navbar() {
     const location = useLocation()
     const navigate = useNavigate()
@@ -31,6 +28,7 @@ function Navbar() {
     const [searchLoading, setSearchLoading] = useState(false)
     const [recommendedProducts, setRecommendedProducts] = useState([])
     const [matchedProducts, setMatchedProducts] = useState([])
+    const [hotSearches, setHotSearches] = useState([])
     const searchRef = useRef(null)
     const mobileSearchInputRef = useRef(null)
     const debounceRef = useRef(null)
@@ -48,23 +46,62 @@ function Navbar() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    // 加载推荐商品
+    // 计算 API 基础路径：店面模式走 /api/v/:slug，否则不加载（已无主站）
+    const apiProductsUrl = (() => {
+        if (storefront?._tenantMode && storefront?.slug) {
+            return `/api/v/${storefront.slug}/products`
+        }
+        if (storefront?.slug) {
+            // 代理分站
+            return `/api/s/${storefront.slug}/products`
+        }
+        return null
+    })()
+    // 真实热门搜索 / 上报接口（仅 SaaS 店面有，分站暂不支持）
+    const hotSearchUrl = storefront?._tenantMode && storefront?.slug ? `/api/v/${storefront.slug}/hot-searches?limit=8` : null
+    const logSearchUrl = storefront?._tenantMode && storefront?.slug ? `/api/v/${storefront.slug}/search-log` : null
+
+    // 加载推荐商品 + 真实热门搜索
     useEffect(() => {
+        if (!apiProductsUrl) {
+            setRecommendedProducts([])
+            setHotSearches([])
+            return
+        }
         const fetchRecommended = async () => {
             try {
-                const res = await fetch('/api/products/hot?limit=6')
+                const res = await fetch(`${apiProductsUrl}?limit=6`)
                 const data = await res.json()
                 setRecommendedProducts(data.products || [])
             } catch (error) {
                 console.error('推荐商品加载失败:', error)
             }
         }
+        const fetchHotSearches = async () => {
+            if (!hotSearchUrl) {
+                setHotSearches([])
+                return
+            }
+            try {
+                const res = await fetch(hotSearchUrl)
+                const data = await res.json()
+                setHotSearches(data.keywords || [])
+            } catch (error) {
+                setHotSearches([])
+            }
+        }
         fetchRecommended()
-    }, [])
+        fetchHotSearches()
+    }, [apiProductsUrl, hotSearchUrl])
 
     // 实时搜索建议 - 从API获取
     useEffect(() => {
         if (!searchQuery.trim()) {
+            setSuggestions([])
+            setMatchedProducts([])
+            return
+        }
+        if (!apiProductsUrl) {
             setSuggestions([])
             setMatchedProducts([])
             return
@@ -78,7 +115,7 @@ function Navbar() {
         debounceRef.current = setTimeout(async () => {
             setSearchLoading(true)
             try {
-                const res = await fetch(`/api/products?search=${encodeURIComponent(searchQuery.trim())}&limit=6`)
+                const res = await fetch(`${apiProductsUrl}?search=${encodeURIComponent(searchQuery.trim())}&limit=6`)
                 const data = await res.json()
                 const products = (data.products || data || []).slice(0, 6)
                 setMatchedProducts(products)
@@ -106,10 +143,19 @@ function Navbar() {
     const handleSearch = (query) => {
         const searchTerm = query || searchQuery
         if (searchTerm.trim()) {
+            const trimmed = searchTerm.trim()
             setShowDropdown(false)
             setMobileSearchOpen(false)
             setSearchQuery('')
-            navigate(`${prefix}/search?q=${encodeURIComponent(searchTerm.trim())}`)
+            // 上报搜索关键词（不阻塞）
+            if (logSearchUrl) {
+                fetch(logSearchUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword: trimmed })
+                }).catch(() => { })
+            }
+            navigate(`${prefix}/search?q=${encodeURIComponent(trimmed)}`)
         }
     }
 
@@ -247,7 +293,7 @@ function Navbar() {
                             )}
 
                             {/* 无输入时显示热门搜索 */}
-                            {!searchQuery.trim() && (
+                            {!searchQuery.trim() && hotSearches.length > 0 && (
                                 <div className="dropdown-section">
                                     <div className="dropdown-header">
                                         <FiTrendingUp className="dropdown-icon hot" />
@@ -432,7 +478,7 @@ function Navbar() {
                         )}
 
                         {/* 热门搜索 */}
-                        {!searchQuery.trim() && (
+                        {!searchQuery.trim() && hotSearches.length > 0 && (
                             <div className="mobile-hot-searches">
                                 <div className="mobile-section-title">
                                     <FiTrendingUp />

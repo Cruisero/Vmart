@@ -26,12 +26,21 @@ async function getPlatformConfig(key, defaultVal) {
 // ─── 商户注册（注册即建店）──────────────────────────────────
 exports.register = async (req, res) => {
     try {
-        const { email, password, shopName } = req.body
+        const { email, password, shopName, otpCode } = req.body
         if (!email || !password || !shopName) {
             return res.status(400).json({ error: '邮箱、密码、店铺名称均为必填' })
         }
         if (password.length < 6) {
             return res.status(400).json({ error: '密码至少 6 位' })
+        }
+
+        // 校验 OTP（如开关开启）
+        const otpEnabled = (await getPlatformConfig('merchant_register_otp', 'false')) === 'true'
+        if (otpEnabled) {
+            if (!otpCode) return res.status(400).json({ error: '请输入邮箱验证码' })
+            const otpService = require('../services/otpService')
+            const r = await otpService.verifyOtp({ email, code: otpCode, scope: 'merchant_register' })
+            if (!r.ok) return res.status(400).json({ error: r.error })
         }
 
         const exists = await prisma.merchant.findUnique({ where: { email } })
@@ -102,6 +111,13 @@ exports.register = async (req, res) => {
 
         const token = generatePlatformToken(merchant)
         const adminToken = generateAdminToken(adminUser)
+
+        // 平台超管异步通知
+        try {
+            const manNotify = require('../services/manNotifyService')
+            manNotify.notifyNewMerchant({ email: merchant.email, shopName }).catch(() => {})
+        } catch {}
+
         return res.status(201).json({
             message: '注册成功，商城已开通',
             token,
@@ -307,7 +323,19 @@ exports.listMerchants = async (req, res) => {
             })
         ])
 
-        res.json({ total, page: parseInt(page), merchants })
+        // 关联 tenantId
+        const slugs = merchants.map(m => m.shop?.slug).filter(Boolean)
+        const tenants = slugs.length ? await prisma.tenant.findMany({
+            where: { shopSlug: { in: slugs } },
+            select: { id: true, shopSlug: true }
+        }) : []
+        const tenantBySlug = Object.fromEntries(tenants.map(t => [t.shopSlug, t.id]))
+        const enriched = merchants.map(m => ({
+            ...m,
+            tenantId: m.shop?.slug ? tenantBySlug[m.shop.slug] || null : null
+        }))
+
+        res.json({ total, page: parseInt(page), merchants: enriched })
     } catch (e) {
         res.status(500).json({ error: e.message })
     }
@@ -339,6 +367,25 @@ exports.updateMerchant = async (req, res) => {
         }
 
         await prisma.shop.update({ where: { merchantId: id }, data: shopData })
+
+        // 同步 Tenant 状态（让冻结/封禁立即对店面生效）
+        if (status) {
+            const tenantStatusMap = {
+                ACTIVE: 'ACTIVE',
+                SUSPENDED: 'SUSPENDED',
+                EXPIRED: 'SUSPENDED'
+            }
+            const tenantStatus = tenantStatusMap[status]
+            if (tenantStatus && merchant.shop?.slug) {
+                try {
+                    await prisma.tenant.updateMany({
+                        where: { shopSlug: merchant.shop.slug },
+                        data: { status: tenantStatus }
+                    })
+                } catch {}
+            }
+        }
+
         res.json({ message: '已更新' })
     } catch (e) {
         res.status(500).json({ error: e.message })

@@ -3,6 +3,83 @@ const prisma = require('../config/database')
 const bcrypt = require('bcryptjs')
 const emailService = require('../services/emailService')
 
+// 检查租户的当前套餐是否允许代理系统
+async function isAgentSystemAllowed(tenantId) {
+    try {
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { shopSlug: true }
+        })
+        if (!tenant) return false
+        const shop = await prisma.shop.findUnique({
+            where: { slug: tenant.shopSlug },
+            select: { plan: true }
+        })
+        if (!shop) return false
+        // 免费试用与专业版同权限：FREE 视同 PRO 来读取功能配置
+        const effectivePlanKey = shop.plan === 'FREE' ? 'PRO' : shop.plan
+
+        // 读 plan_config 中对应套餐的 features.agentSystem
+        const setting = await prisma.platformSetting.findUnique({
+            where: { key: 'plan_config' }
+        })
+        if (setting?.value) {
+            try {
+                const config = JSON.parse(setting.value)
+                const planInfo = (config.plans || []).find(p => p.key === effectivePlanKey)
+                if (planInfo) {
+                    return planInfo.features?.agentSystem === true
+                }
+            } catch {}
+        }
+
+        // fallback：默认仅 PRO 允许（FREE 视同 PRO，所以这里返回 true）
+        return effectivePlanKey === 'PRO'
+    } catch (e) {
+        console.error('[isAgentSystemAllowed] 失败:', e.message)
+        return false
+    }
+}
+
+// 获取租户允许的子管理员数量上限
+// 返回 -1 = 不限；0 = 不允许；>0 = 上限
+async function getSubAdminLimit(tenantId) {
+    try {
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { shopSlug: true }
+        })
+        if (!tenant) return 0
+        const shop = await prisma.shop.findUnique({
+            where: { slug: tenant.shopSlug },
+            select: { plan: true }
+        })
+        if (!shop) return 0
+        // 免费试用与专业版同权限
+        const effectivePlanKey = shop.plan === 'FREE' ? 'PRO' : shop.plan
+
+        const setting = await prisma.platformSetting.findUnique({
+            where: { key: 'plan_config' }
+        })
+        if (setting?.value) {
+            try {
+                const config = JSON.parse(setting.value)
+                const planInfo = (config.plans || []).find(p => p.key === effectivePlanKey)
+                if (planInfo) {
+                    const v = planInfo.features?.maxSubAdmins
+                    if (typeof v === 'number') return v
+                }
+            } catch {}
+        }
+        // fallback：未配置时按 plan key 给保守默认（FREE 视同 PRO）
+        const fallback = { FREE: 10, BASIC: 0, STANDARD: 2, PRO: 10 }
+        return fallback[shop.plan] ?? 0
+    } catch (e) {
+        console.error('[getSubAdminLimit] 失败:', e.message)
+        return 0
+    }
+}
+
 async function releaseOrderCards(tx, order) {
     const releasedCards = order.cards || []
     const releasedCount = releasedCards.length
@@ -77,23 +154,21 @@ const ADMIN_EMAIL_NOTIFICATION_EVENTS = [
     'notifyOrderCancelled'
 ]
 
-async function getAdminDashboardPermissions(userRole) {
-    if ((userRole || '').toUpperCase() === 'SUPER_ADMIN') {
-        return { ...ADMIN_DASHBOARD_PERMISSION_DEFAULTS }
+async function getAdminDashboardPermissions(req) {
+    const userRole = (req?.user?.role || '').toUpperCase()
+    // 所有者拥有全部仪表盘权限
+    if (['SUPER_ADMIN', 'TENANT_ADMIN'].includes(userRole)) {
+        return { adminPermissionViewStatsGrid: true, adminPermissionViewTodayStats: true }
     }
-
-    const keys = Object.keys(ADMIN_DASHBOARD_PERMISSION_DEFAULTS)
-    const rows = await prisma.setting.findMany({
-        where: { key: { in: keys } }
-    })
-    const valueMap = new Map(rows.map(row => [row.key, row.value]))
-
-    return Object.fromEntries(
-        keys.map(key => {
-            const value = valueMap.get(key)
-            return [key, value == null ? ADMIN_DASHBOARD_PERMISSION_DEFAULTS[key] : value === 'true']
-        })
-    )
+    // 子管理员（ADMIN）按个人 permissions 判断
+    if (userRole === 'ADMIN') {
+        const perms = req?.permissions || {}
+        return {
+            adminPermissionViewStatsGrid: !!perms['dashboard.viewStatsGrid'],
+            adminPermissionViewTodayStats: !!perms['dashboard.viewTodayStats']
+        }
+    }
+    return { adminPermissionViewStatsGrid: false, adminPermissionViewTodayStats: false }
 }
 
 function parseAdminEmailConfigs(value) {
@@ -134,7 +209,7 @@ function normalizeAdminEmailConfigs(configs, admins) {
 // 仪表盘统计
 exports.getDashboard = async (req, res, next) => {
     try {
-        const dashboardPermissions = await getAdminDashboardPermissions(req.user.role)
+        const dashboardPermissions = await getAdminDashboardPermissions(req)
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
@@ -176,7 +251,7 @@ exports.getDashboard = async (req, res, next) => {
                     product: { select: { name: true } }
                 }
             }),
-            prisma.ticket.count({ where: { adminUnreadCount: { gt: 0 } } }),
+            prisma.ticket.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), adminUnreadCount: { gt: 0 } } }),
             prisma.order.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'PENDING' } }),
             prisma.order.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'PAID' } }),
             prisma.order.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), status: 'REFUNDING' } }),
@@ -304,7 +379,7 @@ exports.getDashboard = async (req, res, next) => {
 // 仪表盘趋势数据
 exports.getDashboardTrend = async (req, res, next) => {
     try {
-        const dashboardPermissions = await getAdminDashboardPermissions(req.user.role)
+        const dashboardPermissions = await getAdminDashboardPermissions(req)
         if (!dashboardPermissions.adminPermissionViewStatsGrid) {
             return res.status(403).json({ error: '无权限查看仪表盘统计趋势' })
         }
@@ -1378,6 +1453,237 @@ exports.getUsers = async (req, res, next) => {
     }
 }
 
+// 邮件资源包套餐定义
+const EMAIL_PACK_OPTIONS = [
+    { key: '2K', count: 2000, price: 7 },
+    { key: '5K', count: 5000, price: 15 },
+    { key: '10K', count: 10000, price: 30 }
+]
+
+exports.getEmailPackOptions = async (req, res) => {
+    res.json({ packs: EMAIL_PACK_OPTIONS })
+}
+
+// 创建邮件资源包订单（复用支付流程）
+exports.createEmailPackOrder = async (req, res, next) => {
+    try {
+        if (!req.tenantId) return res.status(400).json({ error: '未识别商户' })
+        const { packKey, paymentMethod } = req.body
+        const pack = EMAIL_PACK_OPTIONS.find(p => p.key === packKey)
+        if (!pack) return res.status(400).json({ error: '无效的资源包' })
+        if (!['alipay', 'usdt', 'bsc_usdt'].includes(paymentMethod)) {
+            return res.status(400).json({ error: '不支持的支付方式' })
+        }
+
+        const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId } })
+        if (!tenant) return res.status(404).json({ error: '租户不存在' })
+
+        const orderNo = `EP${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+
+        // 占位商品
+        let pkgProduct = await prisma.product.findFirst({ where: { name: '邮件资源包', status: 'INACTIVE' } })
+        if (!pkgProduct) {
+            pkgProduct = await prisma.product.create({
+                data: { name: '邮件资源包', price: 0, status: 'INACTIVE', description: '平台邮件资源包占位商品' }
+            })
+        }
+
+        const order = await prisma.order.create({
+            data: {
+                orderNo,
+                email: req.user?.email || tenant.shopName,
+                productId: pkgProduct.id,
+                productName: `邮件资源包 ${pack.count} 封`,
+                quantity: 1,
+                unitPrice: pack.price,
+                totalAmount: pack.price,
+                status: 'PENDING',
+                paymentMethod,
+                remark: `email_pack:${tenant.id}:${pack.count}`
+            }
+        })
+
+        let paymentData = {}
+        if (paymentMethod === 'alipay') {
+            const alipayService = require('../services/alipayService')
+            try {
+                const result = await alipayService.createQrCodePayment({
+                    orderNo,
+                    totalAmount: pack.price,
+                    productName: `Vmart 邮件资源包 ${pack.count}封`
+                })
+                paymentData = { paymentType: 'qrcode', qrCode: result.qrCode, orderNo }
+            } catch (e) {
+                return res.status(500).json({ error: '支付宝支付暂不可用，请选择其他方式' })
+            }
+        } else if (paymentMethod === 'usdt' || paymentMethod === 'bsc_usdt') {
+            const walletKey = paymentMethod === 'usdt' ? 'usdt_wallet' : 'bsc_usdt_wallet'
+            const walletSetting = await prisma.platformSetting.findUnique({ where: { key: walletKey } })
+            if (!walletSetting?.value) {
+                return res.status(400).json({ error: 'USDT 收款地址未配置，请联系平台' })
+            }
+            const exchangeRate = 7.2
+            const usdtAmount = parseFloat((pack.price / exchangeRate).toFixed(2))
+            const uniqueAmount = usdtAmount + parseFloat((Math.random() * 0.09 + 0.01).toFixed(2))
+            const updateData = paymentMethod === 'usdt'
+                ? { usdtAmount: uniqueAmount }
+                : { bscUsdtAmount: uniqueAmount }
+            await prisma.order.update({ where: { id: order.id }, data: updateData })
+            paymentData = {
+                paymentType: paymentMethod,
+                walletAddress: walletSetting.value,
+                usdtAmount: uniqueAmount,
+                exchangeRate,
+                qrContent: paymentMethod === 'usdt' ? `tron:${walletSetting.value}?amount=${uniqueAmount}` : walletSetting.value,
+                orderNo
+            }
+        }
+
+        res.json({
+            orderNo,
+            packKey,
+            count: pack.count,
+            amount: pack.price,
+            ...paymentData
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 查询邮件资源包订单状态
+exports.checkEmailPackOrder = async (req, res, next) => {
+    try {
+        const { orderNo } = req.params
+        const order = await prisma.order.findUnique({ where: { orderNo } })
+        if (!order) return res.status(404).json({ error: '订单不存在' })
+        if (!order.remark?.startsWith('email_pack:')) {
+            return res.status(400).json({ error: '订单类型不符' })
+        }
+        return res.json({
+            status: order.status === 'COMPLETED' ? 'paid' : (order.status === 'CANCELLED' ? 'cancelled' : 'pending')
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 取消邮件资源包订单（用户主动取消，或前端超时触发）
+exports.cancelEmailPackOrder = async (req, res, next) => {
+    try {
+        const { orderNo } = req.params
+        const order = await prisma.order.findUnique({ where: { orderNo } })
+        if (!order) return res.status(404).json({ error: '订单不存在' })
+        if (!order.remark?.startsWith('email_pack:')) {
+            return res.status(400).json({ error: '订单类型不符' })
+        }
+        if (order.status !== 'PENDING') {
+            return res.status(400).json({ error: '订单已处理，无法取消' })
+        }
+        await prisma.order.update({
+            where: { id: order.id },
+            data: { status: 'CANCELLED', cancelledAt: new Date() }
+        })
+        res.json({ message: '订单已取消' })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 当前租户本月邮件使用情况
+exports.getEmailUsage = async (req, res, next) => {
+    try {
+        if (!req.tenantId) return res.json({ used: 0, limit: -1, plan: null, packBalance: 0 })
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: req.tenantId },
+            select: { shopSlug: true }
+        })
+        if (!tenant) return res.json({ used: 0, limit: -1, plan: null, packBalance: 0 })
+
+        const shop = await prisma.shop.findUnique({
+            where: { slug: tenant.shopSlug },
+            select: { plan: true }
+        })
+
+        const effectivePlanKey = shop?.plan === 'FREE' ? 'PRO' : shop?.plan
+        let emailLimit = 0
+        const setting = await prisma.platformSetting.findUnique({ where: { key: 'plan_config' } })
+        if (setting?.value) {
+            try {
+                const config = JSON.parse(setting.value)
+                const planInfo = (config.plans || []).find(p => p.key === effectivePlanKey)
+                if (planInfo?.features?.emailNotifications !== undefined) {
+                    emailLimit = planInfo.features.emailNotifications
+                }
+            } catch {}
+        }
+
+        const { getEmailUsage, getEmailPackBalance } = require('../services/tenantEmailService')
+        const used = await getEmailUsage(req.tenantId)
+        const packBalance = await getEmailPackBalance(req.tenantId)
+
+        res.json({ used, limit: emailLimit, plan: shop?.plan, packBalance })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 获取当前租户的套餐限制（供商户后台菜单等使用，无需 platform token）
+exports.getPlanLimits = async (req, res, next) => {
+    try {
+        if (!req.tenantId) return res.json({ limits: {}, plan: null })
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: req.tenantId },
+            select: { shopSlug: true }
+        })
+        if (!tenant) return res.json({ limits: {}, plan: null })
+
+        const shop = await prisma.shop.findUnique({
+            where: { slug: tenant.shopSlug },
+            select: { plan: true }
+        })
+        if (!shop) return res.json({ limits: {}, plan: null })
+
+        // 免费试用与专业版同权限
+        const effectivePlanKey = shop.plan === 'FREE' ? 'PRO' : shop.plan
+
+        const setting = await prisma.platformSetting.findUnique({
+            where: { key: 'plan_config' }
+        })
+
+        let limits = {}
+        let planConfigured = false
+        if (setting?.value) {
+            try {
+                const config = JSON.parse(setting.value)
+                const planInfo = (config.plans || []).find(p => p.key === effectivePlanKey)
+                if (planInfo?.features) {
+                    limits = { ...planInfo.features }
+                    planConfigured = true
+                }
+            } catch {}
+        }
+
+        // 兜底：未配置过的套餐使用默认值；已配置但缺字段的，按"未启用"处理
+        if (typeof limits.maxSubAdmins !== 'number') {
+            const fallback = { FREE: 10, BASIC: 0, STANDARD: 2, PRO: 10 }
+            limits.maxSubAdmins = fallback[shop.plan] ?? 0
+        }
+        if (typeof limits.support !== 'boolean') {
+            limits.support = !planConfigured // 已配置过的套餐缺该字段 = 关闭
+        }
+        if (typeof limits.customerTickets !== 'boolean') {
+            limits.customerTickets = !planConfigured
+        }
+
+        res.json({ plan: shop.plan, limits })
+    } catch (error) {
+        next(error)
+    }
+}
+
 // 系统设置
 exports.getSettings = async (req, res, next) => {
     try {
@@ -1416,9 +1722,11 @@ exports.getSettings = async (req, res, next) => {
                     events: []
                 }));
             settingsObj.adminEmailNotificationConfigs = JSON.stringify([...normalizedConfigs, ...missingConfigs]);
+
+            // 加上当前商户是否允许代理系统的标记，前端用于禁用/隐藏 toggle
+            settingsObj._planAllowsAgent = await isAgentSystemAllowed(req.tenantId);
             
-        } else {
-            // Global settings
+        } else {            // Global settings
             const [settings, admins] = await Promise.all([
                 prisma.setting.findMany(),
                 prisma.user.findMany({
@@ -1459,6 +1767,14 @@ exports.updateSettings = async (req, res, next) => {
         const settings = req.body
 
         if (req.tenantId) {
+            // 校验：开启 agentEnabled 必须满足套餐 agentSystem 条件
+            if (settings.agentEnabled === true || settings.agentEnabled === 'true') {
+                const allowed = await isAgentSystemAllowed(req.tenantId)
+                if (!allowed) {
+                    return res.status(403).json({ error: '当前套餐不支持代理系统，请升级到专业版' })
+                }
+            }
+
             // Tenant specific settings
             const tenantSetting = await prisma.tenantSetting.findUnique({
                 where: { tenantId: req.tenantId }
@@ -2049,6 +2365,22 @@ exports.createAdmin = async (req, res, next) => {
 
         if (password.length < 6) {
             return res.status(400).json({ error: '密码至少6位' })
+        }
+
+        // 套餐校验：检查 maxSubAdmins
+        if (req.tenantId) {
+            const limit = await getSubAdminLimit(req.tenantId)
+            if (limit === 0) {
+                return res.status(403).json({ error: '当前套餐不支持添加子管理员，请升级套餐' })
+            }
+            if (limit > 0) {
+                const currentCount = await prisma.user.count({
+                    where: { role: 'ADMIN', tenantId: req.tenantId }
+                })
+                if (currentCount >= limit) {
+                    return res.status(403).json({ error: `已达到当前套餐子管理员上限（${limit} 人），请升级套餐` })
+                }
+            }
         }
 
         // 净化 permissions：只保留预定义的 key

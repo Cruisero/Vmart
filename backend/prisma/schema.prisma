@@ -198,7 +198,7 @@ model Setting {
 model Ticket {
   id               String       @id @default(uuid())
   ticketNo         String       @unique @map("ticket_no")
-  userId           String       @map("user_id")
+  userId           String?      @map("user_id")
   customerId       String?      @map("customer_id")
   orderId          String?      @map("order_id")
   orderNo          String?      @map("order_no")
@@ -212,7 +212,8 @@ model Ticket {
   createdAt        DateTime     @default(now()) @map("created_at")
   updatedAt        DateTime     @updatedAt @map("updated_at")
   closedAt         DateTime?    @map("closed_at")
-  user             User         @relation(fields: [userId], references: [id])
+  tenantId         String?      @map("tenant_id")
+  user             User?        @relation(fields: [userId], references: [id])
   customer         Customer?    @relation(fields: [customerId], references: [id])
   order            Order?       @relation(fields: [orderId], references: [id])
   messages         TicketMessage[]
@@ -220,6 +221,7 @@ model Ticket {
   @@index([userId], map: "tickets_user_id_fkey")
   @@index([customerId], map: "tickets_customer_id_idx")
   @@index([orderId], map: "tickets_order_id_fkey")
+  @@index([tenantId], map: "tickets_tenant_id_idx")
   @@map("tickets")
 }
 
@@ -247,6 +249,68 @@ model SiteVisit {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("site_visits")
+}
+
+// 搜索关键词（按 tenant 分组聚合，count 累加用于热门搜索榜）
+model SearchLog {
+  id         String   @id @default(uuid())
+  tenantId   String?  @map("tenant_id")
+  keyword    String   @db.VarChar(120)
+  count      Int      @default(1)
+  lastUsedAt DateTime @default(now()) @map("last_used_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, keyword], map: "search_logs_tenant_keyword_uk")
+  @@index([tenantId, count(sort: Desc)], map: "search_logs_tenant_count_idx")
+  @@map("search_logs")
+}
+
+// 商户工单（商户 → 平台客服）
+model MerchantTicket {
+  id         String   @id @default(uuid())
+  ticketNo   String   @unique @map("ticket_no")
+  merchantId String   @map("merchant_id")
+  subject    String   @db.VarChar(200)
+  status     String   @default("OPEN") @db.VarChar(20) // OPEN, IN_PROGRESS, CLOSED
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  closedAt   DateTime? @map("closed_at")
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  messages   MerchantTicketMessage[]
+
+  @@index([merchantId], map: "idx_merchant")
+  @@index([status], map: "idx_status")
+  @@map("merchant_tickets")
+}
+
+model MerchantTicketMessage {
+  id         String   @id @default(uuid())
+  ticketId   String   @map("ticket_id")
+  senderType String   @default("MERCHANT") @map("sender_type") @db.VarChar(20) // MERCHANT, ADMIN
+  content    String   @db.Text
+  images     Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  ticket     MerchantTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId], map: "idx_ticket")
+  @@map("merchant_ticket_messages")
+}
+
+// 邮箱 OTP 验证码（注册等场景）
+model EmailOtp {
+  id        String   @id @default(uuid())
+  email     String   @db.VarChar(180)
+  code      String   @db.VarChar(8)
+  scope     String   @db.VarChar(40) // merchant_register | customer_register
+  tenantId  String?  @map("tenant_id")
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, scope, tenantId, used], map: "email_otps_email_scope")
+  @@index([expiresAt], map: "email_otps_expires")
+  @@map("email_otps")
 }
 
 // ==================== Enums ====================
@@ -503,6 +567,7 @@ model Merchant {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   shop         Shop?
   planOrders   PlanOrder[]
+  tickets      MerchantTicket[]
 
   @@map("merchants")
 }
@@ -571,4 +636,31 @@ enum ShopStatus {
   ACTIVE
   EXPIRED
   SUSPENDED
+}
+
+// 定制主题（平台为特定商户开发的私有主题）
+model CustomTheme {
+  id           String                  @id @default(uuid())
+  key          String                  @unique // 主题代码标识，如 luxury-watch
+  name         String // 显示名称，如 "奢华手表风"
+  description  String?                 @db.Text
+  componentDir String                  @map("component_dir") // 对应 frontend/src/themes/custom/<dir>
+  status       String                  @default("ACTIVE") // ACTIVE / DRAFT
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
+  assignments  CustomThemeAssignment[]
+
+  @@map("custom_themes")
+}
+
+// 定制主题分配（哪些 tenant 可使用某个定制主题）
+model CustomThemeAssignment {
+  id        String      @id @default(uuid())
+  themeId   String      @map("theme_id")
+  tenantId  String      @map("tenant_id")
+  createdAt DateTime    @default(now()) @map("created_at")
+  theme     CustomTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@unique([themeId, tenantId])
+  @@map("custom_theme_assignments")
 }

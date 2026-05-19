@@ -75,6 +75,22 @@ router.get('/settings', isAdmin, adminController.getSettings)
 router.put('/settings', isAdmin, adminController.updateSettings)
 router.post('/settings/test-email', isAdmin, adminController.testEmail)
 
+// 当前租户的套餐限制（前端菜单门控等场景使用）
+router.get('/plan-limits', adminController.getPlanLimits)
+
+// 当前租户本月邮件使用情况（用于商户后台「邮件设置」展示）
+router.get('/email-usage', adminController.getEmailUsage)
+
+// 当前租户可用的主题（公共 + 已分配的定制主题）
+const customThemeCtrl = require('../controllers/customThemeController')
+router.get('/available-themes', customThemeCtrl.getAvailableThemes)
+
+// 邮件资源包：选项 / 下单 / 查单
+router.get('/email-packs/options', adminController.getEmailPackOptions)
+router.post('/email-packs/order', adminController.createEmailPackOrder)
+router.get('/email-packs/order/:orderNo', adminController.checkEmailPackOrder)
+router.post('/email-packs/order/:orderNo/cancel', adminController.cancelEmailPackOrder)
+
 // 数据库备份
 router.get('/backup/status', isAdmin, adminController.getBackupStatus)
 router.post('/backup/run', isAdmin, adminController.runBackup)

@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiPlus, FiMessageCircle, FiClock, FiCheck, FiAlertCircle, FiCheckCircle } from 'react-icons/fi'
 import { useAuthStore } from '../../store/authStore'
+import { useStorefrontPath } from '../../store/storefrontStore'
 import './Tickets.css'
 
 const statusMap = {
     OPEN: { label: '待处理', class: 'open', icon: <FiAlertCircle /> },
     IN_PROGRESS: { label: '处理中', class: 'in-progress', icon: <FiClock /> },
-    COMPLETED: { label: '已完成', class: 'completed', icon: <FiCheckCircle /> },
+    PENDING_SUPER_ADMIN: { label: '处理中', class: 'in-progress', icon: <FiClock /> },
     CLOSED: { label: '已关闭', class: 'closed', icon: <FiCheck /> }
 }
 
@@ -21,13 +22,14 @@ const typeMap = {
 function Tickets() {
     const navigate = useNavigate()
     const { isAuthenticated, token } = useAuthStore()
+    const { withPrefix } = useStorefrontPath()
     const [tickets, setTickets] = useState([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState('all')
 
     useEffect(() => {
         if (!isAuthenticated) {
-            navigate('/login?redirect=/tickets')
+            navigate(withPrefix('/login'))
             return
         }
         fetchTickets()
@@ -90,7 +92,7 @@ function Tickets() {
                     <h1>我的工单</h1>
                     <p>{unreadCount > 0 ? `当前有 ${unreadCount} 条新消息待查看` : '查看和管理您的客服工单'}</p>
                 </div>
-                <Link to="/tickets/new" className="btn btn-primary">
+                <Link to={withPrefix("/tickets/new")} className="btn btn-primary">
                     <FiPlus />
                     提交新工单
                 </Link>
@@ -117,12 +119,6 @@ function Tickets() {
                     处理中
                 </button>
                 <button
-                    className={`filter-btn ${filter === 'COMPLETED' ? 'active' : ''}`}
-                    onClick={() => setFilter('COMPLETED')}
-                >
-                    已完成
-                </button>
-                <button
                     className={`filter-btn ${filter === 'CLOSED' ? 'active' : ''}`}
                     onClick={() => setFilter('CLOSED')}
                 >
@@ -136,7 +132,7 @@ function Tickets() {
                     <FiMessageCircle className="empty-icon" />
                     <h3>暂无工单</h3>
                     <p>如有问题，欢迎提交工单咨询</p>
-                    <Link to="/tickets/new" className="btn btn-primary">
+                    <Link to={withPrefix("/tickets/new")} className="btn btn-primary">
                         提交新工单
                     </Link>
                 </div>
@@ -144,7 +140,7 @@ function Tickets() {
                 <div className="tickets-list">
                     {tickets.map(ticket => (
                         <Link
-                            to={`/tickets/${ticket.id}`}
+                            to={withPrefix(`/tickets/${ticket.id}`)}
                             key={ticket.id}
                             className="ticket-card"
                         >

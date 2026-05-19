@@ -11,8 +11,9 @@ const PERMISSION_GROUPS = [
         key: 'dashboard',
         label: '仪表盘',
         items: [
-            { key: 'dashboard.view', label: '查看仪表盘统计' },
-            { key: 'dashboard.viewToday', label: '查看今日数据' },
+            { key: 'dashboard.view', label: '访问仪表盘页面' },
+            { key: 'dashboard.viewStatsGrid', label: '查看顶部统计卡（订单、收入、商品、用户、访问量）' },
+            { key: 'dashboard.viewTodayStats', label: '查看今日数据（今日订单 / 今日收入）' },
             { key: 'dashboard.viewRevenue', label: '查看总收入数据' }
         ]
     },
@@ -79,6 +80,8 @@ const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap(g => g.items.map(i => i.ke
 // 默认子管理员权限（创建时使用，给基础权限）
 const DEFAULT_ADMIN_PERMISSIONS = {
     'dashboard.view': true,
+    'dashboard.viewStatsGrid': true,
+    'dashboard.viewTodayStats': true,
     'products.view': true,
     'products.edit': true,
     'orders.view': true,

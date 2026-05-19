@@ -59,13 +59,18 @@ export default function FreshProductDetail() {
                 }
                 setProduct(p)
                 if (p.variants.length > 0) {
+                    const inStock = (v) => (v?.stock ?? 0) > 0
                     const hasTypes = p.variants.some(v => v.type?.trim())
                     if (hasTypes) {
-                        const firstType = [...new Set(p.variants.map(v => v.type || '').filter(Boolean))][0]
+                        const types = [...new Set(p.variants.map(v => v.type || '').filter(Boolean))]
+                        // 优先有货类型
+                        const firstStockType = types.find(t => p.variants.some(v => v.type === t && inStock(v)))
+                        const firstType = firstStockType || types[0]
                         setSelectedType(firstType)
-                        setSelectedVariant(p.variants.find(v => v.type === firstType) || null)
+                        const inType = p.variants.filter(v => v.type === firstType)
+                        setSelectedVariant(inType.find(inStock) || inType[0] || null)
                     } else {
-                        setSelectedVariant(p.variants[0])
+                        setSelectedVariant(p.variants.find(inStock) || p.variants[0])
                     }
                 }
             })
@@ -187,7 +192,8 @@ export default function FreshProductDetail() {
                                         className={`fd-variant-btn${selectedType === type ? ' active' : ''}`}
                                         onClick={() => {
                                             setSelectedType(type)
-                                            setSelectedVariant(product.variants.find(v => v.type === type) || null)
+                                            const inType = product.variants.filter(v => v.type === type)
+                                            setSelectedVariant(inType.find(v => (v.stock ?? 0) > 0) || inType[0] || null)
                                         }}
                                     >{type}</button>
                                 ))}

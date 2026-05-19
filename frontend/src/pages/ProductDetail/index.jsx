@@ -62,20 +62,23 @@ function ProductDetail() {
                     }
                     setProduct(formattedProduct)
 
-                    // 设置默认选中的类型和规格
+                    // 设置默认选中的类型和规格（优先选择有库存的）
                     const variants = formattedProduct.variants
                     if (variants && variants.length > 0) {
+                        const inStock = (v) => (v?.stock ?? 0) > 0
                         const hasTypes = variants.some(v => v.type && v.type.trim() !== '')
                         if (hasTypes) {
-                            // 有类型分组，选择第一个类型和该类型下的第一个规格
+                            // 有类型分组：先找有货规格所在的类型，没有就退回第一个类型
                             const types = [...new Set(variants.map(v => v.type || '').filter(Boolean))]
-                            const firstType = types[0] || ''
+                            const firstStockType = types.find(t => variants.some(v => v.type === t && inStock(v)))
+                            const firstType = firstStockType || types[0] || ''
                             setSelectedType(firstType)
-                            const firstVariant = variants.find(v => v.type === firstType)
+                            const inTypeVariants = variants.filter(v => v.type === firstType)
+                            const firstVariant = inTypeVariants.find(inStock) || inTypeVariants[0]
                             setSelectedVariant(firstVariant || null)
                         } else {
-                            // 无类型分组，直接选择第一个规格
-                            setSelectedVariant(variants[0])
+                            // 无类型分组：先选有货的，没有就第一个
+                            setSelectedVariant(variants.find(inStock) || variants[0])
                         }
                     }
                 } else {
@@ -227,8 +230,9 @@ function ProductDetail() {
                                                     className={`variant-option ${currentType === type ? 'active' : ''}`}
                                                     onClick={() => {
                                                         setSelectedType(type)
-                                                        // 自动选中该类型的第一个规格
-                                                        const firstVariant = product.variants.find(v => v.type === type)
+                                                        // 自动选中该类型有货的第一个规格，没有就第一个
+                                                        const inType = product.variants.filter(v => v.type === type)
+                                                        const firstVariant = inType.find(v => (v.stock ?? 0) > 0) || inType[0]
                                                         setSelectedVariant(firstVariant || null)
                                                     }}
                                                 >

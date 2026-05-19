@@ -3924,6 +3924,7 @@
 /* 头部信息 */
 .header-info {
     display: flex;
+    padding: 10px 0;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;

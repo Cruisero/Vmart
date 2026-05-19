@@ -1,7 +1,5 @@
 /* 商品列表页样式 */
-.products-page {
-    padding: 20px 0;
-}
+
 
 /* 页面头部 */
 .products-header {
@@ -526,4 +524,70 @@
         height: 32px;
         font-size: 0.9rem;
     }
+}
+
+
+/* ── 首页信息卡片（Classic 深色风格） ── */
+.cp-info-card {
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.cp-info-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cp-info-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.cp-info-arrow {
+    font-size: 1rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+}
+
+.cp-info-arrow.open {
+    transform: rotate(180deg);
+}
+
+.cp-info-body {
+    padding: 18px 20px;
+}
+
+.cp-info-desc {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.cp-info-link {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+
+.cp-info-link:hover {
+    opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+    .cp-info-header { padding: 12px 16px; }
+    .cp-info-body { padding: 14px 16px; }
 }

@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { FiArrowLeft } from 'react-icons/fi'
+import { useStorefrontPath } from '../../store/storefrontStore'
 import './style.css'
 
 function Terms() {
+    const { withPrefix } = useStorefrontPath()
     return (
         <div className="policy-page">
             <Link to="/" className="back-btn">
@@ -88,7 +90,7 @@ function Terms() {
                     </section>
 
                     <div className="policy-footer">
-                        <p>如有疑问，请通过 <Link to="/tickets/new">工单系统</Link> 联系我们。</p>
+                        <p>如有疑问，请通过 <Link to={withPrefix("/tickets/new")}>工单系统</Link> 联系我们。</p>
                     </div>
                 </div>
             </div>

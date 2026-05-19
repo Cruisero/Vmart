@@ -496,3 +496,44 @@
     color: #111827;
 }
 
+
+
+/* ── 修改密码卡片（与 hero 同款）── */
+.fuc-pw-card {
+    margin-top: 16px;
+    background: #fff;
+    border-radius: 20px;
+    padding: 22px 28px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #F1EFEC;
+}
+
+.fuc-pw-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    gap: 16px;
+}
+
+.fuc-pw-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1F2937;
+}
+
+.fuc-pw-desc {
+    font-size: 0.78rem;
+    color: #9CA3AF;
+    margin-top: 4px;
+}
+
+.fuc-pw-card .fuc-pw-form {
+    max-width: 460px;
+    border-top: 1px solid #F1EFEC;
+    padding-top: 18px;
+}
+
+@media (max-width: 600px) {
+    .fuc-pw-card { padding: 18px 20px; }
+}

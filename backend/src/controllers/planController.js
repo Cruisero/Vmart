@@ -9,15 +9,15 @@ const logger = require('../utils/logger')
 const DEFAULT_PLANS = [
     {
         key: 'BASIC', name: '基础版', monthlyPrice: 19, yearlyPrice: 15,
-        features: { maxProducts: 10, skins: '简约', paymentMethods: '全部', customDomain: false, agentSystem: false, emailNotifications: 0, ssl: '共享', support: true, dataRetentionDays: 30 }
+        features: { maxProducts: 10, skins: '简约', paymentMethods: '全部', customDomain: false, agentSystem: false, emailNotifications: 0, maxSubAdmins: 0, ssl: '共享', support: true, dataRetentionDays: 30 }
     },
     {
         key: 'STANDARD', name: '标准版', monthlyPrice: 39, yearlyPrice: 31,
-        features: { maxProducts: 50, skins: '全部', paymentMethods: '全部', customDomain: true, agentSystem: false, emailNotifications: 2000, ssl: '独立', support: true, dataRetentionDays: 30 }
+        features: { maxProducts: 50, skins: '全部', paymentMethods: '全部', customDomain: true, agentSystem: false, emailNotifications: 2000, maxSubAdmins: 2, ssl: '独立', support: true, dataRetentionDays: 30 }
     },
     {
         key: 'PRO', name: '专业版', monthlyPrice: 59, yearlyPrice: 47,
-        features: { maxProducts: 200, skins: '全部', paymentMethods: '全部', customDomain: true, agentSystem: true, emailNotifications: 5000, ssl: '独立', support: true, dataRetentionDays: 90 }
+        features: { maxProducts: 200, skins: '全部', paymentMethods: '全部', customDomain: true, agentSystem: true, emailNotifications: 5000, maxSubAdmins: 10, ssl: '独立', support: true, dataRetentionDays: 90 }
     }
 ]
 
@@ -241,6 +241,18 @@ exports.checkPlanPayment = async (req, res) => {
                 })
 
                 logger.info(`[planPayment] 套餐自动激活: ${merchant.email} → ${planOrder.plan}, 到期 ${newExpiry.toISOString()}`)
+
+                // 平台超管通知
+                try {
+                    const manNotify = require('../services/manNotifyService')
+                    manNotify.notifyPlanOrderPaid({
+                        plan: planOrder.plan,
+                        months: planOrder.months,
+                        amount: planOrder.amount,
+                        paymentMethod: planOrder.paymentMethod,
+                        tradeNo: planOrder.tradeNo
+                    }, merchant).catch(() => {})
+                } catch {}
             }
 
             return res.json({ status: 'paid', message: '支付成功，套餐已激活' })
@@ -303,6 +315,116 @@ exports.listPlanOrders = async (req, res) => {
     }
 }
 
+// ─── 平台超管：所有订单（套餐订单 + 邮件资源包等）────────────────
+exports.listAllOrders = async (req, res) => {
+    try {
+        const { status, type = 'all', search } = req.query
+
+        // 1. 套餐订单
+        let planOrders = []
+        if (type === 'all' || type === 'plan') {
+            const planWhere = {}
+            if (status) planWhere.paymentStatus = status
+            if (search) {
+                planWhere.OR = [
+                    { merchant: { email: { contains: search } } },
+                    { tradeNo: { contains: search } }
+                ]
+            }
+            const rows = await prisma.planOrder.findMany({
+                where: planWhere,
+                include: {
+                    merchant: { select: { id: true, email: true, shopName: true } },
+                    shop: { select: { id: true, slug: true, name: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 500
+            })
+            planOrders = rows.map(o => ({
+                id: o.id,
+                type: 'plan',
+                typeLabel: '套餐订单',
+                merchantEmail: o.merchant?.email || '—',
+                merchantName: o.merchant?.shopName || '',
+                productName: `${o.plan} × ${o.months} 个月`,
+                planKey: o.plan,
+                amount: parseFloat(o.amount),
+                paymentMethod: o.paymentMethod,
+                tradeNo: o.tradeNo,
+                paymentStatus: o.paymentStatus,
+                createdAt: o.createdAt,
+                paidAt: o.paidAt,
+                _raw: { months: o.months, plan: o.plan }
+            }))
+        }
+
+        // 2. 邮件资源包订单（remark 以 email_pack: 开头的 Order）
+        let packOrders = []
+        if (type === 'all' || type === 'email_pack') {
+            const packWhere = { remark: { startsWith: 'email_pack:' } }
+            if (search) {
+                packWhere.OR = [
+                    { email: { contains: search } },
+                    { orderNo: { contains: search } }
+                ]
+            }
+            // 把 status 映射成 Order.status
+            if (status) {
+                const map = { PENDING: 'PENDING', REVIEWING: 'PENDING', PAID: 'COMPLETED', REJECTED: 'CANCELLED' }
+                packWhere.status = map[status] || status
+            }
+            const rows = await prisma.order.findMany({
+                where: packWhere,
+                orderBy: { createdAt: 'desc' },
+                take: 500
+            })
+
+            // 反查 tenant -> merchant 邮箱
+            const tenantIds = [...new Set(rows.map(o => o.remark?.split(':')[1]).filter(Boolean))]
+            const tenants = await prisma.tenant.findMany({
+                where: { id: { in: tenantIds } },
+                include: { user: { select: { email: true } } }
+            })
+            const tenantMap = Object.fromEntries(tenants.map(t => [t.id, t]))
+
+            packOrders = rows.map(o => {
+                const parts = (o.remark || '').split(':')
+                const tenantId = parts[1]
+                const count = parseInt(parts[2]) || 0
+                const tenant = tenantMap[tenantId]
+                // 把 Order.status 反向映射到 paymentStatus
+                let paymentStatus = 'PENDING'
+                if (o.status === 'COMPLETED') paymentStatus = 'PAID'
+                else if (o.status === 'CANCELLED') paymentStatus = 'REJECTED'
+                else if (o.status === 'PAID') paymentStatus = 'PAID'
+                return {
+                    id: o.id,
+                    type: 'email_pack',
+                    typeLabel: '邮件资源包',
+                    merchantEmail: tenant?.user?.email || o.email || '—',
+                    merchantName: tenant?.shopName || '',
+                    productName: `邮件资源包 ${count.toLocaleString()} 封`,
+                    amount: parseFloat(o.totalAmount),
+                    paymentMethod: o.paymentMethod,
+                    tradeNo: o.orderNo,
+                    paymentStatus,
+                    createdAt: o.createdAt,
+                    paidAt: o.completedAt || o.paidAt,
+                    _raw: { count, tenantId }
+                }
+            })
+        }
+
+        const orders = [...planOrders, ...packOrders].sort((a, b) =>
+            new Date(b.createdAt) - new Date(a.createdAt)
+        )
+
+        res.json({ total: orders.length, orders })
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+}
+
 // 平台超管：手动确认套餐订单
 exports.confirmPlanOrder = async (req, res) => {
     try {
@@ -346,12 +468,27 @@ exports.getPlanLimits = async (req, res) => {
         if (!shop) return res.status(404).json({ error: '商城不存在' })
 
         const config = await getPlanConfig()
-        const planInfo = config.plans.find(p => p.key === shop.plan)
-        const limits = planInfo?.features || { maxProducts: 5 }
+        // 免费试用 == 专业版（同等权限）
+        const effectivePlanKey = shop.plan === 'FREE' ? 'PRO' : shop.plan
+        const planInfo = config.plans.find(p => p.key === effectivePlanKey)
+        const planConfigured = !!planInfo?.features
+        const limits = planInfo?.features ? { ...planInfo.features } : { maxProducts: 5 }
 
-        // 免费版默认限制
-        if (shop.plan === 'FREE') {
-            limits.maxProducts = 5
+        // 免费试用与专业版一致 — 不再覆盖 maxProducts
+        // (保留原代码注释以便后续调整)
+
+        // 兜底：plan_config 旧版本没有 maxSubAdmins 字段时，根据 plan key fallback
+        if (typeof limits.maxSubAdmins !== 'number') {
+            const fallback = { FREE: 10, BASIC: 0, STANDARD: 2, PRO: 10 }
+            limits.maxSubAdmins = fallback[shop.plan] ?? 0
+        }
+
+        // 兜底：support / customerTickets 字段缺失时
+        if (typeof limits.support !== 'boolean') {
+            limits.support = !planConfigured
+        }
+        if (typeof limits.customerTickets !== 'boolean') {
+            limits.customerTickets = !planConfigured
         }
 
         const tenant = await prisma.tenant.findFirst({ where: { shopSlug: shop.slug } })

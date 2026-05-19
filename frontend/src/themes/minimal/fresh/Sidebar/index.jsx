@@ -7,12 +7,14 @@ import {
 import { useCartStore } from '../../../../store/cartStore'
 import { useAuthStore } from '../../../../store/authStore'
 import { useSkinStore } from '../../../../store/skinStore'
+import { useStorefrontPath } from '../../../../store/storefrontStore'
 import './Sidebar.css'
 
 function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }) {
     const location = useLocation()
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
+    const { withPrefix } = useStorefrontPath()
     const cartItems = useCartStore(s => s.items)
     const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0)
     const navigate = useNavigate()
@@ -92,7 +94,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                     <FiPackage className="fs-nav-icon" />
                     查询订单
                 </Link>
-                <Link to="/tickets/new" className={`fs-nav-item${isActive('/tickets/new') ? ' active' : ''}`} onClick={onClose}>
+                <Link to={withPrefix("/tickets/new")} className={`fs-nav-item${isActive('/tickets/new') ? ' active' : ''}`} onClick={onClose}>
                     <FiMessageSquare className="fs-nav-icon" />
                     提交工单
                 </Link>

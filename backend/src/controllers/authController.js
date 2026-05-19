@@ -17,6 +17,12 @@ exports.register = async (req, res, next) => {
     try {
         const { email, password, username, agentSlug, storefrontSlug } = req.body
 
+        // 仅 SaaS 商户注册或代理分站注册或店面租户注册场景允许调用此接口
+        // 平台已不再有"主站商城"概念，禁止无 context 的普通 USER 注册
+        if (!req.body.isSaas && !agentSlug && !storefrontSlug && !req.tenantId) {
+            return res.status(400).json({ error: '请通过商户店面或注册商户账号' })
+        }
+
         // 检查邮箱是否已存在
         const existingUser = await prisma.user.findUnique({
             where: { email }

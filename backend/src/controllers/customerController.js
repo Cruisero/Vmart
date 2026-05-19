@@ -35,7 +35,7 @@ function generateCustomerToken(customer) {
 // ─── 注册 ─────────────────────────────────
 exports.register = async (req, res, next) => {
     try {
-        const { email, password, username } = req.body
+        const { email, password, username, otpCode } = req.body
         if (!email || !password) {
             return res.status(400).json({ error: '邮箱和密码必填' })
         }
@@ -48,6 +48,15 @@ exports.register = async (req, res, next) => {
             return res.status(400).json({ error: '无法识别商城信息' })
         }
 
+        // 校验 OTP（如平台开关开启）
+        const sw = await prisma.platformSetting.findUnique({ where: { key: 'customer_register_otp' } })
+        if (sw?.value === 'true') {
+            if (!otpCode) return res.status(400).json({ error: '请输入邮箱验证码' })
+            const otpService = require('../services/otpService')
+            const r = await otpService.verifyOtp({ email, code: otpCode, scope: 'customer_register', tenantId })
+            if (!r.ok) return res.status(400).json({ error: r.error })
+        }
+
         // 检查 (tenantId, email) 是否已存在
         const existing = await prisma.customer.findUnique({
             where: { tenantId_email: { tenantId, email } }
@@ -57,7 +66,6 @@ exports.register = async (req, res, next) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10)
-        const verificationToken = crypto.randomBytes(32).toString('hex')
 
         const customer = await prisma.customer.create({
             data: {
@@ -65,8 +73,8 @@ exports.register = async (req, res, next) => {
                 email,
                 password: hashedPassword,
                 username: username || email.split('@')[0],
-                emailVerified: false,
-                verificationToken
+                // OTP 验证通过则视为已验证；否则保持原状（默认 false 但不再阻塞使用）
+                emailVerified: sw?.value === 'true'
             }
         })
 
@@ -186,7 +194,7 @@ exports.getMe = async (req, res, next) => {
                 emailVerified: true, tenantId: true, createdAt: true
             }
         })
-        res.json({ user: customer })
+        res.json({ user: { ...customer, role: 'CUSTOMER' } })
     } catch (e) {
         next(e)
     }
@@ -228,7 +236,9 @@ exports.getMyOrders = async (req, res, next) => {
 exports.changePassword = async (req, res, next) => {
     try {
         if (!req.customer) return res.status(401).json({ error: '未登录' })
-        const { currentPassword, newPassword } = req.body
+        // 兼容两种字段命名：currentPassword/oldPassword
+        const currentPassword = req.body.currentPassword || req.body.oldPassword
+        const { newPassword } = req.body
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ error: '请填写完整' })
         }

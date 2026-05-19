@@ -3,6 +3,32 @@ const prisma = require('../config/database')
 
 const BOOLEAN_SETTING_KEYS = new Set(['emailNotify', 'notifyOrderRefunded'])
 
+/**
+ * 统一的邮件发送辅助：
+ *   - 有 tenantId 时走 tenantEmailService（自动判断商户自有 SMTP / 平台代发，并计入额度）
+ *   - 没有 tenantId 时走平台默认 SMTP（兼容旧逻辑）
+ */
+const sendViaTenantOrPlatform = async (tenantId, mailOptions, fallbackFromName) => {
+    if (tenantId) {
+        const { sendTenantEmail } = require('./tenantEmailService')
+        return sendTenantEmail(tenantId, mailOptions)
+    }
+    // 无 tenantId 时退回旧方式（适用于平台层邮件）
+    const config = await getEmailConfig()
+    if (!config.smtpHost || !config.smtpUser || !config.smtpPass) {
+        return { success: false, reason: 'config_missing' }
+    }
+    const transporter = nodemailer.createTransport({
+        host: config.smtpHost,
+        port: config.smtpPort || 465,
+        secure: (config.smtpPort || 465) === 465,
+        auth: { user: config.smtpUser, pass: config.smtpPass }
+    })
+    const from = mailOptions.from || `"${fallbackFromName || config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`
+    const result = await transporter.sendMail({ ...mailOptions, from })
+    return { success: true, messageId: result.messageId }
+}
+
 // 获取邮件配置
 const getEmailConfig = async () => {
     const settings = await prisma.setting.findMany({
@@ -57,12 +83,6 @@ const sendOrderCompletedEmail = async (order, cards) => {
             return { success: false, reason: 'disabled' }
         }
 
-        const transporter = await createTransporter(tenantId || order.tenantId)
-        if (!transporter) {
-            console.log('邮件配置不完整')
-            return { success: false, reason: 'config_missing' }
-        }
-
         // 构建卡密列表 HTML
         const cardsHtml = cards && cards.length > 0
             ? cards.map((card, index) => `
@@ -75,9 +95,8 @@ const sendOrderCompletedEmail = async (order, cards) => {
 
         // 邮件内容
         const mailOptions = {
-            from: `"${config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`,
             to: order.email,
-            subject: `【订单完成】您的订单 ${order.orderNo} 已完成 - HaoDongXi`,
+            subject: `【订单完成】您的订单 ${order.orderNo} 已完成`,
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -154,9 +173,9 @@ const sendOrderCompletedEmail = async (order, cards) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log('邮件发送成功:', result.messageId)
-        return { success: true, messageId: result.messageId }
+        const result = await sendViaTenantOrPlatform(order.tenantId, mailOptions)
+        if (result.success) console.log('订单完成邮件发送成功:', result.messageId || '')
+        return result
     } catch (error) {
         console.error('邮件发送失败:', error)
         return { success: false, error: error.message }
@@ -178,17 +197,10 @@ const sendOrderRefundedEmail = async (order) => {
             return { success: false, reason: 'refund_notify_disabled' }
         }
 
-        const transporter = await createTransporter(tenantId || ticket.tenantId)
-        if (!transporter) {
-            console.log('邮件配置不完整')
-            return { success: false, reason: 'config_missing' }
-        }
-
         const refundedAt = order.completedAt || new Date()
         const mailOptions = {
-            from: `"${config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`,
             to: order.email,
-            subject: `【退款成功】您的订单 ${order.orderNo} 已完成退款 - HaoDongXi`,
+            subject: `【退款成功】您的订单 ${order.orderNo} 已完成退款`,
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -254,9 +266,9 @@ const sendOrderRefundedEmail = async (order) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log('退款成功邮件发送成功:', result.messageId)
-        return { success: true, messageId: result.messageId }
+        const result = await sendViaTenantOrPlatform(order.tenantId, mailOptions)
+        if (result.success) console.log('退款成功邮件发送成功:', result.messageId || '')
+        return result
     } catch (error) {
         console.error('退款成功邮件发送失败:', error)
         return { success: false, error: error.message }
@@ -268,18 +280,11 @@ const sendVerificationEmail = async (user, token, baseUrl = 'http://localhost:30
     try {
         const config = await getEmailConfig()
 
-        const transporter = await createTransporter(user?.tenantId)
-        if (!transporter) {
-            console.log('邮件配置不完整，无法发送验证邮件')
-            return { success: false, reason: 'config_missing' }
-        }
-
         const verifyUrl = `${baseUrl}/verify-email?token=${token}`
 
         const mailOptions = {
-            from: `"${config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`,
             to: user.email,
-            subject: '【HaoDongXi】请验证您的邮箱',
+            subject: '请验证您的邮箱',
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -330,9 +335,9 @@ const sendVerificationEmail = async (user, token, baseUrl = 'http://localhost:30
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log('验证邮件发送成功:', result.messageId)
-        return { success: true, messageId: result.messageId }
+        const result = await sendViaTenantOrPlatform(user?.tenantId, mailOptions)
+        if (result.success) console.log('验证邮件发送成功:', result.messageId || '')
+        return result
     } catch (error) {
         console.error('验证邮件发送失败:', error)
         return { success: false, error: error.message }
@@ -363,18 +368,12 @@ const testEmailConnection = async () => {
 const sendPasswordResetEmail = async (user, resetToken, baseUrl) => {
     try {
         const config = await getEmailConfig()
-        const transporter = await createTransporter(tenantId)
-
-        if (!transporter) {
-            return { success: false, reason: 'config_missing' }
-        }
 
         const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
 
         const mailOptions = {
-            from: `"${config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`,
             to: user.email,
-            subject: '【密码重置】重置您的 HaoDongXi 账号密码',
+            subject: '【密码重置】重置您的账号密码',
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -427,9 +426,9 @@ const sendPasswordResetEmail = async (user, resetToken, baseUrl) => {
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log('密码重置邮件发送成功:', result.messageId)
-        return { success: true, messageId: result.messageId }
+        const result = await sendViaTenantOrPlatform(user?.tenantId, mailOptions)
+        if (result.success) console.log('密码重置邮件发送成功:', result.messageId || '')
+        return result
     } catch (error) {
         console.error('密码重置邮件发送失败:', error)
         return { success: false, error: error.message }
@@ -437,7 +436,7 @@ const sendPasswordResetEmail = async (user, resetToken, baseUrl) => {
 }
 
 // 发送工单回复通知邮件
-const sendTicketReplyNotification = async (email, username, ticketNo, subject, replyContent) => {
+const sendTicketReplyNotification = async (email, username, ticketNo, subject, replyContent, tenantId = null) => {
     try {
         const config = await getEmailConfig()
 
@@ -446,16 +445,9 @@ const sendTicketReplyNotification = async (email, username, ticketNo, subject, r
             return { success: false, reason: 'disabled' }
         }
 
-        const transporter = await createTransporter()
-        if (!transporter) {
-            console.log('邮件配置不完整')
-            return { success: false, reason: 'config_missing' }
-        }
-
         const mailOptions = {
-            from: `"${config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`,
             to: email,
-            subject: `【工单回复】您的工单 ${ticketNo} 有新回复 - HaoDongXi`,
+            subject: `【工单回复】您的工单 ${ticketNo} 有新回复`,
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -520,9 +512,9 @@ const sendTicketReplyNotification = async (email, username, ticketNo, subject, r
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        console.log('工单回复通知邮件发送成功:', result.messageId)
-        return { success: true, messageId: result.messageId }
+        const result = await sendViaTenantOrPlatform(tenantId, mailOptions)
+        if (result.success) console.log('工单回复通知邮件发送成功:', result.messageId || '')
+        return result
     } catch (error) {
         console.error('工单回复通知邮件发送失败:', error)
         return { success: false, error: error.message }
@@ -538,17 +530,13 @@ const statusLabelMap = {
     OPEN: '待处理'
 }
 
-const sendTicketStatusNotification = async (email, username, ticketNo, subject, newStatus) => {
+const sendTicketStatusNotification = async (email, username, ticketNo, subject, newStatus, tenantId = null) => {
     try {
         const config = await getEmailConfig()
         if (!config.emailNotify) return { success: false, reason: 'disabled' }
 
-        const transporter = await createTransporter()
-        if (!transporter) return { success: false, reason: 'config_missing' }
-
         const statusLabel = statusLabelMap[newStatus] || newStatus
         const mailOptions = {
-            from: `"${config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`,
             to: email,
             subject: `【工单状态更新】您的工单 ${ticketNo} 状态已变更为「${statusLabel}」`,
             html: `
@@ -588,15 +576,15 @@ const sendTicketStatusNotification = async (email, username, ticketNo, subject, 
             `
         }
 
-        const result = await transporter.sendMail(mailOptions)
-        return { success: true, messageId: result.messageId }
+        const result = await sendViaTenantOrPlatform(tenantId, mailOptions)
+        return result
     } catch (error) {
         console.error('工单状态通知邮件发送失败:', error)
         return { success: false, error: error.message }
     }
 }
 
-// 发送代理商新订单通知邮件
+// 发送代理商新订单通知邮件 - 不计入租户额度（代理是平台层身份）
 const sendAgentOrderNotifyEmail = async (agentEmail, agentName, order, cards, profit) => {
     try {
         const config = await getEmailConfig()

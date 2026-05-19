@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff } from 'react-icons/fi'
 import { useAuthStore } from '../../../store/authStore'
 import { useStorefront, useStorefrontPath } from '../../../store/storefrontStore'
+import { useRegisterOtp } from '../../../hooks/useRegisterOtp'
 import toast from 'react-hot-toast'
 import './Auth.css'
 
@@ -19,6 +20,11 @@ function Register() {
     })
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
+    const otp = useRegisterOtp({
+        scope: 'customer_register',
+        getEmail: () => formData.email,
+        getSlug: () => storefront?.slug || null
+    })
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -43,6 +49,11 @@ function Register() {
             return
         }
 
+        if (otp.enabled && !otp.code) {
+            toast.error('请输入邮箱验证码')
+            return
+        }
+
         setLoading(true)
 
         try {
@@ -53,6 +64,7 @@ function Register() {
                 username: formData.username
             }
             if (storefront?._tenantMode) body.storefrontSlug = storefront.slug
+            if (otp.enabled) body.otpCode = otp.code
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -68,12 +80,7 @@ function Register() {
             // 登录用户
             login(data.user, data.token)
 
-            // 显示验证邮件提示
-            if (!data.user.emailVerified) {
-                toast.success('注册成功！请查收验证邮件')
-            } else {
-                toast.success('注册成功')
-            }
+            toast.success('注册成功')
 
             navigate(withPrefix('/'))
         } catch (error) {
@@ -121,6 +128,35 @@ function Register() {
                             />
                         </div>
                     </div>
+
+                    {otp.enabled && (
+                        <div className="form-group">
+                            <label>邮箱验证码</label>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder="6 位数字"
+                                    value={otp.code}
+                                    onChange={(e) => otp.setCode(e.target.value.replace(/\D/g, ''))}
+                                    maxLength={6}
+                                    inputMode="numeric"
+                                    style={{ flex: 1 }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={otp.sendCode}
+                                    disabled={otp.sending || otp.cooldown > 0 || !formData.email}
+                                    className="btn btn-secondary"
+                                    style={{ whiteSpace: 'nowrap', minWidth: 110 }}
+                                >
+                                    {otp.sending ? '发送中...' : otp.cooldown > 0 ? `${otp.cooldown}s` : '获取验证码'}
+                                </button>
+                            </div>
+                            {otp.error && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: 4 }}>{otp.error}</div>}
+                            {otp.info && <div style={{ color: '#10b981', fontSize: '0.78rem', marginTop: 4 }}>{otp.info}</div>}
+                        </div>
+                    )}
 
                     <div className="form-group">
                         <label>密码</label>

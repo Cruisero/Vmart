@@ -30,8 +30,44 @@ router.get('/', (req, res) => {
 const PUBLIC_KEYS = ['frontend_skin', 'siteName', 'siteDescription', 'notificationEnabled', 'notificationText', 'notificationLink', 'siteLogo', 'siteFavicon', 'agentSkinPool', 'agentEnabled']
 const prisma = require('../config/database')
 
-router.get('/settings/public', async (req, res) => {
+// 公开 OTP 开关查询（前端注册页用来决定是否显示验证码 UI）
+router.get('/settings/public/otp', async (req, res) => {
     try {
+        const rows = await prisma.platformSetting.findMany({
+            where: { key: { in: ['merchant_register_otp', 'customer_register_otp'] } }
+        })
+        const map = {}
+        rows.forEach(r => { map[r.key] = r.value === 'true' })
+        res.json({
+            merchantRegisterOtp: !!map.merchant_register_otp,
+            customerRegisterOtp: !!map.customer_register_otp
+        })
+    } catch (e) {
+        res.json({ merchantRegisterOtp: false, customerRegisterOtp: false })
+    }
+})
+
+// 公开客服联系方式（商户后台用）
+router.get('/settings/public/support', async (req, res) => {
+    try {
+        const rows = await prisma.platformSetting.findMany({
+            where: { key: { in: ['support_email', 'support_telegram', 'support_other', 'support_qq', 'support_whatsapp'] } }
+        })
+        const map = {}
+        rows.forEach(r => { map[r.key] = r.value })
+        res.json({
+            email: map.support_email || '',
+            telegram: map.support_telegram || '',
+            qq: map.support_qq || '',
+            whatsapp: map.support_whatsapp || '',
+            other: map.support_other || ''
+        })
+    } catch (e) {
+        res.json({ email: '', telegram: '', qq: '', whatsapp: '', other: '' })
+    }
+})
+
+router.get('/settings/public', async (req, res) => {    try {
         // 如果是租户域名请求，返回租户自己的设置
         if (req.tenantId && req.tenant) {
             const tenantSetting = await prisma.tenantSetting.findUnique({
@@ -100,11 +136,13 @@ router.use('/agent', agentRoutes)
 router.use('/s', storefrontRoutes)
 
 // SaaS 商户店面路由（/api/v/:slug/*）
-const { getMerchantStorefront, getMerchantProducts, getMerchantProduct, getMerchantCategories } = require('../controllers/storefront.controller')
+const { getMerchantStorefront, getMerchantProducts, getMerchantProduct, getMerchantCategories, getMerchantHotSearches, logMerchantSearch } = require('../controllers/storefront.controller')
 router.get('/v/:slug', getMerchantStorefront)
 router.get('/v/:slug/products', getMerchantProducts)
 router.get('/v/:slug/products/:productId', getMerchantProduct)
 router.get('/v/:slug/categories', getMerchantCategories)
+router.get('/v/:slug/hot-searches', getMerchantHotSearches)
+router.post('/v/:slug/search-log', logMerchantSearch)
 
 // 租户管理路由
 router.use('/tenant', tenantRoutes)

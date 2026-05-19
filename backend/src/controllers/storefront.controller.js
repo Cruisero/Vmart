@@ -347,6 +347,28 @@ exports.getMerchantStorefront = async (req, res, next) => {
             try { shopFavicon = JSON.parse(shop.settings)?.favicon || null } catch {}
         }
 
+        // 读取 tenant_settings.system_settings.featureCard
+        let featureCard = null
+        try {
+            const ts = await prisma.tenantSetting.findUnique({
+                where: { tenantId: tenant.id },
+                select: { systemSettings: true }
+            })
+            if (ts?.systemSettings) {
+                const sys = JSON.parse(ts.systemSettings)
+                if (sys.featureCard && sys.featureCard.enabled) {
+                    featureCard = {
+                        title: sys.featureCard.title || '',
+                        description: sys.featureCard.description || '',
+                        image: sys.featureCard.image || '',
+                        buttonText: sys.featureCard.buttonText || '',
+                        buttonLink: sys.featureCard.buttonLink || '',
+                        collapsed: !!sys.featureCard.collapsed
+                    }
+                }
+            }
+        } catch {}
+
         res.json({
             storefront: {
                 shopName: tenant.shopName || shop?.name || null,
@@ -355,6 +377,7 @@ exports.getMerchantStorefront = async (req, res, next) => {
                 shopSkin: tenant.shopSkin || shop?.skin || 'fresh',
                 shopNotice: tenant.shopNotice || shop?.notice || null,
                 shopFavicon,
+                featureCard,
                 tenantId: tenant.id,
                 _tenantMode: true
             }
@@ -484,4 +507,57 @@ exports.getMerchantCategories = async (req, res, next) => {
 
         res.json({ categories: result })
     } catch (error) { next(error) }
+}
+
+
+// GET /api/v/:slug/hot-searches — 商户真实热门搜索词（按搜索量降序）
+exports.getMerchantHotSearches = async (req, res, next) => {
+    try {
+        const { slug } = req.params
+        const limit = Math.min(parseInt(req.query.limit, 10) || 8, 20)
+        const tenant = await findTenantBySlug(slug)
+        if (!tenant || tenant.status !== 'ACTIVE') {
+            return res.status(404).json({ error: '商城不存在' })
+        }
+
+        const rows = await prisma.searchLog.findMany({
+            where: { tenantId: tenant.id },
+            orderBy: [{ count: 'desc' }, { lastUsedAt: 'desc' }],
+            take: limit,
+            select: { keyword: true, count: true }
+        })
+
+        res.json({ keywords: rows.map(r => r.keyword) })
+    } catch (error) { next(error) }
+}
+
+// POST /api/v/:slug/search-log — 上报搜索关键词（用户实际搜索行为）
+exports.logMerchantSearch = async (req, res, next) => {
+    try {
+        const { slug } = req.params
+        const { keyword } = req.body || {}
+        if (!keyword) return res.json({ ok: true })
+
+        const trimmed = String(keyword).trim().slice(0, 60)
+        if (!trimmed) return res.json({ ok: true })
+
+        const tenant = await findTenantBySlug(slug)
+        if (!tenant || tenant.status !== 'ACTIVE') {
+            return res.json({ ok: true })
+        }
+
+        // upsert：count +1，更新 lastUsedAt
+        await prisma.searchLog.upsert({
+            where: {
+                tenantId_keyword: { tenantId: tenant.id, keyword: trimmed }
+            },
+            update: { count: { increment: 1 }, lastUsedAt: new Date() },
+            create: { tenantId: tenant.id, keyword: trimmed }
+        })
+
+        res.json({ ok: true })
+    } catch (error) {
+        // 上报失败不影响主流程，静默返回
+        res.json({ ok: false })
+    }
 }

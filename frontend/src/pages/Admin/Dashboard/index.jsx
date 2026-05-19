@@ -181,9 +181,349 @@ const menuItems = [
     { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理', permission: 'cards.view' },
     { path: '/admin/users', icon: FiUsers, label: '用户管理', permission: 'customers.view' },
     { path: '/admin/agents', icon: FiShare2, label: '代理管理', permission: 'agents.review' },
+    { path: '/admin/support', icon: FiSend, label: '联系客服', ownerOnly: true },
     { path: '/admin/settings', icon: FiSettings, label: '商城设置', ownerOnly: true },
     { path: '/admin/setup', icon: FiFlag, label: '新手起航', tenantOnly: true },
 ]
+
+// 商户联系客服（工单）页面
+function MerchantSupportPage() {
+    const { token } = useAuthStore()
+    const mToken = useMerchantStore(state => state.token)
+    const authToken = mToken || token
+    const { showToast } = useToast()
+    const [tickets, setTickets] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [view, setView] = useState('list') // list | detail | create
+    const [selectedTicket, setSelectedTicket] = useState(null)
+    const [form, setForm] = useState({ subject: '', content: '', images: [] })
+    const [replyContent, setReplyContent] = useState('')
+    const [replyImages, setReplyImages] = useState([])
+    const [submitting, setSubmitting] = useState(false)
+    const [uploading, setUploading] = useState(false)
+
+    const fetchTickets = async () => {
+        try {
+            const r = await fetch('/api/platform/tickets', { headers: { Authorization: `Bearer ${authToken}` } })
+            const d = await r.json()
+            setTickets(d.tickets || [])
+        } catch {}
+        setLoading(false)
+    }
+
+    useEffect(() => { fetchTickets() }, [])
+
+    const handleCreate = async (e) => {
+        e.preventDefault()
+        if (!form.subject || !form.content) { showToast('请填写主题和内容', 'error'); return }
+        setSubmitting(true)
+        try {
+            const r = await fetch('/api/platform/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+                body: JSON.stringify({ subject: form.subject, content: form.content, images: form.images.length ? form.images : null })
+            })
+            const d = await r.json()
+            if (!r.ok) { showToast(d.error || '提交失败', 'error'); return }
+            showToast('工单已提交', 'success')
+            setForm({ subject: '', content: '', images: [] })
+            setView('list')
+            fetchTickets()
+        } catch { showToast('网络错误', 'error') }
+        finally { setSubmitting(false) }
+    }
+
+    const handleReply = async () => {
+        if (!replyContent.trim()) { showToast('请输入内容', 'error'); return }
+        setSubmitting(true)
+        try {
+            const r = await fetch(`/api/platform/tickets/${selectedTicket.id}/reply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+                body: JSON.stringify({ content: replyContent, images: replyImages.length ? replyImages : null })
+            })
+            if (!r.ok) { const d = await r.json(); showToast(d.error || '发送失败', 'error'); return }
+            setReplyContent('')
+            setReplyImages([])
+            // 刷新详情
+            const dr = await fetch(`/api/platform/tickets/${selectedTicket.id}`, { headers: { Authorization: `Bearer ${authToken}` } })
+            const dd = await dr.json()
+            setSelectedTicket(dd.ticket)
+        } catch { showToast('网络错误', 'error') }
+        finally { setSubmitting(false) }
+    }
+
+    const handleUpload = async (e, target) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        setUploading(true)
+        try {
+            const fd = new FormData()
+            fd.append('images', file)
+            const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+            const d = await r.json()
+            if (d.success && d.images?.[0]?.urls?.original) {
+                const url = d.images[0].urls.original
+                if (target === 'create') setForm(f => ({ ...f, images: [...f.images, url] }))
+                else setReplyImages(imgs => [...imgs, url])
+                showToast('图片上传成功', 'success')
+            } else {
+                showToast(d.error || '上传失败', 'error')
+            }
+        } catch {
+            showToast('上传失败', 'error')
+        } finally {
+            setUploading(false)
+            e.target.value = ''
+        }
+    }
+
+    const statusMap = { OPEN: { label: '待处理', color: '#F59E0B' }, IN_PROGRESS: { label: '处理中', color: '#3B82F6' }, CLOSED: { label: '已关闭', color: '#6B7280' } }
+
+    if (view === 'create') {
+        return (
+            <div className="admin-page">
+                <div className="page-header">
+                    <h2>提交工单</h2>
+                    <button className="btn btn-secondary" onClick={() => setView('list')}>返回列表</button>
+                </div>
+                <form onSubmit={handleCreate} style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>主题</label>
+                        <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="简要描述问题" required style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>详细描述</label>
+                        <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="详细描述你遇到的问题..." required rows={6} style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical' }} />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>附件图片</label>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            {form.images.map((url, i) => (
+                                <div key={i} style={{ position: 'relative' }}>
+                                    <img src={url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-color)' }} />
+                                    <button type="button" onClick={() => setForm(f => ({ ...f, images: f.images.filter((_, j) => j !== i) }))} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#ef4444', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                                </div>
+                            ))}
+                            <label style={{ width: 64, height: 64, border: '2px dashed var(--border-color)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1.2rem' }}>
+                                {uploading ? '...' : '+'}
+                                <input type="file" accept="image/*" onChange={e => handleUpload(e, 'create')} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" className="btn btn-primary" disabled={submitting} style={{ alignSelf: 'flex-start' }}>
+                        {submitting ? '提交中...' : '提交工单'}
+                    </button>
+                </form>
+            </div>
+        )
+    }
+
+    if (view === 'detail' && selectedTicket) {
+        const s = statusMap[selectedTicket.status] || statusMap.OPEN
+        return (
+            <div className="admin-page" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)', minHeight: 0 }}>
+                <div className="page-header" style={{ flexShrink: 0 }}>
+                    <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {selectedTicket.subject}
+                        <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: 12, background: `${s.color}20`, color: s.color, fontWeight: 600 }}>{s.label}</span>
+                        {selectedTicket.status !== 'CLOSED' && (
+                            <button
+                                onClick={async () => {
+                                    if (!confirm('确认关闭此工单？关闭后 24 小时内可重新打开。')) return
+                                    const r = await fetch(`/api/platform/tickets/${selectedTicket.id}/close`, {
+                                        method: 'POST', headers: { Authorization: `Bearer ${authToken}` }
+                                    })
+                                    if (r.ok) {
+                                        showToast('工单已关闭', 'success')
+                                        const dr = await fetch(`/api/platform/tickets/${selectedTicket.id}`, { headers: { Authorization: `Bearer ${authToken}` } })
+                                        const dd = await dr.json()
+                                        setSelectedTicket(dd.ticket)
+                                    } else {
+                                        const d = await r.json()
+                                        showToast(d.error || '关闭失败', 'error')
+                                    }
+                                }}
+                                style={{
+                                    fontSize: '0.78rem', padding: '4px 12px', borderRadius: 8,
+                                    background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.4)',
+                                    color: '#ef4444', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4
+                                }}
+                            >
+                                <FiX size={13} />
+                                关闭工单
+                            </button>
+                        )}
+                    </h2>
+                    <button className="btn btn-secondary" onClick={() => { setView('list'); setSelectedTicket(null) }}>返回列表</button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 4, minHeight: 0 }}>
+                    {selectedTicket.messages?.map(msg => (
+                        <div key={msg.id} style={{
+                            padding: '14px 18px', borderRadius: 12,
+                            background: msg.senderType === 'MERCHANT' ? 'var(--bg-secondary)' : 'rgba(99, 102, 241, 0.08)',
+                            border: `1px solid ${msg.senderType === 'MERCHANT' ? 'var(--border-color)' : 'rgba(99, 102, 241, 0.2)'}`,
+                            alignSelf: msg.senderType === 'MERCHANT' ? 'flex-end' : 'flex-start',
+                            maxWidth: '85%'
+                        }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 6 }}>
+                                {msg.senderType === 'MERCHANT' ? '我' : '平台客服'} · {new Date(msg.createdAt).toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{msg.content}</div>
+                            {msg.images && Array.isArray(msg.images) && msg.images.length > 0 && (
+                                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                                    {msg.images.map((url, i) => (
+                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                            <img src={url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-color)' }} />
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+                {selectedTicket.status !== 'CLOSED' && (
+                    <div style={{ flexShrink: 0, paddingTop: 12, borderTop: '1px solid var(--border-color)', marginTop: 12 }}>
+                        <textarea value={replyContent} onChange={e => setReplyContent(e.target.value)} placeholder="输入回复内容..." rows={3} style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                            <label style={{ cursor: 'pointer', padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: 6, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                <FiImage size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+                                {uploading ? '上传中...' : '添加图片'}
+                                <input type="file" accept="image/*" onChange={e => handleUpload(e, 'reply')} style={{ display: 'none' }} />
+                            </label>
+                            {replyImages.map((url, i) => (
+                                <img key={i} src={url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
+                            ))}
+                            <button className="btn btn-primary" onClick={handleReply} disabled={submitting} style={{ marginLeft: 'auto' }}>
+                                {submitting ? '发送中...' : '发送'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {selectedTicket.status === 'CLOSED' && (() => {
+                    const closedAt = selectedTicket.closedAt ? new Date(selectedTicket.closedAt) : null
+                    const canReopen = closedAt && (Date.now() - closedAt.getTime() < 24 * 60 * 60 * 1000)
+                    const hoursLeft = closedAt ? Math.max(0, Math.ceil((closedAt.getTime() + 24 * 60 * 60 * 1000 - Date.now()) / 3600000)) : 0
+                    return (
+                        <div style={{ flexShrink: 0, marginTop: 12, padding: '14px 18px', background: 'var(--bg-secondary)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                {canReopen
+                                    ? `此工单已关闭（${hoursLeft} 小时内可重新打开）`
+                                    : '此工单已关闭超过 24 小时，如需帮助请提交新工单'}
+                            </span>
+                            {canReopen && (
+                                <button className="btn btn-secondary" onClick={async () => {
+                                    const r = await fetch(`/api/platform/tickets/${selectedTicket.id}/reopen`, {
+                                        method: 'POST', headers: { Authorization: `Bearer ${authToken}` }
+                                    })
+                                    if (r.ok) {
+                                        showToast('工单已重新打开', 'success')
+                                        const dr = await fetch(`/api/platform/tickets/${selectedTicket.id}`, { headers: { Authorization: `Bearer ${authToken}` } })
+                                        const dd = await dr.json()
+                                        setSelectedTicket(dd.ticket)
+                                    } else {
+                                        const d = await r.json()
+                                        showToast(d.error || '操作失败', 'error')
+                                    }
+                                }}>重新打开</button>
+                            )}
+                        </div>
+                    )
+                })()}
+            </div>
+        )
+    }
+
+    return (
+        <div className="admin-page">
+            <div className="page-header">
+                <h2>联系客服</h2>
+                <button className="btn btn-primary" onClick={() => setView('create')}>+ 新建工单</button>
+            </div>
+            {loading ? <p>加载中...</p> : tickets.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                    <FiSend size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
+                    <p>暂无工单，有问题可以提交工单联系平台客服</p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {tickets.map(t => {
+                        const s = statusMap[t.status] || statusMap.OPEN
+                        const lastMsg = t.messages?.[0]
+                        return (
+                            <div key={t.id} onClick={() => { setSelectedTicket(null); setView('detail'); fetch(`/api/platform/tickets/${t.id}`, { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json()).then(d => setSelectedTicket(d.ticket)) }} style={{
+                                padding: '16px 20px', border: '1px solid var(--border-color)',
+                                borderRadius: 10, cursor: 'pointer', background: 'var(--bg-card)',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                transition: 'border-color 0.15s'
+                            }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{t.subject}</div>
+                                    {lastMsg && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>{lastMsg.senderType === 'ADMIN' ? '客服回复：' : ''}{lastMsg.content?.slice(0, 50)}</div>}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: 12, background: `${s.color}20`, color: s.color, fontWeight: 600 }}>{s.label}</span>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(t.updatedAt).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+        </div>
+    )
+}
+
+// 平台公告组件（显示在商户后台仪表盘顶部）
+function PlatformNotices() {
+    const [notices, setNotices] = useState([])
+    const [dismissed, setDismissed] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('dismissed_platform_notices') || '[]') } catch { return [] }
+    })
+
+    useEffect(() => {
+        fetch('/api/platform/announcements')
+            .then(r => r.json())
+            .then(d => setNotices(d.announcements || []))
+            .catch(() => {})
+    }, [])
+
+    const dismiss = (id) => {
+        const newDismissed = [...dismissed, id]
+        setDismissed(newDismissed)
+        localStorage.setItem('dismissed_platform_notices', JSON.stringify(newDismissed))
+    }
+
+    const visible = notices.filter(n => !dismissed.includes(n.id))
+    if (visible.length === 0) return null
+
+    return (
+        <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {visible.map(n => (
+                <div key={n.id} style={{
+                    background: 'linear-gradient(135deg, #eff6ff, #f0f9ff)',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: 10,
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10
+                }}>
+                    <span style={{ fontSize: '1rem', flexShrink: 0 }}>📢</span>
+                    <div style={{ flex: 1, fontSize: '0.85rem', color: '#1e40af', lineHeight: 1.5 }}>
+                        <span style={{ color: '#64748b', fontSize: '0.78rem', marginRight: 8 }}>来自 Vmart</span>
+                        <strong>{n.title}</strong>
+                        {n.content && <span style={{ color: '#3b82f6', marginLeft: 6 }}>{n.content}</span>}
+                    </div>
+                    <button onClick={() => dismiss(n.id)} style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: '#94a3b8', fontSize: 16, padding: 0, lineHeight: 1
+                    }}>✕</button>
+                </div>
+            ))}
+        </div>
+    )
+}
 
 // 仪表盘首页
 function DashboardHome() {
@@ -354,6 +694,8 @@ function DashboardHome() {
 
     return (
         <div className="dashboard-home">
+            {/* 平台公告 */}
+            <PlatformNotices />
             {/* 顶部警报栏 */}
             {(stats.pendingTickets > 0 || stats.unpaidOrders > 0 || stats.paidOrders > 0 || stats.refundingOrders > 0 || stats.stockAlertProducts.length > 0) && (
                 <div className="dashboard-alerts">
@@ -402,21 +744,21 @@ function DashboardHome() {
                         </div>
                     )}
                     {stats.pendingTickets > 0 && (
-                        <Link to="/admin/tickets" className="alert-item alert-warning">
+                        <Link to={`${basePath}/tickets`} className="alert-item alert-warning">
                             <FiMessageCircle />
                             <span>{stats.pendingTickets} 个未读工单</span>
                             <FiTrendingUp className="alert-arrow" />
                         </Link>
                     )}
                     {stats.paidOrders > 0 && (
-                        <Link to="/admin/orders?status=PAID" className="alert-item alert-shipping">
+                        <Link to={`${basePath}/orders?status=PAID`} className="alert-item alert-shipping">
                             <FiSend />
                             <span>{stats.paidOrders} 个待发货订单</span>
                             <FiTrendingUp className="alert-arrow" />
                         </Link>
                     )}
                     {stats.refundingOrders > 0 && (
-                        <Link to="/admin/orders?status=REFUNDING" className="alert-item alert-refund">
+                        <Link to={`${basePath}/orders?status=REFUNDING`} className="alert-item alert-refund">
                             <FiAlertCircle />
                             <span>{stats.refundingOrders} 个待退款订单</span>
                             <FiTrendingUp className="alert-arrow" />
@@ -1928,6 +2270,11 @@ function ProductsManage() {
 // 订单管理
 function OrdersManage() {
     const location = useLocation()
+    const basePath = location.pathname.replace(/\/orders.*$/, '') || '/admin'
+    // 商户店面下用 /v/:slug 前缀；主站直接用 /order/...
+    const storefrontPrefix = basePath.startsWith('/v/')
+        ? basePath.replace(/\/admin$/, '')
+        : ''
     const queryParams = new URLSearchParams(location.search)
     const userIdFilter = queryParams.get('userId')
     const urlStatusFilter = queryParams.get('status')
@@ -2288,7 +2635,7 @@ function OrdersManage() {
                                         已退款
                                     </button>
                                 )}
-                                <button className="action-btn view" onClick={() => window.open(`/order/${order.orderNo}`, '_blank')}>查看</button>
+                                <button className="action-btn view" onClick={() => window.open(`${storefrontPrefix}/order/${order.orderNo}`, '_blank')}>查看</button>
                                 {isSuperAdmin && <button className="action-btn delete" onClick={() => handleDeleteOrder(order)}>删除</button>}
                             </td>
                         </tr>
@@ -2444,6 +2791,7 @@ function OrdersManage() {
 function TicketsManage() {
     const { showToast } = useToast()
     const { token } = useAuthStore()
+    const location = useLocation()
     const [tickets, setTickets] = useState([])
     const [globalStats, setGlobalStats] = useState({ total: 0, open: 0, inProgress: 0, pendingSuperAdmin: 0, completed: 0, closed: 0, unread: 0, noReply: 0 })
     const [page, setPage] = useState(1)
@@ -2454,14 +2802,18 @@ function TicketsManage() {
     const [unreadFilter, setUnreadFilter] = useState(false)
     const [noReplyFilter, setNoReplyFilter] = useState(false)
     const [selectedTicket, setSelectedTicket] = useState(null)
+    const [showHistoryModal, setShowHistoryModal] = useState(false)
+    const [historyTickets, setHistoryTickets] = useState([])
+    const [historyLoading, setHistoryLoading] = useState(false)
     const [replyContent, setReplyContent] = useState('')
+    const [replyImages, setReplyImages] = useState([])
+    const [uploadingImg, setUploadingImg] = useState(false)
     const [replying, setReplying] = useState(false)
 
     const statusMap = {
         OPEN: { label: '待处理', class: 'pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
         IN_PROGRESS: { label: '处理中', class: 'processing', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
         PENDING_SUPER_ADMIN: { label: '待超管处理', class: 'super-admin', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.1)' },
-        COMPLETED: { label: '已完成', class: 'done', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
         CLOSED: { label: '已关闭', class: 'completed', color: '#64748b', bg: 'rgba(100, 116, 139, 0.1)' }
     }
 
@@ -2513,7 +2865,6 @@ function TicketsManage() {
                 open: allTickets.filter(t => t.status === 'OPEN').length,
                 inProgress: allTickets.filter(t => t.status === 'IN_PROGRESS').length,
                 pendingSuperAdmin: allTickets.filter(t => t.status === 'PENDING_SUPER_ADMIN').length,
-                completed: allTickets.filter(t => t.status === 'COMPLETED').length,
                 closed: allTickets.filter(t => t.status === 'CLOSED').length,
                 unread: allTickets.reduce((sum, t) => sum + (t.adminUnreadCount || 0), 0),
                 noReply: allTickets.filter(t => t.status !== 'CLOSED' && t.messages?.[0]?.isAdmin === false).length
@@ -2552,12 +2903,13 @@ function TicketsManage() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ content: replyContent.trim() })
+                body: JSON.stringify({ content: replyContent.trim(), images: replyImages.length ? replyImages : null })
             })
 
             if (res.ok) {
                 showToast('回复成功，已发送邮件通知用户', 'success')
                 setReplyContent('')
+                setReplyImages([])
                 handleViewTicket(selectedTicket)
                 fetchTickets()
             } else {
@@ -2571,8 +2923,55 @@ function TicketsManage() {
         }
     }
 
-    const handleUpdateStatus = async (status) => {
+    const handleTicketImgUpload = async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        setUploadingImg(true)
         try {
+            const fd = new FormData()
+            fd.append('images', file)
+            const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+            const d = await r.json()
+            if (d.success && d.images?.[0]?.urls?.original) {
+                setReplyImages(imgs => [...imgs, d.images[0].urls.original])
+                showToast('图片上传成功', 'success')
+            } else {
+                showToast('上传失败', 'error')
+            }
+        } catch { showToast('上传失败', 'error') }
+        finally { setUploadingImg(false); e.target.value = '' }
+    }
+
+    const fetchHistoryTickets = async () => {
+        if (!selectedTicket) return
+        const userId = selectedTicket.user?.id
+        const customerId = selectedTicket.customer?.id
+        const params = new URLSearchParams()
+        if (userId) params.set('userId', userId)
+        if (customerId) params.set('customerId', customerId)
+        if (!userId && !customerId) {
+            const email = selectedTicket.user?.email || selectedTicket.customer?.email
+            if (email) params.set('email', email)
+        }
+        setHistoryLoading(true)
+        try {
+            const res = await fetch(`/api/tickets/admin/user-history?${params.toString()}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            const data = await res.json()
+            setHistoryTickets(data.tickets || [])
+        } catch {
+            setHistoryTickets([])
+        } finally {
+            setHistoryLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        if (showHistoryModal) fetchHistoryTickets()
+    }, [showHistoryModal])
+
+    const handleUpdateStatus = async (status) => {        try {
             const res = await fetch(`/api/tickets/admin/${selectedTicket.id}/status`, {
                 method: 'PATCH',
                 headers: {
@@ -2599,12 +2998,21 @@ function TicketsManage() {
     }
 
     const handleOpenUserOrders = () => {
-        const userId = selectedTicket?.user?.id
-        if (!userId) {
+        // 兼容 user 和 customer
+        const userId = selectedTicket?.user?.id || selectedTicket?.customer?.id
+        const email = selectedTicket?.user?.email || selectedTicket?.customer?.email
+        if (!userId && !email) {
             showToast('未找到用户信息', 'warning')
             return
         }
-        window.open(`/admin/orders?userId=${encodeURIComponent(userId)}`, '_blank', 'noopener,noreferrer')
+        // CUSTOMER 用 email 查（admin 订单管理也支持按 email 过滤）
+        const param = selectedTicket?.user?.id
+            ? `userId=${encodeURIComponent(selectedTicket.user.id)}`
+            : `email=${encodeURIComponent(email)}`
+        const ordersPath = location.pathname.includes('/v/')
+            ? location.pathname.replace(/\/admin.*$/, '/admin/orders')
+            : '/admin/orders'
+        window.open(`${ordersPath}?${param}`, '_blank', 'noopener,noreferrer')
     }
 
     const handleOpenRelatedOrder = () => {
@@ -2613,7 +3021,7 @@ function TicketsManage() {
             showToast('未找到关联订单', 'warning')
             return
         }
-        window.open(`/order/${encodeURIComponent(orderNo)}`, '_blank', 'noopener,noreferrer')
+        window.open(`${storefrontPrefix}/order/${encodeURIComponent(orderNo)}`, '_blank', 'noopener,noreferrer')
     }
 
     const formatTime = (dateStr) => {
@@ -2667,13 +3075,6 @@ function TicketsManage() {
                     <div className="stat-info">
                         <span className="stat-value">{globalStats.pendingSuperAdmin}</span>
                         <span className="stat-label">待超管处理</span>
-                    </div>
-                </div>
-                <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'COMPLETED' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('COMPLETED')}>
-                    <div className="stat-icon completed"><FiCheckCircle /></div>
-                    <div className="stat-info">
-                        <span className="stat-value">{globalStats.completed}</span>
-                        <span className="stat-label">已完成</span>
                     </div>
                 </div>
                 <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'CLOSED' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('CLOSED')}>
@@ -2767,7 +3168,7 @@ function TicketsManage() {
                             <div className="ticket-meta">
                                 <span className="ticket-user">
                                     <FiUsers style={{ marginRight: '4px' }} />
-                                    {ticket.user?.email || '-'}
+                                    {ticket.user?.email || ticket.customer?.email || '-'}
                                 </span>
                                 <span className="ticket-time">{formatTime(ticket.createdAt)}</span>
                             </div>
@@ -2835,14 +3236,25 @@ function TicketsManage() {
                             <div className="ticket-info-grid">
                                 <div className="info-item">
                                     <label>用户邮箱</label>
-                                    {selectedTicket.user?.email ? (
-                                        <button
-                                            type="button"
-                                            className="ticket-link-button"
-                                            onClick={handleOpenUserOrders}
-                                        >
-                                            {selectedTicket.user.email}
-                                        </button>
+                                    {(selectedTicket.user?.email || selectedTicket.customer?.email) ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <button
+                                                type="button"
+                                                className="ticket-link-button"
+                                                onClick={handleOpenUserOrders}
+                                            >
+                                                {selectedTicket.user?.email || selectedTicket.customer?.email}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="ticket-link-button"
+                                                style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+                                                onClick={() => setShowHistoryModal(true)}
+                                                title="查看历史工单"
+                                            >
+                                                📋 历史工单
+                                            </button>
+                                        </div>
                                     ) : (
                                         <span>-</span>
                                     )}
@@ -2877,21 +3289,51 @@ function TicketsManage() {
                                 )}
                                 <div className="info-item">
                                     <label>当前状态</label>
-                                    <select
-                                        value={selectedTicket.status}
-                                        onChange={(e) => handleUpdateStatus(e.target.value)}
-                                        className="status-select"
-                                        style={{
-                                            color: statusMap[selectedTicket.status]?.color,
-                                            borderColor: statusMap[selectedTicket.status]?.color
-                                        }}
-                                    >
-                                        <option value="OPEN">待处理</option>
-                                        <option value="IN_PROGRESS">处理中</option>
-                                        <option value="PENDING_SUPER_ADMIN">待超管处理</option>
-                                        <option value="COMPLETED">已完成</option>
-                                        <option value="CLOSED">已关闭</option>
-                                    </select>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                        <span
+                                            className="type-tag"
+                                            style={{
+                                                color: statusMap[selectedTicket.status]?.color,
+                                                background: statusMap[selectedTicket.status]?.bg,
+                                                display: 'inline-block',
+                                                padding: '6px 14px',
+                                                borderRadius: 16,
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            {statusMap[selectedTicket.status]?.label || selectedTicket.status}
+                                        </span>
+                                        {selectedTicket.status !== 'CLOSED' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (confirm('确定关闭此工单？关闭后 24 小时内用户仍可重新打开')) {
+                                                        handleUpdateStatus('CLOSED')
+                                                    }
+                                                }}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 4,
+                                                    padding: '5px 12px',
+                                                    background: 'rgba(239, 68, 68, 0.08)',
+                                                    color: '#ef4444',
+                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                    borderRadius: 8,
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'inherit',
+                                                    transition: 'all 0.15s'
+                                                }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)' }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)' }}
+                                            >
+                                                <FiX size={12} />
+                                                关闭工单
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 {selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'PENDING_SUPER_ADMIN' && (
                                     <div className="info-item">
@@ -2942,6 +3384,19 @@ function TicketsManage() {
                                         className="reply-textarea"
                                     />
                                     <div className="reply-actions">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                                            <label style={{ cursor: 'pointer', padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: 6, fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <FiImage size={14} />
+                                                {uploadingImg ? '上传中...' : '添加图片'}
+                                                <input type="file" accept="image/*" onChange={handleTicketImgUpload} style={{ display: 'none' }} />
+                                            </label>
+                                            {replyImages.map((url, i) => (
+                                                <div key={i} style={{ position: 'relative' }}>
+                                                    <img src={url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
+                                                    <button type="button" onClick={() => setReplyImages(imgs => imgs.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -6, right: -6, width: 14, height: 14, borderRadius: '50%', background: '#ef4444', color: '#fff', border: 'none', fontSize: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                                                </div>
+                                            ))}
+                                        </div>
                                         <button
                                             className="btn btn-primary"
                                             onClick={handleReply}
@@ -2949,10 +3404,87 @@ function TicketsManage() {
                                         >
                                             {replying ? '发送中...' : '发送回复'}
                                         </button>
-                                        <span className="reply-hint">
-                                            回复后将发送邮件通知用户
-                                        </span>
                                     </div>
+                                </div>
+                            )}
+                            {selectedTicket.status === 'CLOSED' && (() => {
+                                const closedAt = selectedTicket.closedAt ? new Date(selectedTicket.closedAt) : null
+                                const canReopen = closedAt && (Date.now() - closedAt.getTime() < 24 * 60 * 60 * 1000)
+                                const hoursLeft = closedAt ? Math.max(0, Math.ceil((closedAt.getTime() + 24 * 60 * 60 * 1000 - Date.now()) / 3600000)) : 0
+                                return (
+                                    <div style={{ marginTop: 16, padding: '14px 18px', background: 'var(--bg-secondary)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            {canReopen ? `工单已关闭（${hoursLeft}h 内可重新打开）` : '工单已关闭超过 24 小时'}
+                                        </span>
+                                        {canReopen && (
+                                            <button className="btn btn-secondary" onClick={() => handleUpdateStatus('OPEN')}>
+                                                重新打开
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 历史工单弹窗 */}
+            {showHistoryModal && (
+                <div className="ship-modal-overlay" onClick={() => setShowHistoryModal(false)}>
+                    <div className="ship-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
+                        <div className="ship-modal-header">
+                            <div className="ship-modal-icon"><FiClock /></div>
+                            <h3>该用户的历史工单</h3>
+                            <button className="ship-modal-close" onClick={() => setShowHistoryModal(false)}><FiX /></button>
+                        </div>
+                        <div className="ship-modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                            {historyLoading ? (
+                                <p style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>加载中...</p>
+                            ) : historyTickets.length === 0 ? (
+                                <p style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>该用户暂无历史工单</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {historyTickets.map(t => {
+                                        const s = statusMap[t.status] || statusMap.OPEN
+                                        const lastMsg = t.messages?.[0]
+                                        const isCurrent = t.id === selectedTicket?.id
+                                        return (
+                                            <div
+                                                key={t.id}
+                                                onClick={() => {
+                                                    if (isCurrent) return
+                                                    handleViewTicket({ id: t.id })
+                                                    setShowHistoryModal(false)
+                                                }}
+                                                style={{
+                                                    padding: '14px 18px',
+                                                    border: `1px solid ${isCurrent ? 'var(--primary)' : 'var(--border-color)'}`,
+                                                    borderRadius: 10,
+                                                    cursor: isCurrent ? 'default' : 'pointer',
+                                                    background: isCurrent ? 'rgba(239, 68, 68, 0.04)' : 'var(--bg-card)',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    gap: 12
+                                                }}
+                                            >
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                                        <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{t.subject}</span>
+                                                        {isCurrent && <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'var(--primary)', color: '#fff', borderRadius: 10 }}>当前</span>}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                        {t.ticketNo} · {lastMsg?.content?.slice(0, 40) || '无消息'}
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                                                    <span style={{ fontSize: '0.72rem', padding: '3px 10px', borderRadius: 12, background: s.bg, color: s.color, fontWeight: 600 }}>{s.label}</span>
+                                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{new Date(t.updatedAt).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -2967,7 +3499,8 @@ function TicketsManage() {
 function CardsManage() {
     const { showToast } = useToast()
     const { token, user: currentUser } = useAuthStore()
-    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
+    const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(currentUser?.role) ||
+        (currentUser?.role === 'ADMIN' && currentUser?.permissions?.['cards.delete'])
     const location = useLocation()
 
     // 从URL获取初始productId
@@ -3895,15 +4428,17 @@ function UsersManage() {
                                             </span>
                                         )}
                                     </td>
-                                    <td>
-                                        {agentEnabled && (user.referralAgent ? (
-                                            <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5' }}>
-                                                {user.referralAgent.shopName}
-                                            </span>
-                                        ) : (
-                                            <span style={{ fontSize: '0.78rem', color: '#D1D5DB' }}>主站</span>
-                                        ))}
-                                    </td>
+                                    {agentEnabled && (
+                                        <td>
+                                            {user.referralAgent ? (
+                                                <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5' }}>
+                                                    {user.referralAgent.shopName}
+                                                </span>
+                                            ) : (
+                                                <span style={{ fontSize: '0.78rem', color: '#D1D5DB' }}>主站</span>
+                                            )}
+                                        </td>
+                                    )}
                                     <td>{user._count?.orders || 0}</td>
                                     <td className="time">{new Date(user.createdAt).toLocaleDateString('zh-CN')}</td>
                                     <td className="actions">
@@ -4906,6 +5441,7 @@ function SettingsPage() {
     const { token } = useAuthStore()
     const { showToast } = useToast()
     const { fetchSkin } = useSkinStore()
+    const mToken = useMerchantStore(state => state.token)
 
     // 默认设置
     const [settings, setSettings] = useState({
@@ -4978,6 +5514,10 @@ function SettingsPage() {
     const [activeTab, setActiveTab] = useState('basic')
     const [saving, setSaving] = useState(false)
     const [loading, setLoading] = useState(true)
+    // 套餐邮件额度：>0 / -1 表示允许，0 表示禁用
+    const [emailQuota, setEmailQuota] = useState(-1)
+    const emailDisabled = emailQuota === 0
+    const [emailUsed, setEmailUsed] = useState(0)
 
     // 从后端加载设置
     useEffect(() => {
@@ -5020,6 +5560,31 @@ function SettingsPage() {
         }
         if (token) loadSettings()
     }, [token])
+
+    // 拉取套餐邮件额度（优先 admin 接口，fallback platform）
+    useEffect(() => {
+        const fetchUsage = (tk, isAdmin) => {
+            if (isAdmin) {
+                fetch('/api/admin/email-usage', { headers: { Authorization: `Bearer ${tk}` } })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (typeof d.limit === 'number') setEmailQuota(d.limit)
+                        if (typeof d.used === 'number') setEmailUsed(d.used)
+                    })
+                    .catch(() => {})
+            } else if (tk) {
+                fetch('/api/platform/plan/limits', { headers: { Authorization: `Bearer ${tk}` } })
+                    .then(r => r.json())
+                    .then(d => {
+                        const v = d?.limits?.emailNotifications
+                        if (typeof v === 'number') setEmailQuota(v)
+                    })
+                    .catch(() => {})
+            }
+        }
+        if (token) fetchUsage(token, true)
+        else if (mToken) fetchUsage(mToken, false)
+    }, [token, mToken])
 
     const handleChange = (key, value) => {
         setSettings(prev => ({ ...prev, [key]: value }))
@@ -5529,6 +6094,52 @@ function SettingsPage() {
                 {/* 邮件设置 */}
                 {activeTab === 'email' && (
                     <div className="settings-section">
+                        {emailDisabled && (
+                            <div style={{
+                                padding: '14px 16px', marginBottom: 16,
+                                background: 'rgba(245, 158, 11, 0.1)',
+                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                borderRadius: 8, color: '#92400e', fontSize: '0.9rem',
+                                display: 'flex', alignItems: 'center', gap: 10
+                            }}>
+                                🔒 当前套餐不包含邮件通知额度，邮件功能已禁用。请升级套餐后启用。
+                            </div>
+                        )}
+                        {!emailDisabled && (
+                            <div style={{
+                                padding: '14px 18px', marginBottom: 16,
+                                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(20, 184, 166, 0.08))',
+                                border: '1px solid rgba(14, 165, 233, 0.25)',
+                                borderRadius: 10, color: '#0c4a6e'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>本月平台代发邮件</div>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                            {emailUsed} / {emailQuota === -1 ? '不限' : emailQuota}
+                                        </div>
+                                    </div>
+                                    {emailQuota > 0 && (
+                                        <div style={{ flex: 1, minWidth: 180, marginLeft: 20 }}>
+                                            <div style={{ height: 6, background: 'rgba(14, 165, 233, 0.15)', borderRadius: 3, overflow: 'hidden' }}>
+                                                <div style={{
+                                                    height: '100%',
+                                                    width: `${Math.min(100, (emailUsed / emailQuota) * 100)}%`,
+                                                    background: emailUsed >= emailQuota ? '#ef4444' : 'linear-gradient(90deg, #0ea5e9, #14b8a6)',
+                                                    transition: 'width 0.3s'
+                                                }} />
+                                            </div>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                                                {emailUsed >= emailQuota
+                                                    ? '⚠️ 本月额度已用完，可切换商户自有 SMTP 不受限'
+                                                    : `剩余 ${Math.max(0, emailQuota - emailUsed)} 封 · 自有 SMTP 不计入额度`}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        <fieldset disabled={emailDisabled} style={{ border: 0, padding: 0, margin: 0, opacity: emailDisabled ? 0.55 : 1 }}>
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
                                 <label>邮件通知</label>
@@ -5539,6 +6150,7 @@ function SettingsPage() {
                                     type="checkbox"
                                     checked={settings.emailNotify}
                                     onChange={(e) => handleChange('emailNotify', e.target.checked)}
+                                    disabled={emailDisabled}
                                 />
                                 <span className="toggle-slider"></span>
                             </label>
@@ -5550,6 +6162,7 @@ function SettingsPage() {
                                 value={settings.smtpHost}
                                 onChange={(e) => handleChange('smtpHost', e.target.value)}
                                 placeholder="smtp.example.com"
+                                disabled={emailDisabled}
                             />
                         </div>
                         <div className="setting-item">
@@ -5559,6 +6172,7 @@ function SettingsPage() {
                                 value={settings.smtpPort}
                                 onChange={(e) => handleChange('smtpPort', parseInt(e.target.value))}
                                 placeholder="465"
+                                disabled={emailDisabled}
                             />
                         </div>
                         <div className="setting-item">
@@ -5568,6 +6182,7 @@ function SettingsPage() {
                                 value={settings.smtpUser}
                                 onChange={(e) => handleChange('smtpUser', e.target.value)}
                                 placeholder="noreply@example.com"
+                                disabled={emailDisabled}
                             />
                         </div>
                         <div className="setting-item">
@@ -5577,11 +6192,13 @@ function SettingsPage() {
                                 value={settings.smtpPass}
                                 onChange={(e) => handleChange('smtpPass', e.target.value)}
                                 placeholder="邮箱密码或授权码"
+                                disabled={emailDisabled}
                             />
                         </div>
                         <div className="setting-item">
                             <button
                                 className="btn btn-secondary"
+                                disabled={emailDisabled}
                                 onClick={async () => {
                                     try {
                                         const res = await fetch('/api/admin/settings/test-email', {
@@ -5603,12 +6220,24 @@ function SettingsPage() {
                             </button>
                             <span className="setting-hint">先保存设置，再测试连接</span>
                         </div>
+                        </fieldset>
                     </div>
                 )}
 
                 {/* 通知设置 */}
                 {activeTab === 'notify' && (
                     <div className="settings-section">
+                        {emailDisabled && (
+                            <div style={{
+                                padding: '14px 16px', marginBottom: 16,
+                                background: 'rgba(245, 158, 11, 0.1)',
+                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                borderRadius: 8, color: '#92400e', fontSize: '0.9rem'
+                            }}>
+                                🔒 当前套餐不包含邮件通知额度，所有事件邮件通知已禁用。
+                            </div>
+                        )}
+                        <fieldset disabled={emailDisabled} style={{ border: 0, padding: 0, margin: 0, opacity: emailDisabled ? 0.55 : 1 }}>
                         <div className="setting-item">
                             <label>管理员收信邮箱</label>
                             <input
@@ -5616,6 +6245,7 @@ function SettingsPage() {
                                 value={settings.adminNotifyEmail}
                                 onChange={(e) => handleChange('adminNotifyEmail', e.target.value)}
                                 placeholder="admin@example.com"
+                                disabled={emailDisabled}
                             />
                             <span className="setting-hint">事件通知将发送到此邮箱，留空则不发送</span>
                         </div>
@@ -5728,6 +6358,7 @@ function SettingsPage() {
                                 <span className="toggle-slider"></span>
                             </label>
                         </div>
+                        </fieldset>
                     </div>
                 )}
 
@@ -5826,6 +6457,7 @@ function AdminDashboard({ basePath = '/admin' }) {
     const { logout, user } = useAuthStore()
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [agentEnabled, setAgentEnabled] = useState(false)
+    const [planLimits, setPlanLimits] = useState({})
     const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)
 
     // 拉取代理开关状态
@@ -5847,6 +6479,26 @@ function AdminDashboard({ basePath = '/admin' }) {
                 .then(d => setAgentEnabled(d.settings?.agentEnabled === 'true'))
                 .catch(() => {})
         }
+
+        // 拉取套餐限制（用于 support / customerTickets 等功能开关）
+        // 优先用 admin token（适用于 TENANT_ADMIN 直接登录商户后台），fallback 到 merchant token
+        try {
+            const tk = useAuthStore.getState().token
+            if (tk) {
+                fetch('/api/admin/plan-limits', { headers: { Authorization: `Bearer ${tk}` } })
+                    .then(r => r.json())
+                    .then(d => setPlanLimits(d?.limits || {}))
+                    .catch(() => {})
+            } else {
+                const mToken = useMerchantStore.getState().token
+                if (mToken) {
+                    fetch('/api/platform/plan/limits', { headers: { Authorization: `Bearer ${mToken}` } })
+                        .then(r => r.json())
+                        .then(d => setPlanLimits(d?.limits || {}))
+                        .catch(() => {})
+                }
+            }
+        } catch {}
     }, [])
 
     const handleLogout = () => {
@@ -5872,6 +6524,10 @@ function AdminDashboard({ basePath = '/admin' }) {
         if (item.ownerOnly && !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)) return false;
         // 代理管理仅在开启代理体系时显示
         if (item.path === '/admin/agents' && !agentEnabled) return false;
+        // 套餐限制：联系客服需要套餐开启 support
+        if (item.path === '/admin/support' && planLimits.support === false) return false;
+        // 套餐限制：工单管理需要套餐开启 customerTickets
+        if (item.path === '/admin/tickets' && planLimits.customerTickets === false) return false;
         // 子管理员（ADMIN）按 permissions 过滤
         if (user?.role === 'ADMIN' && item.permission) {
             const perms = user.permissions || {}
@@ -5938,6 +6594,7 @@ function AdminDashboard({ basePath = '/admin' }) {
                     <Route path="setup" element={<SetupGuidePage />} />
                     <Route path="shop-settings" element={<TenantSettings />} />
                     <Route path="settings" element={<TenantSettings />} />
+                    <Route path="support/*" element={<MerchantSupportPage />} />
                 </Routes>
             </main>
         </div>

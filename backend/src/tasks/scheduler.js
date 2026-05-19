@@ -16,6 +16,15 @@ const cancelExpiredOrders = async () => {
 
         const expireTime = new Date(Date.now() - timeoutMinutes * 60 * 1000)
 
+        // 先找出超时的订单（按 orderNo），用于后续同步 PlanOrder 状态
+        const expiredOrders = await prisma.order.findMany({
+            where: { status: 'PENDING', createdAt: { lt: expireTime } },
+            select: { orderNo: true, remark: true }
+        })
+        const expiredOrderNos = expiredOrders.map(o => o.orderNo)
+
+        if (expiredOrderNos.length === 0) return
+
         // 查找并取消超时订单
         const result = await prisma.order.updateMany({
             where: {
@@ -28,6 +37,19 @@ const cancelExpiredOrders = async () => {
             }
         })
 
+        // 同步取消关联的 PlanOrder（remark 为 plan_order:xxx 或 tradeNo 匹配）
+        try {
+            await prisma.planOrder.updateMany({
+                where: {
+                    tradeNo: { in: expiredOrderNos },
+                    paymentStatus: { in: ['PENDING', 'REVIEWING'] }
+                },
+                data: { paymentStatus: 'REJECTED' }
+            })
+        } catch (e) {
+            logger.error('同步 PlanOrder 状态失败:', e)
+        }
+
         if (result.count > 0) {
             logger.info(`自动取消了 ${result.count} 个超时订单`)
         }
@@ -36,46 +58,19 @@ const cancelExpiredOrders = async () => {
     }
 }
 
-// 自动关闭已完成工单（24小时无用户回复）
+// 自动关闭已完成工单（24小时无用户回复）— 已废弃：现已无 COMPLETED 状态
 const autoCloseCompletedTickets = async () => {
+    // 兼容旧数据：如果数据库中还残留有 COMPLETED 状态的工单，统一改为 CLOSED
     try {
-        // 查找所有 COMPLETED 状态的工单
-        const completedTickets = await prisma.ticket.findMany({
+        const result = await prisma.ticket.updateMany({
             where: { status: 'COMPLETED' },
-            include: {
-                messages: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 1
-                }
-            }
+            data: { status: 'CLOSED', closedAt: new Date() }
         })
-
-        const now = new Date()
-        const cutoff = 24 * 60 * 60 * 1000 // 24小时
-        let closedCount = 0
-
-        for (const ticket of completedTickets) {
-            // 以最后一条消息的时间或工单更新时间为准
-            const lastActivity = ticket.messages[0]?.createdAt || ticket.updatedAt
-            const elapsed = now - new Date(lastActivity)
-
-            if (elapsed >= cutoff) {
-                await prisma.ticket.update({
-                    where: { id: ticket.id },
-                    data: {
-                        status: 'CLOSED',
-                        closedAt: now
-                    }
-                })
-                closedCount++
-            }
-        }
-
-        if (closedCount > 0) {
-            logger.info(`自动关闭了 ${closedCount} 个已完成工单（24小时无回复）`)
+        if (result.count > 0) {
+            logger.info(`迁移了 ${result.count} 个 COMPLETED 残留工单为 CLOSED`)
         }
     } catch (error) {
-        logger.error('自动关闭已完成工单任务失败:', error)
+        logger.error('清理 COMPLETED 残留工单失败:', error)
     }
 }
 
@@ -116,6 +111,46 @@ const initScheduledTasks = () => {
     cron.schedule('0 9 * * *', async () => {
         logger.info('发送套餐到期提醒...')
         await sendExpiryReminders()
+    }, { timezone: 'Asia/Shanghai' })
+
+    // 每天早上 9:05 发送 GMV 日报给超管
+    cron.schedule('5 9 * * *', async () => {
+        try {
+            const yesterday = new Date()
+            yesterday.setDate(yesterday.getDate() - 1)
+            yesterday.setHours(0, 0, 0, 0)
+            const today = new Date(yesterday)
+            today.setDate(today.getDate() + 1)
+
+            const [orders, refunds, newMerchants, gmvAgg] = await Promise.all([
+                prisma.order.count({
+                    where: { createdAt: { gte: yesterday, lt: today }, tenantId: { not: null } }
+                }),
+                prisma.order.count({
+                    where: {
+                        cancelledAt: { gte: yesterday, lt: today },
+                        status: { in: ['CANCELLED', 'REFUNDED'] }
+                    }
+                }),
+                prisma.merchant.count({ where: { createdAt: { gte: yesterday, lt: today } } }),
+                prisma.order.aggregate({
+                    where: {
+                        completedAt: { gte: yesterday, lt: today },
+                        status: 'COMPLETED',
+                        tenantId: { not: null }
+                    },
+                    _sum: { totalAmount: true }
+                })
+            ])
+            const gmv = parseFloat(gmvAgg._sum.totalAmount || 0)
+            const manNotify = require('../services/manNotifyService')
+            await manNotify.notifyDailyGmvReport({
+                date: yesterday.toLocaleDateString('zh-CN'),
+                gmv, orders, refunds, newMerchants
+            })
+        } catch (e) {
+            logger.error('GMV 日报发送失败:', e)
+        }
     }, { timezone: 'Asia/Shanghai' })
 
     logger.info('✅ 定时任务已启动: 每天 3:00 清理未验证账户, 每分钟检查超时订单, 每小时检查已完成工单, 每小时检查套餐到期, 每天 9:00 到期提醒, 数据库自动备份')

@@ -10,8 +10,7 @@ import './User.css'
 const menuItems = [
     { path: '/user', icon: FiUser, label: '个人信息', exact: true },
     { path: '/user/orders', icon: FiPackage, label: '我的订单' },
-    { path: '/user/tickets', icon: FiMessageCircle, label: '我的工单' },
-    { path: '/user/password', icon: FiLock, label: '修改密码' }
+    { path: '/user/tickets', icon: FiMessageCircle, label: '我的工单' }
 ]
 
 // 个人信息页
@@ -28,9 +27,10 @@ function ProfilePage() {
                 })
                 const data = await res.json()
                 const orders = data.orders || []
+                const paidStatuses = ['paid', 'completed']
                 setStats({
                     total: orders.length,
-                    spent: orders.reduce((sum, o) => sum + o.totalAmount, 0),
+                    spent: orders.filter(o => paidStatuses.includes(o.status)).reduce((sum, o) => sum + o.totalAmount, 0),
                     completed: orders.filter(o => o.status === 'completed').length
                 })
             } catch (error) {
@@ -129,6 +129,9 @@ function ProfilePage() {
                     </div>
                 </div>
             </div>
+
+            {/* 修改密码（内嵌） */}
+            <PasswordSection />
         </div>
     )
 }
@@ -279,10 +282,98 @@ function OrdersPage() {
         </div>
     )
 }
+// 修改密码（内嵌组件，挂在个人信息页底部）
+function PasswordSection() {
+    const { token, user } = useAuthStore()
+    const [formData, setFormData] = useState({
+        oldPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    })
+    const [showPasswords, setShowPasswords] = useState({ old: false, new: false, confirm: false })
+    const [loading, setLoading] = useState(false)
+    const [collapsed, setCollapsed] = useState(true)
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value })
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+        if (formData.newPassword !== formData.confirmPassword) { toast.error('两次密码输入不一致'); return }
+        if (formData.newPassword.length < 6) { toast.error('新密码至少6位'); return }
+        setLoading(true)
+        try {
+            const url = user?.role === 'CUSTOMER' ? '/api/customer/password' : '/api/auth/change-password'
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ oldPassword: formData.oldPassword, newPassword: formData.newPassword })
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || '修改失败')
+            toast.success(data.message || '修改成功')
+            setFormData({ oldPassword: '', newPassword: '', confirmPassword: '' })
+            setCollapsed(true)
+        } catch (error) {
+            toast.error(error.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <div className="profile-password-section">
+            <div className="profile-password-header" onClick={() => setCollapsed(c => !c)}>
+                <div>
+                    <h3 style={{ margin: 0, fontSize: '1rem' }}>
+                        <FiLock style={{ verticalAlign: '-3px', marginRight: 6 }} />修改密码
+                    </h3>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        定期更换密码可以提升账户安全性
+                    </p>
+                </div>
+                <button type="button" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+                    {collapsed ? '修改' : '收起'}
+                </button>
+            </div>
+
+            {!collapsed && (
+                <form className="password-form" onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+                    {[
+                        { key: 'oldPassword', show: 'old', label: '当前密码', placeholder: '请输入当前密码' },
+                        { key: 'newPassword', show: 'new', label: '新密码', placeholder: '请输入新密码 (至少6位)' },
+                        { key: 'confirmPassword', show: 'confirm', label: '确认新密码', placeholder: '请再次输入新密码' },
+                    ].map(f => (
+                        <div className="form-group" key={f.key}>
+                            <label>{f.label}</label>
+                            <div className="input-wrapper">
+                                <input
+                                    type={showPasswords[f.show] ? 'text' : 'password'}
+                                    name={f.key}
+                                    value={formData[f.key]}
+                                    onChange={handleChange}
+                                    placeholder={f.placeholder}
+                                    required
+                                />
+                                <button type="button" className="toggle-password" onClick={() => setShowPasswords({ ...showPasswords, [f.show]: !showPasswords[f.show] })}>
+                                    {showPasswords[f.show] ? <FiEyeOff /> : <FiEye />}
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                        {loading ? '提交中...' : '确认修改'}
+                    </button>
+                </form>
+            )}
+        </div>
+    )
+}
 
 // 修改密码页
 function PasswordPage() {
-    const { token } = useAuthStore()
+    const { token, user } = useAuthStore()
     const [formData, setFormData] = useState({
         oldPassword: '',
         newPassword: '',
@@ -314,7 +405,8 @@ function PasswordPage() {
 
         setLoading(true)
         try {
-            const res = await fetch('/api/auth/change-password', {
+            const url = user?.role === 'CUSTOMER' ? '/api/customer/password' : '/api/auth/change-password'
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -421,7 +513,7 @@ function PasswordPage() {
 const ticketStatusMap = {
     OPEN: { label: '待处理', class: 'open', icon: <FiAlertCircle /> },
     IN_PROGRESS: { label: '处理中', class: 'in-progress', icon: <FiClock /> },
-    COMPLETED: { label: '已完成', class: 'completed', icon: <FiCheckCircle /> },
+    PENDING_SUPER_ADMIN: { label: '处理中', class: 'in-progress', icon: <FiClock /> },
     CLOSED: { label: '已关闭', class: 'closed', icon: <FiCheck /> }
 }
 
@@ -436,6 +528,7 @@ const ticketTypeMap = {
 function TicketsPage() {
     const navigate = useNavigate()
     const { token } = useAuthStore()
+    const { withPrefix } = useStorefrontPath()
     const [tickets, setTickets] = useState([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState('all')
@@ -499,7 +592,7 @@ function TicketsPage() {
                         {unreadCount > 0 ? `当前有 ${unreadCount} 条新消息待查看` : '查看工单处理进度与最新回复'}
                     </p>
                 </div>
-                <Link to="/tickets/new" className="btn btn-primary btn-sm">
+                <Link to={withPrefix("/tickets/new")} className="btn btn-primary btn-sm">
                     <FiPlus />
                     提交工单
                 </Link>
@@ -526,12 +619,6 @@ function TicketsPage() {
                     处理中
                 </button>
                 <button
-                    className={`filter-btn ${filter === 'COMPLETED' ? 'active' : ''}`}
-                    onClick={() => setFilter('COMPLETED')}
-                >
-                    已完成
-                </button>
-                <button
                     className={`filter-btn ${filter === 'CLOSED' ? 'active' : ''}`}
                     onClick={() => setFilter('CLOSED')}
                 >
@@ -550,7 +637,7 @@ function TicketsPage() {
                 <div className="tickets-list-embed">
                     {tickets.map(ticket => (
                         <Link
-                            to={`/tickets/${ticket.id}`}
+                            to={withPrefix(`/tickets/${ticket.id}`)}
                             key={ticket.id}
                             className="ticket-card-embed"
                         >
@@ -609,7 +696,7 @@ function UserCenter() {
                 <FiUser className="icon" />
                 <h2>请先登录</h2>
                 <p>登录后可查看个人信息和订单</p>
-                <Link to="/login" className="btn btn-primary">去登录</Link>
+                <Link to={withPrefix("/login")} className="btn btn-primary">去登录</Link>
             </div>
         )
     }
@@ -665,7 +752,6 @@ function UserCenter() {
                     <Route index element={<ProfilePage />} />
                     <Route path="orders" element={<OrdersPage />} />
                     <Route path="tickets/*" element={<TicketsPage />} />
-                    <Route path="password" element={<PasswordPage />} />
                 </Routes>
             </main>
         </div>

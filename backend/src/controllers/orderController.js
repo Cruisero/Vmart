@@ -285,6 +285,30 @@ exports.getOrderByNo = async (req, res, next) => {
             return res.status(404).json({ error: '订单不存在' })
         }
 
+        // 多租户隔离：
+        // - 商户订单（order.tenantId 有值）只能从对应商城访问
+        // - 主站订单（order.tenantId 为 null）只能从主站访问
+        // tenantDetect 中间件会按 host 注入 req.tenantId（自定义域名），
+        // 路径模式则需检查 query 或 referer 中的 slug
+        const requestSlug = req.query?.slug || null
+        let requestTenantId = req.tenantId
+        if (!requestTenantId && requestSlug) {
+            const t = await prisma.tenant.findUnique({
+                where: { shopSlug: requestSlug },
+                select: { id: true }
+            })
+            requestTenantId = t?.id || null
+        }
+
+        // 如果订单属于某个 tenant，请求方必须是同一个 tenant
+        if (order.tenantId && order.tenantId !== requestTenantId) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+        // 如果订单是主站订单（tenantId=null），请求方必须没有 tenantId
+        if (!order.tenantId && requestTenantId) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+
         // 检查是否为超时的待支付订单（15分钟）
         if (order.status === 'PENDING') {
             const orderAge = Date.now() - new Date(order.createdAt).getTime()
@@ -442,6 +466,16 @@ exports.cancelOrder = async (req, res, next) => {
                 cancelledAt: new Date()
             }
         })
+
+        // 如果是套餐订单（tradeNo 关联），同步更新 PlanOrder 状态
+        try {
+            await prisma.planOrder.updateMany({
+                where: { tradeNo: orderNo, paymentStatus: { in: ['PENDING', 'REVIEWING'] } },
+                data: { paymentStatus: 'REJECTED' }
+            })
+        } catch (e) {
+            // 忽略：可能不是套餐订单
+        }
 
         res.json({ message: '订单已取消', orderNo })
     } catch (error) {

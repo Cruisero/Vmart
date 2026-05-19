@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { FiShoppingCart, FiSearch, FiBox } from 'react-icons/fi'
 import { useCartStore } from '../../store/cartStore'
+import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import './Search.css'
 
@@ -25,6 +26,19 @@ function Search() {
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(false)
     const addItem = useCartStore((state) => state.addItem)
+    const storefront = useStorefront()
+    const { withPrefix } = useStorefrontPath()
+
+    // 计算商品 API 路径
+    const apiUrl = (() => {
+        if (storefront?._tenantMode && storefront?.slug) {
+            return `/api/v/${storefront.slug}/products`
+        }
+        if (storefront?.slug) {
+            return `/api/s/${storefront.slug}/products`
+        }
+        return `${API_BASE}/products`
+    })()
 
     // 从 API 搜索商品
     useEffect(() => {
@@ -34,7 +48,7 @@ function Search() {
         }
 
         setLoading(true)
-        fetch(`${API_BASE}/products?search=${encodeURIComponent(query)}`)
+        fetch(`${apiUrl}?search=${encodeURIComponent(query)}`)
             .then(res => res.json())
             .then(data => {
                 const formattedProducts = (data.products || data || []).map(p => ({
@@ -56,7 +70,7 @@ function Search() {
                 console.error('搜索失败:', err)
                 setLoading(false)
             })
-    }, [query])
+    }, [query, apiUrl])
 
     // 排序结果
     const searchResults = useMemo(() => {
@@ -124,9 +138,9 @@ function Search() {
                     <div className="search-results-grid">
                         {searchResults.map((product) => (
                             <Link
-                                to={`/products/${product.id}`}
+                                to={withPrefix(`/products/${product.id}`)}
                                 key={product.id}
-                                className="product-card"
+                                className={`product-card${product.stock <= 0 ? ' product-card-oos' : ''}`}
                             >
                                 {/* 商品图片 */}
                                 <div className="product-image">
@@ -142,8 +156,8 @@ function Search() {
                                             ))}
                                         </div>
                                     )}
-                                    {product.stock < 50 && (
-                                        <div className="stock-warning">库存紧张</div>
+                                    {product.stock <= 0 && (
+                                        <div className="product-oos-overlay"><span>已售罄</span></div>
                                     )}
                                 </div>
 
@@ -178,7 +192,7 @@ function Search() {
                     </div>
                     <h2>未找到相关商品</h2>
                     <p>换个关键词试试吧～</p>
-                    <Link to="/" className="btn btn-primary">
+                    <Link to={withPrefix('/')} className="btn btn-primary">
                         浏览全部商品
                     </Link>
                 </div>

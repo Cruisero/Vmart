@@ -316,6 +316,12 @@ async function processPaymentSuccess(orderNo, tradeNo, paymentMethod) {
         })
     })
 
+    // 邮件资源包：识别 remark 中的 email_pack:{tenantId}:{count}，增加永久额度
+    const { processEmailPackIfNeeded } = require('../utils/emailPackHandler')
+    if (await processEmailPackIfNeeded(order)) {
+        return // 邮件资源包订单到此结束，不发卡密/邮件
+    }
+
     // 发放卡密
     let cards = []
     try {
@@ -392,6 +398,39 @@ async function processPaymentSuccess(orderNo, tradeNo, paymentMethod) {
             // 通知管理员
             const { notifyOrderPaid } = require('../services/notifyDispatcher')
             notifyOrderPaid(fullOrder).catch(e => logger.error('管理员通知失败:', e))
+
+            // 平台超管违禁词扫描
+            try {
+                const manNotify = require('../services/manNotifyService')
+                const prismaClient = require('../config/database')
+                const setting = await prismaClient.platformSetting.findUnique({ where: { key: 'risk_keywords' } })
+                if (setting?.value && fullOrder.tenantId) {
+                    const keywords = JSON.parse(setting.value).filter(Boolean)
+                    if (keywords.length > 0) {
+                        const scanText = [
+                            fullOrder.productName,
+                            fullOrder.product?.name,
+                            fullOrder.product?.description,
+                            Array.isArray(fullOrder.product?.tags) ? fullOrder.product.tags.join(' ') : ''
+                        ].filter(Boolean).join(' ').toLowerCase()
+                        const hits = keywords.filter(k => k && scanText.includes(k.toLowerCase()))
+                        if (hits.length > 0) {
+                            const tenant = await prismaClient.tenant.findUnique({
+                                where: { id: fullOrder.tenantId },
+                                select: { shopName: true, shopSlug: true }
+                            })
+                            manNotify.notifyRiskHit({
+                                orderNo: fullOrder.orderNo,
+                                productName: fullOrder.productName,
+                                totalAmount: fullOrder.totalAmount,
+                                email: fullOrder.email
+                            }, hits, tenant).catch(() => {})
+                        }
+                    }
+                }
+            } catch (e) {
+                logger.error('[riskScan] 扫描失败:', e.message)
+            }
         } catch (error) {
             logger.error(`订单 ${orderNo} 邮件发送失败:`, error)
         }

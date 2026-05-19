@@ -1,4 +1,4 @@
-.zp-page { max-width: 1200px; margin: 0 auto; padding: 48px 24px 80px; }
+.zp-page { max-width: 1280px; margin: 0 auto; padding: 30px 40px 80px; }
 .zp-hero { text-align: center; margin-bottom: 48px; }
 .zp-title { font-size: 1.6rem; font-weight: 700; color: #1A1A1A; letter-spacing: 1px; margin-bottom: 6px; }
 .zp-subtitle { font-size: 0.85rem; color: #aaa; letter-spacing: 2px; }
@@ -58,3 +58,61 @@
 }
 @media (max-width: 900px) { .zp-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
 @media (max-width: 540px) { .zp-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
+
+
+/* ── 首页信息卡片 ── */
+.zp-feature-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #E5E7EB;
+    margin-bottom: 28px;
+}
+
+.zp-feature-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 24px;
+    background: #fff;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.zp-feature-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.zp-feature-body {
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.zp-feature-desc {
+    font-size: 0.9rem;
+    color: #1F2937;
+    line-height: 1.8;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.zp-feature-link-inline {
+    color: #2563EB;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+
+.zp-feature-link-inline:hover {
+    color: #1D4ED8;
+}
+
+@media (max-width: 760px) {
+    .zp-feature-header { padding: 12px 18px; }
+    .zp-feature-body { padding: 16px 18px; }
+}

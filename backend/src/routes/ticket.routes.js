@@ -27,10 +27,16 @@ router.post('/:id/messages', authenticate, ticketController.addMessage)
 // 用户主动关闭工单
 router.patch('/:id/close', authenticate, ticketController.closeMyTicket)
 
+// 用户重新打开工单（关闭后 24 小时内可操作）
+router.post('/:id/reopen', authenticate, ticketController.reopenMyTicket)
+
 // ==================== 管理端路由 ====================
 
 // 获取所有工单
 router.get('/admin/all', authenticate, isAdmin, ticketController.getAllTickets)
+
+// 用户历史工单
+router.get('/admin/user-history', authenticate, isAdmin, ticketController.getUserTicketHistory)
 
 // 获取工单详情（管理员）
 router.get('/admin/:id', authenticate, isAdmin, ticketController.getTicketDetail)
