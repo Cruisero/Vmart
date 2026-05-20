@@ -393,7 +393,9 @@
 .plan-name { font-size: 16px; font-weight: 700; color: #0f172a; }
 .plan-price { font-size: 36px; font-weight: 800; color: #0f172a; }
 .plan-price span { font-size: 16px; color: #94a3b8; font-weight: 400; }
-.plan-desc { font-size: 13px; color: #64748b; }
+.plan-yearly { font-size: 12px; color: #10b981; font-weight: 600; margin-top: 4px; background: rgba(16, 185, 129, 0.08); padding: 3px 10px; border-radius: 999px; display: inline-block; }
+.plan-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
+.section-subtitle { text-align: center; color: #64748b; font-size: 15px; margin-top: -8px; margin-bottom: 32px; }
 
 .plan-features-list {
     list-style: none;
@@ -405,7 +407,10 @@
     flex: 1;
 }
 
-.plan-features-list li { font-size: 13px; color: #475569; }
+.plan-features-list li { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 8px; }
+.plan-features-list li .feature-check { font-weight: 700; flex-shrink: 0; width: 16px; }
+.plan-features-list li.not-included { color: #cbd5e1; text-decoration: line-through; }
+.plan-features-list li.not-included .feature-check { color: #e2e8f0; }
 
 .plan-cta {
     display: block;

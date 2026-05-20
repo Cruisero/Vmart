@@ -958,3 +958,109 @@
     .ep-buy-btn { width: 100%; }
     .ep-qr-frame img { width: 180px; height: 180px; }
 }
+
+/* ===== 主题/皮肤分组 ===== */
+
+.ts-theme-group {
+    margin-bottom: 14px;
+}
+
+.ts-theme-group:last-child {
+    margin-bottom: 0;
+}
+
+.ts-theme-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.ts-theme-group-header .ts-theme-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ts-theme-group-header .ts-theme-desc {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+
+/* ===== 当前主题预览块（紧凑式） ===== */
+
+.ts-theme-current {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.04), rgba(20, 184, 166, 0.04));
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.ts-theme-current-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ts-theme-current-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.ts-theme-current-group {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.ts-theme-current-badge {
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+    font-weight: 600;
+}
+
+.ts-theme-current-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ts-theme-current-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.ts-theme-switch-btn {
+    flex-shrink: 0;
+    padding: 9px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.ts-theme-switch-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(239, 68, 68, 0.04);
+}

@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { FiTag, FiBox } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import './Products.css'
 
 const API_BASE = '/api'
@@ -66,10 +68,12 @@ const defaultCategories = [
 ]
 
 function Products() {
+    const { t } = useTranslation()
+    usePageTitle(null) // 首页只显示店铺名
     const [activeCategory, setActiveCategory] = useState('all')
     const [sortBy, setSortBy] = useState('default')
     const [products, setProducts] = useState([])
-    const [categories, setCategories] = useState([{ id: 'all', name: '全部商品', icon: '🏠' }])
+    const [categories, setCategories] = useState([{ id: 'all', name: t('products.all'), icon: '🏠' }])
     const [categoriesLoaded, setCategoriesLoaded] = useState(false)
     const [loading, setLoading] = useState(true)
     const storefront = useStorefront()
@@ -92,7 +96,7 @@ function Products() {
                 const categoryList = data.categories || data || []
                 if (categoryList.length > 0) {
                     const cats = [
-                        { id: 'all', name: '全部商品', icon: '🏠' },
+                        { id: 'all', name: t('products.all'), icon: '🏠' },
                         ...categoryList
                             .filter(c => c.productCount > 0)
                             .map(c => ({
@@ -184,19 +188,19 @@ function Products() {
             <div className="products-toolbar">
                 <div className="products-count">
                     <FiBox />
-                    <span>共 {filteredProducts.length} 件商品</span>
+                    <span>{filteredProducts.length} {t('products.title')}</span>
                 </div>
                 <div className="sort-options">
-                    <span className="sort-label">排序：</span>
+                    <span className="sort-label">{t('products.category')}：</span>
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
                         className="sort-select"
                     >
-                        <option value="default">默认</option>
-                        <option value="sales">销量优先</option>
-                        <option value="price-asc">价格从低到高</option>
-                        <option value="price-desc">价格从高到低</option>
+                        <option value="default">{t('checkout.default')}</option>
+                        <option value="sales">{t('products.sales')}</option>
+                        <option value="price-asc">{t('products.price')} ↑</option>
+                        <option value="price-desc">{t('products.price')} ↓</option>
                     </select>
                 </div>
             </div>
@@ -209,7 +213,7 @@ function Products() {
             ) : filteredProducts.length === 0 ? (
                 <div className="no-products">
                     <FiBox size={48} />
-                    <p>暂无商品</p>
+                    <p>{t('products.noProducts')}</p>
                 </div>
             ) : (
                 /* 商品列表 */
@@ -235,7 +239,7 @@ function Products() {
                                         <span className="discount-label">-{discount}%</span>
                                     )}
                                     {product.stock <= 0 && (
-                                        <div className="product-oos-overlay"><span>已售罄</span></div>
+                                        <div className="product-oos-overlay"><span>{t('products.soldOut')}</span></div>
                                     )}
                                 </div>
                                 <div className="product-info">
@@ -243,10 +247,10 @@ function Products() {
                                     <p className="product-desc">{product.description}</p>
                                     <div className="product-meta">
                                         <span className="product-sales">
-                                            <FiTag /> 已售 {product.sold}
+                                            <FiTag /> {t('products.sales')} {product.sold}
                                         </span>
                                         <span className="product-stock">
-                                            库存 {product.stock}
+                                            {t('products.stock')} {product.stock}
                                         </span>
                                     </div>
                                     <div className="product-footer">

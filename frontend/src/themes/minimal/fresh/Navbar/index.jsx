@@ -1,12 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { FiPackage, FiLogOut } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../../store/authStore'
 import { useSkinStore } from '../../../../store/skinStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
+import LanguageToggle from '../../../../components/common/LanguageToggle'
 import './Navbar.css'
 
 export default function FreshNavbar() {
+    const { t } = useTranslation()
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
     const storefront = useStorefront()
@@ -49,15 +52,17 @@ export default function FreshNavbar() {
             <div className="fn-actions">
                 <Link to={`${prefix}/order-query`} className="fn-link">
                     <FiPackage size={15} />
-                    <span>查询订单</span>
+                    <span>{t('nav.orderQuery')}</span>
                 </Link>
+
+                <LanguageToggle />
 
                 <div className="fn-divider" />
 
                 {isAuthenticated ? (
                     <>
                         {!storefront && user?.role === 'AGENT' && (
-                            <Link to="/agent" className="fn-link" style={{ color: '#10B981', fontWeight: 600 }}>代理后台</Link>
+                            <Link to="/agent" className="fn-link" style={{ color: '#10B981', fontWeight: 600 }}>Agent</Link>
                         )}
                         <Link to={storefront ? `${prefix}/user` : '/user'} className="fn-avatar">
                             {user?.avatar
@@ -75,7 +80,7 @@ export default function FreshNavbar() {
                     </>
                 ) : (
                     <Link to={`${prefix}/login`} className="fn-login-btn">
-                        登录 / 注册
+                        {t('nav.login')} / {t('nav.register')}
                     </Link>
                 )}
             </div>

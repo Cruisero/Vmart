@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiUser, FiPackage, FiLock, FiLogOut, FiCopy, FiEye, FiEyeOff, FiChevronRight } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
@@ -9,9 +10,10 @@ import './UserCenter.css'
 
 // ── Profile header (always visible) ──
 function ProfileHeader({ user, stats }) {
+    const { t } = useTranslation()
     const initial = user?.username?.charAt(0)?.toUpperCase() || 'U'
     const joinDate = user?.createdAt
-        ? new Date(user.createdAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+        ? new Date(user.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
         : ''
 
     return (
@@ -19,25 +21,25 @@ function ProfileHeader({ user, stats }) {
             <div className="fuc-hero-left">
                 <div className="fuc-avatar">{initial}</div>
                 <div>
-                    <div className="fuc-name">{user?.username || '用户'}</div>
+                    <div className="fuc-name">{user?.username || t('nav.user')}</div>
                     <div className="fuc-email">{user?.email}</div>
-                    {joinDate && <div className="fuc-join">注册于 {joinDate}</div>}
+                    {joinDate && <div className="fuc-join">{joinDate}</div>}
                 </div>
             </div>
             <div className="fuc-stats">
                 <div className="fuc-stat">
                     <div className="fuc-stat-num">{stats.total}</div>
-                    <div className="fuc-stat-label">订单</div>
+                    <div className="fuc-stat-label">{t('user.orders')}</div>
                 </div>
                 <div className="fuc-stat-divider" />
                 <div className="fuc-stat">
                     <div className="fuc-stat-num">¥{stats.spent.toFixed(0)}</div>
-                    <div className="fuc-stat-label">消费</div>
+                    <div className="fuc-stat-label">{t('checkout.subtotal')}</div>
                 </div>
                 <div className="fuc-stat-divider" />
                 <div className="fuc-stat">
                     <div className="fuc-stat-num">{stats.completed}</div>
-                    <div className="fuc-stat-label">完成</div>
+                    <div className="fuc-stat-label">{t('order.completed')}</div>
                 </div>
             </div>
         </div>
@@ -46,6 +48,7 @@ function ProfileHeader({ user, stats }) {
 
 // ── Orders tab ──
 function OrdersPage() {
+    const { t } = useTranslation()
     const { token } = useAuthStore()
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
@@ -66,20 +69,20 @@ function OrdersPage() {
     }
 
     const copy = (text) => navigator.clipboard.writeText(text)
-        .then(() => toast.success('已复制'))
-        .catch(() => toast.error('复制失败'))
+        .then(() => toast.success(t('order.copied')))
+        .catch(() => toast.error(t('common.failed')))
 
     const statusMap = {
-        pending:   { label: '待支付', cls: 'warning' },
-        paid:      { label: '已支付', cls: 'info' },
-        completed: { label: '已完成', cls: 'success' },
-        cancelled: { label: '已取消', cls: 'error' },
+        pending:   { label: t('order.pending'), cls: 'warning' },
+        paid:      { label: t('order.paid'), cls: 'info' },
+        completed: { label: t('order.completed'), cls: 'success' },
+        cancelled: { label: t('order.cancelled'), cls: 'error' },
     }
 
     const filters = [
-        { key: 'all', label: '全部' },
-        { key: 'pending', label: '待支付' },
-        { key: 'completed', label: '已完成' },
+        { key: 'all', label: t('products.all') },
+        { key: 'pending', label: t('order.pending') },
+        { key: 'completed', label: t('order.completed') },
     ]
 
     return (
@@ -99,7 +102,7 @@ function OrdersPage() {
             ) : orders.length === 0 ? (
                 <div className="fuc-empty">
                     <FiPackage size={36} style={{ color: '#D1D5DB', marginBottom: 12 }} />
-                    <p>暂无订单</p>
+                    <p>{t('user.noOrders')}</p>
                 </div>
             ) : (
                 <div className="fuc-order-list">
@@ -124,18 +127,18 @@ function OrdersPage() {
                                         <span className="fuc-order-amount">¥{order.totalAmount.toFixed(2)}</span>
                                         {order.status === 'pending' && !isExpired && (
                                             <Link to={`/order/${order.orderNo}`} className="fuc-action-btn primary">
-                                                去支付 <FiChevronRight size={12} />
+                                                {t('order.payNow')} <FiChevronRight size={12} />
                                             </Link>
                                         )}
                                         {order.status === 'pending' && isExpired && (
-                                            <span className="fuc-expired">已过期</span>
+                                            <span className="fuc-expired">{t('order.expired')}</span>
                                         )}
                                         {order.status === 'completed' && order.cards?.length > 0 && (
                                             <button
                                                 className="fuc-action-btn ghost"
                                                 onClick={() => setExpandedOrder(expandedOrder === order.orderNo ? null : order.orderNo)}
                                             >
-                                                {expandedOrder === order.orderNo ? '收起' : '查看卡密'}
+                                                {expandedOrder === order.orderNo ? t('common.back') : t('order.cardKeys')}
                                             </button>
                                         )}
                                     </div>
@@ -165,6 +168,7 @@ function OrdersPage() {
 
 // ── Password tab ──
 function PasswordPage() {
+    const { t } = useTranslation()
     const { token, user } = useAuthStore()
     const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
     const [show, setShow] = useState({ old: false, new: false, confirm: false })
@@ -172,8 +176,8 @@ function PasswordPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (form.newPassword !== form.confirmPassword) { toast.error('两次密码不一致'); return }
-        if (form.newPassword.length < 6) { toast.error('新密码至少6位'); return }
+        if (form.newPassword !== form.confirmPassword) { toast.error(t('auth.passwordMismatch')); return }
+        if (form.newPassword.length < 6) { toast.error(t('auth.passwordMin')); return }
         setLoading(true)
         try {
             const url = user?.role === 'CUSTOMER' ? '/api/customer/password' : '/api/auth/change-password'
@@ -183,8 +187,8 @@ function PasswordPage() {
                 body: JSON.stringify({ oldPassword: form.oldPassword, newPassword: form.newPassword })
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || '修改失败')
-            toast.success(data.message || '修改成功')
+            if (!res.ok) throw new Error(data.error || t('common.failed'))
+            toast.success(data.message || t('common.success'))
             setForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
         } catch (err) {
             toast.error(err.message)
@@ -194,9 +198,9 @@ function PasswordPage() {
     }
 
     const fields = [
-        { key: 'oldPassword', label: '当前密码', showKey: 'old', placeholder: '请输入当前密码' },
-        { key: 'newPassword', label: '新密码', showKey: 'new', placeholder: '请输入新密码（至少6位）' },
-        { key: 'confirmPassword', label: '确认新密码', showKey: 'confirm', placeholder: '请再次输入新密码' },
+        { key: 'oldPassword', label: t('auth.password'), showKey: 'old', placeholder: t('auth.passwordPlaceholder') },
+        { key: 'newPassword', label: t('auth.password'), showKey: 'new', placeholder: t('auth.passwordWithMinPlaceholder') },
+        { key: 'confirmPassword', label: t('auth.confirmPassword'), showKey: 'confirm', placeholder: t('auth.confirmPlaceholder') },
     ]
 
     return (
@@ -225,16 +229,16 @@ function PasswordPage() {
                     </div>
                 ))}
                 <button type="submit" className="fuc-submit-btn" disabled={loading}>
-                    {loading ? '提交中…' : '确认修改'}
+                    {loading ? t('checkout.submitting') : t('common.save')}
                 </button>
             </form>
         </div>
     )
 }
 
-
 // ── Main ──
 export default function ZenUserCenter() {
+    const { t } = useTranslation()
     const location = useLocation()
     const navigate = useNavigate()
     const { user, isAuthenticated, token, logout } = useAuthStore()
@@ -262,20 +266,20 @@ export default function ZenUserCenter() {
         <div className="fuc-page">
             <div className="fuc-not-logged">
                 <FiUser size={44} style={{ color: '#D1D5DB', marginBottom: 16 }} />
-                <h2>请先登录</h2>
-                <p>登录后可查看个人信息和订单</p>
+                <h2>{t('auth.login')}</h2>
+                <p>{t('auth.loginContinue')}</p>
                 <Link to={`${prefix}/login`} className="fuc-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center' }}>
-                    去登录
+                    {t('auth.loginBtn')}
                 </Link>
             </div>
         </div>
     )
 
-    const handleLogout = () => { logout(); toast.success('已退出登录'); navigate(`${prefix}/`) }
+    const handleLogout = () => { logout(); toast.success(t('user.logout')); navigate(`${prefix}/`) }
 
     const tabs = [
-        { path: `${prefix}/user/orders`, label: '我的订单', icon: FiPackage },
-        { path: `${prefix}/user/password`, label: '修改密码', icon: FiLock },
+        { path: `${prefix}/user/orders`, label: t('user.orders'), icon: FiPackage },
+        { path: `${prefix}/user/password`, label: t('auth.password'), icon: FiLock },
     ]
 
     const activeTab = tabs.find(t => location.pathname.startsWith(t.path))?.path || tabs[0].path
@@ -299,7 +303,7 @@ export default function ZenUserCenter() {
                     ))}
                     <button className="fuc-tab fuc-logout-tab" onClick={handleLogout}>
                         <FiLogOut size={15} />
-                        退出登录
+                        {t('user.logout')}
                     </button>
                 </div>
 

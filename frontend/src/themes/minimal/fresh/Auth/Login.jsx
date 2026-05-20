@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
@@ -8,6 +9,7 @@ import toast from 'react-hot-toast'
 import './Auth.css'
 
 export default function FreshLogin() {
+    const { t } = useTranslation()
     const navigate = useNavigate()
     const login = useAuthStore((s) => s.login)
     const storefront = useStorefront()
@@ -18,7 +20,7 @@ export default function FreshLogin() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!form.email || !form.password) { toast.error('请填写完整信息'); return }
+        if (!form.email || !form.password) { toast.error(t('auth.emailPlaceholder')); return }
         setLoading(true)
         try {
             const url = storefront?._tenantMode ? '/api/customer/login' : '/api/auth/login'
@@ -30,9 +32,9 @@ export default function FreshLogin() {
                 body: JSON.stringify(body)
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || '登录失败')
+            if (!res.ok) throw new Error(data.error || t('common.failed'))
             login(data.user, data.token)
-            toast.success('登录成功')
+            toast.success(t('auth.loginSuccess'))
             const role = data.user.role
             if (!storefront?._tenantMode && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
                 navigate('/admin')
@@ -40,7 +42,7 @@ export default function FreshLogin() {
                 navigate(`${prefix}/`)
             }
         } catch (err) {
-            toast.error(err.message || '邮箱或密码错误')
+            toast.error(err.message || t('common.failed'))
         } finally {
             setLoading(false)
         }
@@ -49,25 +51,23 @@ export default function FreshLogin() {
     return (
         <div className="fa-page">
             <div className="fa-card">
-                {/* Header */}
                 <div className="fa-header">
                     <div className="fa-logo">
                         <FiLock size={20} />
                     </div>
-                    <h1 className="fa-title">欢迎回来</h1>
-                    <p className="fa-sub">登录以继续购物</p>
+                    <h1 className="fa-title">{t('user.welcome')}</h1>
+                    <p className="fa-sub">{t('auth.login')}</p>
                 </div>
 
-                {/* Form */}
                 <form className="fa-form" onSubmit={handleSubmit}>
                     <div className="fa-field">
-                        <label className="fa-label">邮箱</label>
+                        <label className="fa-label">{t('auth.email')}</label>
                         <div className="fa-input-wrap">
                             <FiMail className="fa-input-icon" size={15} />
                             <input
                                 type="email"
                                 className="fa-input"
-                                placeholder="请输入邮箱地址"
+                                placeholder={t('auth.emailPlaceholder')}
                                 value={form.email}
                                 onChange={e => setForm({ ...form, email: e.target.value })}
                                 autoComplete="email"
@@ -77,15 +77,14 @@ export default function FreshLogin() {
 
                     <div className="fa-field">
                         <div className="fa-label-row">
-                            <label className="fa-label">密码</label>
-                            <Link to="/forgot-password" className="fa-forgot">忘记密码？</Link>
+                            <label className="fa-label">{t('auth.password')}</label>
                         </div>
                         <div className="fa-input-wrap">
                             <FiLock className="fa-input-icon" size={15} />
                             <input
                                 type={showPw ? 'text' : 'password'}
                                 className="fa-input"
-                                placeholder="请输入密码"
+                                placeholder={t('auth.passwordPlaceholder')}
                                 value={form.password}
                                 onChange={e => setForm({ ...form, password: e.target.value })}
                                 autoComplete="current-password"
@@ -97,19 +96,18 @@ export default function FreshLogin() {
                     </div>
 
                     <button type="submit" className="fa-submit" disabled={loading}>
-                        {loading ? <span className="fa-spinner" /> : <>登录 <FiArrowRight size={15} /></>}
+                        {loading ? <span className="fa-spinner" /> : <>{t('auth.loginBtn')} <FiArrowRight size={15} /></>}
                     </button>
                 </form>
 
-                {/* Footer */}
                 <div className="fa-footer">
-                    还没有账号？
-                    <Link to={`${prefix}/register`} className="fa-link">立即注册</Link>
+                    {t('auth.noAccount')}
+                    <Link to={`${prefix}/register`} className="fa-link">{t('auth.goRegister')}</Link>
                 </div>
 
-                <div className="fa-divider"><span>或</span></div>
+                <div className="fa-divider"><span>—</span></div>
 
-                <Link to={`${prefix}/`} className="fa-guest">游客购物（无需登录）</Link>
+                <Link to={`${prefix}/`} className="fa-guest">{t('nav.home')}</Link>
             </div>
         </div>
     )

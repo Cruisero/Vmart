@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom'
+import { useNavigate, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import { useMerchantStore } from '../../store/merchantStore'
 import ManSupportTickets from './ManSupportTickets'
 import './Man.css'
@@ -13,8 +13,7 @@ function Sidebar({ onLogout }) {
         { path: '/Man/plan-orders', icon: '💳', label: '所有订单' },
         { path: '/Man/shop-orders', icon: '🛒', label: '商户订单' },
         { path: '/Man/risk-control', icon: '🛡️', label: '风控管理' },
-        { path: '/Man/custom-themes', icon: '✨', label: '定制主题' },
-        { path: '/Man/themes', icon: '🎨', label: '主题管理' },
+        { path: '/Man/custom-themes', icon: '🎨', label: '主题管理' },
         { path: '/Man/announcements', icon: '📢', label: '公告管理' },
         { path: '/Man/support-tickets', icon: '🎫', label: '商户工单' },
         { path: '/Man/backup', icon: '💾', label: '数据备份' },
@@ -369,32 +368,6 @@ function PlatformSettings({ token }) {
                                 开启后用户在注册时必须输入邮箱收到的 6 位验证码才能完成注册。商城用户的验证码邮件会以店铺名作为发件人。
                             </p>
 
-                            <div style={{ borderTop: '1px solid var(--border-color)', marginTop: 20, paddingTop: 20 }}>
-                                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>客服联系方式</div>
-                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 14px' }}>商户后台侧边栏底部会显示「联系客服」按钮，点击后展示以下信息</p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 480 }}>
-                                    <div className="form-row">
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: 6, display: 'block' }}>客服邮箱</label>
-                                        <input value={settings.support_email || ''} onChange={e => setSettings(s => ({ ...s, support_email: e.target.value }))} placeholder="support@vmart.cc" style={{ width: '100%', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' }} />
-                                    </div>
-                                    <div className="form-row">
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: 6, display: 'block' }}>Telegram</label>
-                                        <input value={settings.support_telegram || ''} onChange={e => setSettings(s => ({ ...s, support_telegram: e.target.value }))} placeholder="@vmart_support 或 https://t.me/..." style={{ width: '100%', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' }} />
-                                    </div>
-                                    <div className="form-row">
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: 6, display: 'block' }}>其他联系方式</label>
-                                        <input value={settings.support_other || ''} onChange={e => setSettings(s => ({ ...s, support_other: e.target.value }))} placeholder="微信 / 其他" style={{ width: '100%', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' }} />
-                                    </div>
-                                    <div className="form-row">
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: 6, display: 'block' }}>QQ</label>
-                                        <input value={settings.support_qq || ''} onChange={e => setSettings(s => ({ ...s, support_qq: e.target.value }))} placeholder="QQ号 或 QQ群号" style={{ width: '100%', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' }} />
-                                    </div>
-                                    <div className="form-row">
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: 6, display: 'block' }}>WhatsApp</label>
-                                        <input value={settings.support_whatsapp || ''} onChange={e => setSettings(s => ({ ...s, support_whatsapp: e.target.value }))} placeholder="+86 138xxxx 或 https://wa.me/..." style={{ width: '100%', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' }} />
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 )}
@@ -1280,7 +1253,7 @@ function BackupManage({ token }) {
 }
 
 function PlanConfigPage({ token }) {
-    const [config, setConfig] = useState({ plans: [], trialHours: 48, yearlyDiscount: 20 })
+    const [config, setConfig] = useState({ plans: [], trialHours: 48 })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [msg, setMsg] = useState('')
@@ -1335,10 +1308,6 @@ function PlanConfigPage({ token }) {
                         <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>免费试用时长（小时）</label>
                         <input type="number" value={config.trialHours || ''} onChange={e => setConfig(c => ({ ...c, trialHours: parseInt(e.target.value) || 48 }))} style={{ padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: 100 }} />
                     </div>
-                    <div>
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>年付折扣（%）</label>
-                        <input type="number" value={config.yearlyDiscount || ''} onChange={e => setConfig(c => ({ ...c, yearlyDiscount: parseInt(e.target.value) || 20 }))} style={{ padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: 100 }} />
-                    </div>
                 </div>
             </div>
 
@@ -1376,8 +1345,9 @@ function PlanConfigPage({ token }) {
                                     <div>
                                         <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>主题皮肤</label>
                                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                                            {['classic', 'fresh', 'zen'].map(skin => {
-                                                const skins = Array.isArray(plan.features?.skins) ? plan.features.skins : (plan.features?.skins === '全部' ? ['classic','fresh','zen'] : [plan.features?.skins || 'classic'])
+                                            {['fresh', 'zen', 'class'].map(skin => {
+                                                const SKIN_LABELS = { fresh: 'Fresh', zen: 'Zen', class: 'Class' }
+                                                const skins = Array.isArray(plan.features?.skins) ? plan.features.skins : (plan.features?.skins === '全部' ? ['fresh','zen','class'] : [plan.features?.skins || 'fresh'])
                                                 const checked = skins.includes(skin)
                                                 return (
                                                     <label key={skin} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
@@ -1386,11 +1356,11 @@ function PlanConfigPage({ token }) {
                                                             if (e.target.checked) { newSkins.push(skin) } else { newSkins = newSkins.filter(s => s !== skin) }
                                                             updatePlan(idx, 'features.skins', newSkins)
                                                         }} style={{ accentColor: 'var(--primary)' }} />
-                                                        {skin === 'classic' ? 'Classic' : skin === 'fresh' ? 'Fresh' : 'Zen'}
+                                                        {SKIN_LABELS[skin]}
                                                     </label>
                                                 )
                                             })}
-                                            <button type="button" onClick={() => updatePlan(idx, 'features.skins', ['classic','fresh','zen'])} style={{ fontSize: '0.7rem', padding: '2px 8px', border: '1px solid var(--border-color)', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', cursor: 'pointer' }}>全选</button>
+                                            <button type="button" onClick={() => updatePlan(idx, 'features.skins', ['fresh','zen','class'])} style={{ fontSize: '0.7rem', padding: '2px 8px', border: '1px solid var(--border-color)', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', cursor: 'pointer' }}>全选</button>
                                         </div>
                                     </div>
                                     <div>
@@ -2449,6 +2419,17 @@ const statCard = {
     borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4
 }
 
+// 公共主题区皮肤行样式
+const skinRowStyle = {
+    display: 'flex', alignItems: 'center', gap: 12,
+    padding: '10px 12px', background: 'var(--bg-tertiary)',
+    border: '1px solid var(--border-color)', borderRadius: 8,
+    marginBottom: 6
+}
+const skinDotStyle = { display: 'inline-block', width: 10, height: 10, borderRadius: '50%', flexShrink: 0 }
+const skinKeyStyle = { fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }
+const skinPathStyle = { fontSize: '0.68rem', color: 'var(--text-muted)' }
+
 // ─── 定制主题管理 ────────────────────────────────────────────
 function CustomThemesPage({ token }) {
     const [themes, setThemes] = useState([])
@@ -2479,7 +2460,7 @@ function CustomThemesPage({ token }) {
     return (
         <div className="man-page">
             <div className="man-page-header">
-                <h1 className="man-page-title">定制主题</h1>
+                <h1 className="man-page-title">主题管理</h1>
                 <button
                     onClick={() => setShowCreate(true)}
                     style={{
@@ -2488,8 +2469,119 @@ function CustomThemesPage({ token }) {
                         border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '0.85rem'
                     }}
                 >
-                    + 新建主题
+                    + 新建定制主题
                 </button>
+            </div>
+
+            {/* 公共主题概览 */}
+            <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: 0.3 }}>公共主题</div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {/* Minimal 主题 */}
+                    <div style={{
+                        background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                        borderRadius: 12, overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '14px 18px', borderBottom: '1px solid var(--border-color)',
+                            background: 'var(--bg-secondary)'
+                        }}>
+                            <div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    📦 Minimal
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>
+                                        themes/minimal
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                    精简主题 · 全功能（搜索、购物车、用户中心、工单）
+                                </div>
+                            </div>
+                            <span style={{
+                                padding: '3px 10px', borderRadius: 4,
+                                background: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                                fontSize: '0.7rem', fontWeight: 600
+                            }}>公开</span>
+                        </div>
+                        <div style={{ padding: '10px 14px' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 8, paddingLeft: 4 }}>皮肤 (2)</div>
+                            {[
+                                { key: 'fresh', name: 'Fresh', desc: '清新明亮，白色背景，侧边栏布局', dot: '#0ea5e9' },
+                                { key: 'zen', name: 'Zen', desc: '深色质感，极简留白', dot: '#64748b' }
+                            ].map(s => (
+                                <div key={s.key} style={skinRowStyle}>
+                                    <span style={{ ...skinDotStyle, background: s.dot }} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                                            {s.name}
+                                            <code style={skinKeyStyle}>{s.key}</code>
+                                        </div>
+                                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>{s.desc}</div>
+                                    </div>
+                                    <code style={skinPathStyle}>themes/minimal/{s.key}</code>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Origin 主题 */}
+                    <div style={{
+                        background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                        borderRadius: 12, overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '14px 18px', borderBottom: '1px solid var(--border-color)',
+                            background: 'var(--bg-secondary)'
+                        }}>
+                            <div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    ✨ Origin
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>
+                                        themes/Origin
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                    第二代经典主题 · 二创 · 玻璃质感导航
+                                </div>
+                            </div>
+                            <span style={{
+                                padding: '3px 10px', borderRadius: 4,
+                                background: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                                fontSize: '0.7rem', fontWeight: 600
+                            }}>公开</span>
+                        </div>
+                        <div style={{ padding: '10px 14px' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 8, paddingLeft: 4 }}>皮肤 (1)</div>
+                            <div style={skinRowStyle}>
+                                <span style={{ ...skinDotStyle, background: '#2563eb' }} />
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>
+                                        Class
+                                        <code style={skinKeyStyle}>class</code>
+                                    </div>
+                                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                        现代经典风格，毛玻璃顶栏，全功能商城
+                                    </div>
+                                </div>
+                                <code style={skinPathStyle}>themes/Origin/class</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 8 }}>
+                    💬 公共主题对所有商户开放（按套餐过滤）。新增皮肤需在 <code>themes/minimal/&lt;新皮肤&gt;/</code> 创建并在 <code>customThemeController.PUBLIC_SKINS</code> 注册。
+                </div>
+            </div>
+
+            <div style={{ height: 1, background: 'var(--border-color)', margin: '20px 0' }} />
+
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: 0.3, display: 'flex', alignItems: 'center', gap: 8 }}>
+                ✨ 定制主题
+                <span style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-muted)' }}>（私有，仅授权商户可使用）</span>
             </div>
 
             <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(14, 165, 233, 0.06)', border: '1px solid rgba(14, 165, 233, 0.25)', borderRadius: 8, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -2818,7 +2910,7 @@ export default function ManDashboard() {
                     <Route path="shop-orders" element={<ShopOrders token={token} />} />
                     <Route path="risk-control" element={<RiskControlPage token={token} />} />
                     <Route path="custom-themes" element={<CustomThemesPage token={token} />} />
-                    <Route path="themes" element={<ThemeManage token={token} />} />
+                    <Route path="themes" element={<Navigate to="custom-themes" replace />} />
                     <Route path="announcements" element={<Announcements token={token} />} />
                     <Route path="support-tickets" element={<ManSupportTickets token={token} />} />
                     <Route path="backup" element={<BackupManage token={token} />} />

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiUser, FiPackage, FiLock, FiLogOut, FiMail, FiCalendar, FiCopy, FiEye, FiEyeOff, FiMessageCircle, FiPlus, FiClock, FiCheck, FiAlertCircle, FiCheckCircle } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/authStore'
 import { useStorefrontPath } from '../../store/storefrontStore'
 import toast from 'react-hot-toast'
@@ -684,6 +686,7 @@ function TicketsPage() {
 
 // 用户中心主组件
 function UserCenter() {
+    usePageTitle("个人中心")
     const location = useLocation()
     const navigate = useNavigate()
     const { withPrefix, prefix } = useStorefrontPath()

@@ -8,9 +8,9 @@ import './TenantSettings.css'
 const API = import.meta.env.VITE_API_URL || '/api'
 
 const ALL_SKIN_OPTIONS = [
-    { value: 'classic', label: 'Classic', desc: '经典简约' },
     { value: 'fresh', label: 'Fresh', desc: '清新明亮' },
     { value: 'zen', label: 'Zen', desc: '深色质感' },
+    { value: 'class', label: 'Class', desc: '现代经典 · 玻璃质感' },
 ]
 
 export default function TenantSettings() {
@@ -20,13 +20,16 @@ export default function TenantSettings() {
     const [tenantSettings, setTenantSettings] = useState(null)
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('basic')
-    const [allowedSkins, setAllowedSkins] = useState(['classic', 'fresh', 'zen'])
+    const [allowedSkins, setAllowedSkins] = useState(['fresh', 'zen', 'class'])
     const [customThemes, setCustomThemes] = useState([]) // 已分配的定制主题
+    const [themePickerOpen, setThemePickerOpen] = useState(false)
 
     // 基本信息表单
-    const [shopForm, setShopForm] = useState({ name: '', notice: '', skin: 'fresh', logo: '', favicon: '', agentEnabled: false })
+    const [shopForm, setShopForm] = useState({ name: '', notice: '', skin: 'fresh', logo: '', favicon: '', agentEnabled: false, language: 'zh' })
     // 特色卡片
     const [featureCard, setFeatureCard] = useState({ enabled: false, title: '', description: '', image: '', buttonText: '', buttonLink: '', collapsed: false })
+    const [agreements, setAgreements] = useState({ enabled: false, purchasePolicy: '', refundPolicy: '' })
+    const [agreementPreviewOpen, setAgreementPreviewOpen] = useState(false)
     const [planAllowsAgent, setPlanAllowsAgent] = useState(true)
     const [planAllowsCustomDomain, setPlanAllowsCustomDomain] = useState(true)
     const [emailQuota, setEmailQuota] = useState(-1)
@@ -102,7 +105,8 @@ export default function TenantSettings() {
                     skin: t.shopSkin || 'fresh',
                     logo: t.shopLogo || platformShop?.logo || '',
                     favicon: shopSettings.favicon || '',
-                    agentEnabled: sysSettings.agentEnabled === true || sysSettings.agentEnabled === 'true'
+                    agentEnabled: sysSettings.agentEnabled === true || sysSettings.agentEnabled === 'true',
+                    language: sysSettings.language || 'zh'
                 })
                 // 加载 featureCard
                 if (sysSettings.featureCard) {
@@ -113,6 +117,14 @@ export default function TenantSettings() {
                         image: sysSettings.featureCard.image || '',
                         buttonText: sysSettings.featureCard.buttonText || '',
                         buttonLink: sysSettings.featureCard.buttonLink || ''
+                    })
+                }
+                // 加载协议声明
+                if (sysSettings.agreements) {
+                    setAgreements({
+                        enabled: !!sysSettings.agreements.enabled,
+                        purchasePolicy: sysSettings.agreements.purchasePolicy || '',
+                        refundPolicy: sysSettings.agreements.refundPolicy || ''
                     })
                 }
                 if (t.domains?.[0]) {
@@ -155,9 +167,16 @@ export default function TenantSettings() {
             if (limitsData?.limits?.skins) {
                 const skins = limitsData.limits.skins
                 if (Array.isArray(skins)) {
-                    setAllowedSkins(skins)
+                    // 兼容旧 plan_config 里残留的 classic：把没在 ALL_SKIN_OPTIONS 里的过滤掉，并保证 origin 默认包含
+                    const validKeys = ALL_SKIN_OPTIONS.map(o => o.value)
+                    const cleaned = skins.filter(s => validKeys.includes(s))
+                    if (cleaned.length === 0) {
+                        setAllowedSkins(['fresh', 'zen', 'class'])
+                    } else {
+                        setAllowedSkins(cleaned)
+                    }
                 } else if (skins === '全部') {
-                    setAllowedSkins(['classic', 'fresh', 'zen'])
+                    setAllowedSkins(['fresh', 'zen', 'class'])
                 }
             }
             // 自定义域名权限
@@ -244,6 +263,7 @@ export default function TenantSettings() {
                     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         agentEnabled: !!shopForm.agentEnabled,
+                        language: shopForm.language || 'zh',
                         featureCard: {
                             enabled: !!featureCard.enabled,
                             title: featureCard.title || '',
@@ -252,6 +272,11 @@ export default function TenantSettings() {
                             buttonText: featureCard.buttonText || '',
                             buttonLink: featureCard.buttonLink || '',
                             collapsed: !!featureCard.collapsed
+                        },
+                        agreements: {
+                            enabled: !!agreements.enabled,
+                            purchasePolicy: agreements.purchasePolicy || '',
+                            refundPolicy: agreements.refundPolicy || ''
                         }
                     })
                 }).catch(() => {})
@@ -473,48 +498,61 @@ export default function TenantSettings() {
                         </div>
                         <div className="ts-form-group">
                             <label>商城主题</label>
-                            <div className="ts-skin-grid">
-                                {ALL_SKIN_OPTIONS.filter(s => allowedSkins.includes(s.value)).map(s => (
-                                    <div
-                                        key={s.value}
-                                        className={`ts-skin-card ${shopForm.skin === s.value ? 'active' : ''}`}
-                                        onClick={() => setShopForm(f => ({ ...f, skin: s.value }))}
-                                    >
-                                        <div className="ts-skin-name">{s.label}</div>
-                                        <div className="ts-skin-desc">{s.desc}</div>
-                                    </div>
-                                ))}
-                                {customThemes.map(t => {
-                                    const value = `custom:${t.key}`
-                                    return (
-                                        <div
-                                            key={value}
-                                            className={`ts-skin-card ${shopForm.skin === value ? 'active' : ''}`}
-                                            onClick={() => setShopForm(f => ({ ...f, skin: value }))}
-                                            style={{ position: 'relative' }}
-                                        >
-                                            <span style={{
-                                                position: 'absolute', top: 6, right: 6,
-                                                fontSize: '0.65rem', padding: '1px 7px', borderRadius: 999,
-                                                background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-                                                color: '#fff', fontWeight: 600
-                                            }}>
-                                                ✨ 定制
-                                            </span>
-                                            <div className="ts-skin-name">{t.name}</div>
-                                            <div className="ts-skin-desc">{t.description || '专属定制主题'}</div>
+
+                            {/* 当前主题预览 + 切换按钮 */}
+                            {(() => {
+                                const allOptions = [
+                                    ...ALL_SKIN_OPTIONS.filter(s => allowedSkins.includes(s.value)).map(s => ({
+                                        value: s.value, label: s.label, desc: s.desc, group: s.value === 'class' ? 'Origin' : 'Minimal',
+                                        type: 'public'
+                                    })),
+                                    ...customThemes.map(t => ({
+                                        value: `custom:${t.key}`, label: t.name,
+                                        desc: t.description || '专属定制主题',
+                                        group: '专属定制', type: 'custom'
+                                    }))
+                                ]
+                                const current = allOptions.find(o => o.value === shopForm.skin)
+                                    || allOptions[0]
+                                    || { label: '未选择主题', desc: '请选择一个主题', group: '' }
+
+                                return (
+                                    <div className="ts-theme-current">
+                                        <div className="ts-theme-current-info">
+                                            <div className="ts-theme-current-meta">
+                                                {current.group && <span className="ts-theme-current-group">{current.group}</span>}
+                                                {current.type === 'custom' && <span className="ts-theme-current-badge">✨ 定制</span>}
+                                            </div>
+                                            <div className="ts-theme-current-name">{current.label}</div>
+                                            <div className="ts-theme-current-desc">{current.desc}</div>
                                         </div>
-                                    )
-                                })}
-                            </div>
+                                        <button
+                                            type="button"
+                                            className="ts-theme-switch-btn"
+                                            onClick={() => setThemePickerOpen(true)}
+                                        >
+                                            切换主题
+                                        </button>
+                                    </div>
+                                )
+                            })()}
+
                             {allowedSkins.length < 3 && (
                                 <span className="ts-hint">升级套餐可解锁更多主题</span>
                             )}
-                            {customThemes.length > 0 && (
-                                <span className="ts-hint" style={{ color: '#0ea5e9' }}>
-                                    您拥有 {customThemes.length} 个专属定制主题
-                                </span>
-                            )}
+                        </div>
+                        <div className="ts-form-group">
+                            <label>店铺语言</label>
+                            <select
+                                value={shopForm.language}
+                                onChange={e => setShopForm(f => ({ ...f, language: e.target.value }))}
+                                style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                            >
+                                <option value="zh">🇨🇳 中文</option>
+                                <option value="en">🇺🇸 English</option>
+                                <option value="auto">🌐 自动（根据访客浏览器）</option>
+                            </select>
+                            <span className="ts-hint">设置买家端默认语言。「自动」模式下访客可在导航栏右上角手动切换</span>
                         </div>
                         <div className="ts-form-group">
                             <label>启用代理管理</label>
@@ -670,6 +708,209 @@ export default function TenantSettings() {
                             <label>公告横幅</label>
                             <input value={shopForm.notice} onChange={e => setShopForm(f => ({ ...f, notice: e.target.value }))} placeholder="一句话公告，显示在首页顶部深灰横条（可留空）" />
                             <span className="ts-hint">显示在商城首页导航栏下方的深灰色横条中</span>
+                        </div>
+
+                        {/* 店铺协议声明 */}
+                        <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 4 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <label style={{ margin: 0 }}>店铺协议声明</label>
+                                <label className="ts-switch" style={{ position: 'relative', display: 'inline-block', width: 42, height: 22 }}>
+                                    <input type="checkbox" checked={!!agreements.enabled} onChange={e => setAgreements(a => ({ ...a, enabled: e.target.checked }))} style={{ opacity: 0, width: 0, height: 0 }} />
+                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, background: agreements.enabled ? 'var(--primary)' : '#ccc', borderRadius: 22, transition: '0.2s' }}>
+                                        <span style={{ position: 'absolute', height: 16, width: 16, left: agreements.enabled ? 23 : 3, top: 3, background: '#fff', borderRadius: '50%', transition: '0.2s' }} />
+                                    </span>
+                                </label>
+                            </div>
+                            <span className="ts-hint">开启后结账页面会显示「我已阅读并同意 购买协议 和 退款政策」勾选框（默认勾选）</span>
+
+                            {agreements.enabled && (
+                                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const template = `【购买协议】
+
+一、服务说明
+
+欢迎使用本店虚拟商品自动发卡服务。本店为用户提供数字订阅服务、软件激活码、会员账号等虚拟商品的在线购买服务。
+
+二、购买流程
+
+1. 选择商品：浏览并选择您需要的虚拟商品，确认商品规格与价格。
+2. 填写信息：正确填写接收卡密的电子邮箱地址。请务必确认邮箱地址准确无误。
+3. 选择支付：选择您偏好的支付方式完成付款。
+4. 获取卡密：支付成功后，系统将自动发放卡密至您填写的邮箱，同时在订单页面显示。
+
+三、用户须知
+
+- 购买前请仔细阅读商品详情页的说明，了解商品有效期、使用限制等信息。
+- 请确保填写的邮箱地址正确且可正常接收邮件。
+- 虚拟商品一经售出，不支持无理由退款（详见退款政策）。
+- 购买的虚拟商品仅供个人使用，严禁转售、共享或用于任何违法违规用途。
+- 请妥善保管您收到的卡密/账号信息，因个人保管不当导致的泄露或损失，本店不承担责任。
+
+四、商品保障
+
+- 本店保证所售商品均为正规渠道获取，可正常激活使用。
+- 如收到的卡密/账号无法正常使用，请在收到后 24 小时内联系客服，我们将免费补发或退款。
+- 商品的有效期以商品详情页标注为准。
+
+五、免责条款
+
+- 因不可抗力（如服务商政策变更、服务器故障等）导致商品无法使用的，本店将尽力协调解决，但不承担超出商品价格的赔偿责任。
+- 用户因违反服务商使用条款导致账号被封禁的，本店不承担责任。
+
+六、争议解决
+
+如在购买过程中产生任何争议，请优先通过工单系统联系客服协商解决。我们承诺在收到工单后 24 小时内响应处理。
+
+
+【退款政策】
+
+重要提示：本店销售的均为虚拟数字商品（卡密/激活码/账号），具有不可复制回收的特殊性。一经发货（卡密已发放），原则上不支持退款。请在购买前仔细确认商品信息。
+
+一、支持退款的情况
+
+以下情况可申请全额退款：
+- 卡密无法使用：收到的激活码/卡密/账号无法正常激活或登录（需在收到后 24 小时内反馈）。
+- 重复发放：因系统故障导致同一卡密重复发放给不同用户。
+- 商品描述不符：实际收到的商品与商品详情页描述严重不符。
+- 支付成功未发货：支付成功后超过 30 分钟仍未收到卡密，且客服在 24 小时内无法解决。
+
+二、不支持退款的情况
+
+- 卡密/账号已正常使用或已被激活。
+- 因个人原因不想要了或误购（虚拟商品不适用无理由退货）。
+- 因用户自身操作不当导致账号被封禁。
+- 超过有效反馈期限（收到卡密后超过 24 小时）才提出的问题。
+- 用户自行修改账号密码、绑定信息后产生的问题。
+- 因第三方服务商政策调整导致的服务变化。
+
+三、退款申请流程
+
+1. 提交工单：通过工单系统提交退款申请，需包含：订单号、问题描述、相关截图证据。
+2. 客服审核：客服将在收到工单后 24 小时内进行审核。
+3. 处理结果：审核通过后，将在 1-3 个工作日内完成退款操作。
+
+四、退款方式
+
+- 支付宝：原路退回支付宝账户，1-3 个工作日到账。
+- USDT-TRC20：退回原转账地址，1-3 个工作日到账。
+- USDT-BEP20：退回原转账地址，1-3 个工作日到账。
+注：使用加密货币支付的退款将按退款时的实时汇率折算。
+
+五、补发政策
+
+对于符合退款条件的订单，我们优先提供免费补发处理：
+- 如库存充足，将在确认问题后 1 小时内完成补发。
+- 如库存不足无法补发，将按上述退款方式全额退款。
+
+六、特别说明
+
+- 每个订单仅限申请一次退款/补发。
+- 恶意频繁申请退款的账户，本店有权限制其购买权限。`
+                                                const blob = new Blob([template], { type: 'text/plain;charset=utf-8' })
+                                                const url = URL.createObjectURL(blob)
+                                                const a = document.createElement('a')
+                                                a.href = url
+                                                a.download = '店铺协议模板.txt'
+                                                a.click()
+                                                URL.revokeObjectURL(url)
+                                            }}
+                                            style={{
+                                                padding: '8px 16px', background: 'rgba(99, 102, 241, 0.08)',
+                                                border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: 8,
+                                                color: '#4f46e5', fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'inherit'
+                                            }}
+                                        >
+                                            📄 下载参考模板
+                                        </button>
+                                        <label style={{
+                                            padding: '8px 16px', background: 'var(--bg-tertiary)',
+                                            border: '1px solid var(--border-color)', borderRadius: 8,
+                                            color: 'var(--text-primary)', fontSize: '0.82rem', cursor: 'pointer'
+                                        }}>
+                                            📤 上传协议文件（.txt）
+                                            <input
+                                                type="file"
+                                                accept=".txt"
+                                                style={{ display: 'none' }}
+                                                onChange={e => {
+                                                    const file = e.target.files?.[0]
+                                                    if (!file) return
+                                                    const reader = new FileReader()
+                                                    reader.onload = (ev) => {
+                                                        const content = ev.target.result
+                                                        // 按【购买协议】和【退款政策】分割
+                                                        let purchase = '', refund = ''
+                                                        const purchaseMatch = content.match(/【购买协议】([\s\S]*?)(?=【退款政策】|$)/)
+                                                        const refundMatch = content.match(/【退款政策】([\s\S]*)/)
+                                                        if (purchaseMatch) purchase = purchaseMatch[1].trim()
+                                                        if (refundMatch) refund = refundMatch[1].trim()
+                                                        // 如果没有标记，整个内容作为购买协议
+                                                        if (!purchase && !refund) purchase = content.trim()
+                                                        setAgreements(a => ({ ...a, purchasePolicy: purchase, refundPolicy: refund }))
+                                                        setAgreementPreviewOpen(true)
+                                                        toast.success(`已导入协议文件：${file.name}`)
+                                                    }
+                                                    reader.readAsText(file, 'UTF-8')
+                                                    e.target.value = ''
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                                        💡 文件格式：纯文本 .txt，用「【购买协议】」和「【退款政策】」作为分隔标记。可先下载模板参考格式后修改再上传。
+                                    </div>
+
+                                    {(agreements.purchasePolicy || agreements.refundPolicy) && (
+                                        <div style={{ padding: '12px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 8 }}>
+                                            <div
+                                                style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                                onClick={() => setAgreementPreviewOpen(o => !o)}
+                                            >
+                                                <span>已上传内容预览</span>
+                                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{agreementPreviewOpen ? '收起 ▲' : '展开 ▼'}</span>
+                                            </div>
+                                            {agreementPreviewOpen && (
+                                                <div style={{ marginTop: 10 }}>
+                                            {agreements.purchasePolicy && (
+                                                <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>购买协议</div>
+                                                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden' }}>
+                                                        {agreements.purchasePolicy.slice(0, 200)}{agreements.purchasePolicy.length > 200 ? '...' : ''}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {agreements.refundPolicy && (
+                                                <div>
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>退款政策</div>
+                                                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden' }}>
+                                                        {agreements.refundPolicy.slice(0, 200)}{agreements.refundPolicy.length > 200 ? '...' : ''}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setAgreements(a => ({ ...a, purchasePolicy: '', refundPolicy: '' }))}
+                                                style={{ marginTop: 10, padding: '4px 12px', background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer' }}
+                                            >
+                                                清除已上传内容
+                                            </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {agreements.enabled && !agreements.purchasePolicy && !agreements.refundPolicy && (
+                                        <div style={{ padding: '8px 12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 6, fontSize: '0.78rem', color: '#92400e' }}>
+                                            ⚠️ 已开启但未上传协议文件，结账页面不会显示协议勾选。请上传后保存。
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <button type="submit" className="ts-btn-primary" disabled={shopSaving}>
@@ -1135,6 +1376,90 @@ export default function TenantSettings() {
                     onPaid={refreshEmailUsage}
                 />
             )}
+
+            {/* 主题选择弹窗 */}
+            {themePickerOpen && (
+                <ThemePickerModal
+                    currentSkin={shopForm.skin}
+                    allowedSkins={allowedSkins}
+                    customThemes={customThemes}
+                    onSelect={(value) => { setShopForm(f => ({ ...f, skin: value })); setThemePickerOpen(false) }}
+                    onClose={() => setThemePickerOpen(false)}
+                />
+            )}
+        </div>
+    )
+}
+
+// 主题选择弹窗
+function ThemePickerModal({ currentSkin, allowedSkins, customThemes, onSelect, onClose }) {
+    const minimalSkins = ALL_SKIN_OPTIONS.filter(s => ['fresh', 'zen'].includes(s.value) && allowedSkins.includes(s.value))
+    const originSkins = ALL_SKIN_OPTIONS.filter(s => s.value === 'class' && allowedSkins.includes(s.value))
+
+    const renderSkinCard = (s, isCustom = false) => {
+        const value = isCustom ? `custom:${s.key}` : s.value
+        const label = isCustom ? s.name : s.label
+        const desc = isCustom ? (s.description || '专属定制主题') : s.desc
+        const active = currentSkin === value
+        return (
+            <div
+                key={value}
+                className={`ts-skin-card ${active ? 'active' : ''}`}
+                onClick={() => onSelect(value)}
+                style={{ position: 'relative' }}
+            >
+                {isCustom && (
+                    <span style={{
+                        position: 'absolute', top: 6, right: 6,
+                        fontSize: '0.65rem', padding: '1px 7px', borderRadius: 999,
+                        background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                        color: '#fff', fontWeight: 600
+                    }}>
+                        ✨ 定制
+                    </span>
+                )}
+                <div className="ts-skin-name">{label}</div>
+                <div className="ts-skin-desc">{desc}</div>
+            </div>
+        )
+    }
+
+    return (
+        <div onClick={onClose} className="ep-overlay">
+            <div onClick={e => e.stopPropagation()} className="ep-modal" style={{ maxWidth: 720 }}>
+                <button onClick={onClose} className="ep-close">✕</button>
+                <h3 style={{ margin: '0 0 18px', fontSize: '1.15rem' }}>选择商城主题</h3>
+
+                {minimalSkins.length > 0 && (
+                    <div className="ts-theme-group">
+                        <div className="ts-theme-group-header">
+                            <span className="ts-theme-name">📦 Minimal</span>
+                            <span className="ts-theme-desc">精简风格</span>
+                        </div>
+                        <div className="ts-skin-grid">{minimalSkins.map(s => renderSkinCard(s))}</div>
+                    </div>
+                )}
+
+                {originSkins.length > 0 && (
+                    <div className="ts-theme-group">
+                        <div className="ts-theme-group-header">
+                            <span className="ts-theme-name">✨ Origin</span>
+                            <span className="ts-theme-desc">现代经典</span>
+                        </div>
+                        <div className="ts-skin-grid">{originSkins.map(s => renderSkinCard(s))}</div>
+                    </div>
+                )}
+
+                {customThemes.length > 0 && (
+                    <div className="ts-theme-group">
+                        <div className="ts-theme-group-header">
+                            <span className="ts-theme-name">🎁 专属定制</span>
+                            <span className="ts-theme-desc">仅授权给您的私有主题</span>
+                        </div>
+                        <div className="ts-skin-grid">{customThemes.map(t => renderSkinCard(t, true))}</div>
+                    </div>
+                )}
+            </div>
         </div>
     )
 }

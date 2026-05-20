@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import './Products.css'
@@ -47,6 +48,7 @@ function FeatureCard({ data }) {
 }
 
 function ProductCard({ product, linkPrefix }) {
+    const { t } = useTranslation()
     const [imgError, setImgError] = useState(false)
     const imgSrc = getImageUrl(product.image, 'large')
     const outOfStock = product.stock <= 0
@@ -57,7 +59,7 @@ function ProductCard({ product, linkPrefix }) {
                     ? <img src={imgSrc} alt={product.name} onError={() => setImgError(true)} />
                     : <div className="zp-card-ph">📦</div>
                 }
-                {outOfStock && <div className="zp-oos-overlay"><span>已售罄</span></div>}
+                {outOfStock && <div className="zp-oos-overlay"><span>{t('products.soldOut')}</span></div>}
             </div>
             <div className="zp-card-body">
                 <div className="zp-card-name">{product.name}</div>
@@ -71,6 +73,7 @@ function ProductCard({ product, linkPrefix }) {
 }
 
 export default function ZenProducts() {
+    const { t } = useTranslation()
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
     const storefront = useStorefront()
@@ -106,7 +109,7 @@ export default function ZenProducts() {
                         <div key={i} className="zp-skeleton"><div className="zp-sk-img" /><div className="zp-sk-body"><div className="zp-sk-line" /><div className="zp-sk-line short" /></div></div>
                     ))
                     : products.length === 0
-                        ? <div className="zp-empty">暂无商品</div>
+                        ? <div className="zp-empty">{t('products.noProducts')}</div>
                         : products.map(p => <ProductCard key={p.id} product={p} linkPrefix={linkPrefix} />)
                 }
             </div>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { useNavigate, Link } from 'react-router-dom'
 import { FiArrowLeft, FiSend, FiPackage, FiChevronDown, FiCheck, FiAlertTriangle } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/authStore'
 import { useMerchantStore } from '../../store/merchantStore'
 import { useStorefrontPath } from '../../store/storefrontStore'
@@ -15,6 +17,8 @@ const ticketTypes = [
 ]
 
 function TicketNew() {
+    const { t } = useTranslation()
+    usePageTitle(t('ticket.title'))
     const navigate = useNavigate()
     const { isAuthenticated, token, user } = useAuthStore()
     const mToken = useMerchantStore(state => state.token)

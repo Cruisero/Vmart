@@ -1,12 +1,16 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { FiTrash2, FiMinus, FiPlus, FiShoppingBag, FiArrowRight } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../store/cartStore'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import toast from 'react-hot-toast'
 import './Cart.css'
 
 function Cart() {
+    const { t } = useTranslation()
+    usePageTitle(t('cart.title'))
     const navigate = useNavigate()
     const storefront = useStorefront()
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
@@ -18,9 +22,8 @@ function Cart() {
     const handleQuantityChange = (item, delta) => {
         const newQty = item.quantity + delta
         if (newQty < 1) return
-        // 减少数量永远允许；增加时受 stock 限制（stock 未定义则不限制）
         if (delta > 0 && typeof item.stock === 'number' && newQty > item.stock) {
-            toast.error(`库存仅剩 ${item.stock} 件`)
+            toast.error(`${t('products.stock')} ${item.stock} ${t('products.pieces')}`)
             return
         }
         updateQuantity(item.cartItemId, newQty)
@@ -28,18 +31,17 @@ function Cart() {
 
     const handleRemove = (item) => {
         removeItem(item.cartItemId)
-        toast.success('已从购物车移除')
+        toast.success(t('cart.remove'))
     }
 
     const handleClearCart = () => {
-        if (window.confirm('确定要清空购物车吗？')) {
+        if (window.confirm(t('cart.clear') + '?')) {
             clearCart()
-            toast.success('购物车已清空')
+            toast.success(t('cart.clear'))
         }
     }
 
     const handleCheckout = () => {
-        // 跳转到结算页
         navigate(`${prefix}/checkout`)
     }
 
@@ -48,10 +50,10 @@ function Cart() {
             <div className="cart-page">
                 <div className="cart-empty">
                     <FiShoppingBag className="empty-icon" />
-                    <h2>购物车是空的</h2>
-                    <p>快去挑选心仪的商品吧~</p>
+                    <h2>{t('cart.empty')}</h2>
+                    <p>{t('cart.goShopping')}</p>
                     <Link to={`${prefix}/`} className="btn btn-primary">
-                        去购物
+                        {t('cart.goShopping')}
                         <FiArrowRight />
                     </Link>
                 </div>
@@ -62,10 +64,10 @@ function Cart() {
     return (
         <div className="cart-page">
             <div className="cart-header">
-                <h1 className="section-title">购物车</h1>
+                <h1 className="section-title">{t('cart.title')}</h1>
                 <button className="clear-cart-btn" onClick={handleClearCart}>
                     <FiTrash2 />
-                    清空购物车
+                    {t('cart.clear')}
                 </button>
             </div>
 
@@ -74,18 +76,16 @@ function Cart() {
                 <div className="cart-items">
                     {items.map((item) => (
                         <div key={item.cartItemId} className="cart-item">
-                            {/* 商品图片 */}
                             <Link to={`/products/${item.id}`} className="item-image">
                                 <img src={item.image} alt={item.name} />
                             </Link>
 
-                            {/* 商品信息 */}
                             <div className="item-info">
                                 <Link to={`/products/${item.id}`} className="item-name">
                                     {item.name}
                                 </Link>
                                 {item.variantName && (
-                                    <span className="item-variant">规格: {item.variantName}</span>
+                                    <span className="item-variant">{t('checkout.variant')}: {item.variantName}</span>
                                 )}
                                 <p className="item-desc">{item.description}</p>
                                 <div className="item-tags">
@@ -95,15 +95,13 @@ function Cart() {
                                 </div>
                             </div>
 
-                            {/* 单价 */}
                             <div className="item-price">
-                                <span className="price-label">单价</span>
+                                <span className="price-label">{t('products.price')}</span>
                                 <span className="price-value">¥{item.price.toFixed(2)}</span>
                             </div>
 
-                            {/* 数量控制 */}
                             <div className="item-quantity">
-                                <span className="price-label">数量</span>
+                                <span className="price-label">{t('products.quantity')}</span>
                                 <div className="quantity-control">
                                     <button
                                         className="qty-btn"
@@ -123,19 +121,17 @@ function Cart() {
                                 </div>
                             </div>
 
-                            {/* 小计 */}
                             <div className="item-subtotal">
-                                <span className="price-label">小计</span>
+                                <span className="price-label">{t('checkout.subtotal')}</span>
                                 <span className="subtotal-value">
                                     ¥{(item.price * item.quantity).toFixed(2)}
                                 </span>
                             </div>
 
-                            {/* 删除按钮 */}
                             <button
                                 className="remove-btn"
                                 onClick={() => handleRemove(item)}
-                                title="移除"
+                                title={t('cart.remove')}
                             >
                                 <FiTrash2 />
                             </button>
@@ -146,39 +142,34 @@ function Cart() {
                 {/* 结算栏 */}
                 <div className="cart-summary">
                     <div className="summary-card">
-                        <h3>订单摘要</h3>
+                        <h3>{t('checkout.summary')}</h3>
 
                         <div className="summary-row">
-                            <span>商品数量</span>
-                            <span>{itemCount} 件</span>
+                            <span>{t('checkout.itemCount')}</span>
+                            <span>{itemCount} {t('checkout.itemUnit')}</span>
                         </div>
 
                         <div className="summary-row">
-                            <span>商品金额</span>
+                            <span>{t('checkout.subtotal')}</span>
                             <span>¥{totalPrice.toFixed(2)}</span>
                         </div>
 
                         <div className="summary-row">
-                            <span>优惠</span>
+                            <span>{t('checkout.discount')}</span>
                             <span className="discount">-¥0.00</span>
                         </div>
 
                         <div className="summary-divider"></div>
 
                         <div className="summary-total">
-                            <span>应付金额</span>
+                            <span>{t('checkout.totalDue')}</span>
                             <span className="total-price">¥{totalPrice.toFixed(2)}</span>
                         </div>
 
                         <button className="checkout-btn" onClick={handleCheckout}>
-                            去结算
+                            {t('cart.checkout')}
                             <FiArrowRight />
                         </button>
-
-                        <div className="summary-tip">
-                            <p>💡 支持支付宝、微信支付</p>
-                            <p>🚀 支付成功后自动发放卡密</p>
-                        </div>
                     </div>
                 </div>
             </div>

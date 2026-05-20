@@ -349,6 +349,8 @@ exports.getMerchantStorefront = async (req, res, next) => {
 
         // 读取 tenant_settings.system_settings.featureCard
         let featureCard = null
+        let agreements = null
+        let language = 'zh'
         try {
             const ts = await prisma.tenantSetting.findUnique({
                 where: { tenantId: tenant.id },
@@ -366,6 +368,15 @@ exports.getMerchantStorefront = async (req, res, next) => {
                         collapsed: !!sys.featureCard.collapsed
                     }
                 }
+                // 店铺协议声明
+                if (sys.agreements && sys.agreements.enabled && (sys.agreements.purchasePolicy || sys.agreements.refundPolicy)) {
+                    agreements = {
+                        purchasePolicy: sys.agreements.purchasePolicy || '',
+                        refundPolicy: sys.agreements.refundPolicy || ''
+                    }
+                }
+                // 店铺语言
+                if (sys.language) language = sys.language
             }
         } catch {}
 
@@ -378,6 +389,8 @@ exports.getMerchantStorefront = async (req, res, next) => {
                 shopNotice: tenant.shopNotice || shop?.notice || null,
                 shopFavicon,
                 featureCard,
+                agreements,
+                language,
                 tenantId: tenant.id,
                 _tenantMode: true
             }

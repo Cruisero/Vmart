@@ -4,6 +4,7 @@ import {
     FiShoppingCart, FiSearch, FiUser, FiMenu, FiX,
     FiPackage, FiMessageSquare, FiLogOut, FiSettings
 } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../../../store/cartStore'
 import { useAuthStore } from '../../../../store/authStore'
 import { useSkinStore } from '../../../../store/skinStore'
@@ -11,6 +12,7 @@ import { useStorefrontPath } from '../../../../store/storefrontStore'
 import './Sidebar.css'
 
 function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }) {
+    const { t } = useTranslation()
     const location = useLocation()
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
@@ -52,22 +54,20 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                 )}
             </Link>
 
-            {/* 搜索入口 */}
             <div className="fs-section">
                 <button
                     className="fs-nav-item"
                     onClick={() => { navigate('/search'); onClose?.() }}
                 >
                     <FiSearch className="fs-nav-icon" />
-                    搜索商品
+                    {t('search.title')}
                 </button>
             </div>
 
             <div className="fs-divider" />
 
-            {/* 分类 */}
             <div className="fs-section">
-                <div className="fs-section-label">分类</div>
+                <div className="fs-section-label">{t('products.category')}</div>
                 {categories.map(cat => (
                     <button
                         key={cat.id}
@@ -82,31 +82,29 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
 
             <div className="fs-divider" />
 
-            {/* 导航 */}
             <div className="fs-section">
-                <div className="fs-section-label">导航</div>
+                <div className="fs-section-label">{t('nav.home')}</div>
                 <Link to="/cart" className={`fs-nav-item${isActive('/cart') ? ' active' : ''}`} onClick={onClose}>
                     <FiShoppingCart className="fs-nav-icon" />
-                    购物车
+                    {t('cart.title')}
                     {cartCount > 0 && <span className="fs-nav-badge">{cartCount}</span>}
                 </Link>
                 <Link to="/order-query" className={`fs-nav-item${isActive('/order-query') ? ' active' : ''}`} onClick={onClose}>
                     <FiPackage className="fs-nav-icon" />
-                    查询订单
+                    {t('nav.orderQuery')}
                 </Link>
                 <Link to={withPrefix("/tickets/new")} className={`fs-nav-item${isActive('/tickets/new') ? ' active' : ''}`} onClick={onClose}>
                     <FiMessageSquare className="fs-nav-icon" />
-                    提交工单
+                    {t('ticket.title')}
                 </Link>
                 {['ADMIN', 'SUPER_ADMIN'].includes(user?.role) && (
                     <Link to="/admin" className={`fs-nav-item${location.pathname.startsWith('/admin') ? ' active' : ''}`} onClick={onClose}>
                         <FiSettings className="fs-nav-icon" />
-                        管理后台
+                        {t('nav.dashboard')}
                     </Link>
                 )}
             </div>
 
-            {/* 用户区域 */}
             <div className="fs-user-section">
                 {isAuthenticated ? (
                     <>
@@ -119,7 +117,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                             </div>
                             <div className="fs-user-info">
                                 <div className="fs-user-name">{user?.username || user?.email}</div>
-                                <div className="fs-user-role">{['ADMIN', 'SUPER_ADMIN'].includes(user?.role) ? '管理员' : '普通用户'}</div>
+                                <div className="fs-user-role">{user?.role}</div>
                             </div>
                         </Link>
                         <button
@@ -128,12 +126,12 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                             onClick={handleLogout}
                         >
                             <FiLogOut className="fs-nav-icon" />
-                            退出登录
+                            {t('user.logout')}
                         </button>
                     </>
                 ) : (
                     <Link to="/login" className="fs-login-btn" onClick={onClose}>
-                        登录 / 注册
+                        {t('nav.login')} / {t('nav.register')}
                     </Link>
                 )}
             </div>

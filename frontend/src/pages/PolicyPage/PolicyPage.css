@@ -1,0 +1,58 @@
+.policy-page {
+    min-height: 60vh;
+    padding: 40px 20px;
+}
+
+.policy-container {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.policy-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted, #6b7280);
+    text-decoration: none;
+    font-size: 0.88rem;
+    margin-bottom: 24px;
+    transition: color 0.15s;
+}
+
+.policy-back:hover {
+    color: var(--text-primary, #111827);
+}
+
+.policy-header {
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.policy-header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+    margin: 0 0 6px;
+}
+
+.policy-shop {
+    font-size: 0.85rem;
+    color: var(--text-muted, #6b7280);
+    margin: 0;
+}
+
+.policy-content {
+    font-size: 0.95rem;
+    line-height: 1.9;
+    color: var(--text-secondary, #4b5563);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.policy-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted, #6b7280);
+    font-size: 1rem;
+}

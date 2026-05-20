@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { FiMail, FiCreditCard, FiShield, FiZap, FiCheck, FiLock } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
@@ -11,6 +12,7 @@ const paymentIcons = { alipay: '💳', wechat: '💚', usdt: '💰', bsc_usdt: '
 const paymentColors = { alipay: '#1677ff', wechat: '#07c160', usdt: '#26a17b', bsc_usdt: '#f3ba2f' }
 
 export default function FreshCheckout() {
+    const { t } = useTranslation()
     const navigate = useNavigate()
     const location = useLocation()
     const { user, isAuthenticated } = useAuthStore()
@@ -26,6 +28,11 @@ export default function FreshCheckout() {
     const [paymentMethod, setPaymentMethod] = useState('alipay')
     const [paymentMethods, setPaymentMethods] = useState([])
     const [loading, setLoading] = useState(false)
+    const [agreed, setAgreed] = useState(true)
+
+    // 协议数据
+    const agreements = storefront?.agreements || null
+    const hasAgreements = !!(agreements?.purchasePolicy || agreements?.refundPolicy)
 
     const totalPrice = item ? item.price * item.quantity : 0
     const itemCount = item?.quantity ?? 0
@@ -56,9 +63,9 @@ export default function FreshCheckout() {
     if (!item) return (
         <div className="fc-page">
             <div className="fc-empty">
-                <h2>暂无待结算商品</h2>
-                <p>请先选择想要购买的商品</p>
-                <Link to={`${prefix}/`} className="fc-empty-link">去选购</Link>
+                <h2>{t('checkout.cartEmpty')}</h2>
+                <p>{t('checkout.cartEmptyDesc')}</p>
+                <Link to={`${prefix}/`} className="fc-empty-link">{t('checkout.goShop')}</Link>
             </div>
         </div>
     )
@@ -66,12 +73,13 @@ export default function FreshCheckout() {
     const handleSubmit = async (e) => {
         e.preventDefault()
         if (!isAuthenticated) {
-            if (!email.trim()) { toast.error('请输入邮箱'); return }
-            if (!emailValid) { toast.error('请输入正确的邮箱格式'); return }
-            if (!queryPassword.trim() || queryPassword.trim().length < 4) { toast.error('请设置至少4位的查询密码'); return }
+            if (!email.trim()) { toast.error(t('checkout.emailRequired')); return }
+            if (!emailValid) { toast.error(t('checkout.emailError')); return }
+            if (!queryPassword.trim() || queryPassword.trim().length < 4) { toast.error(t('checkout.queryPasswordError')); return }
         } else if (showEmailEdit) {
-            if (!email.trim() || !emailValid) { toast.error('请输入正确的邮箱'); return }
+            if (!email.trim() || !emailValid) { toast.error(t('checkout.emailError')); return }
         }
+        if (hasAgreements && !agreed) { toast.error(t('checkout.agreeError')); return }
         setLoading(true)
         try {
             const res = await fetch('/api/orders', {
@@ -93,12 +101,12 @@ export default function FreshCheckout() {
             })
             const result = await res.json()
 
-            if (result.error) { toast.error(result.error || '订单创建失败'); setLoading(false); return }
+            if (result.error) { toast.error(result.error || t('checkout.orderFailed')); setLoading(false); return }
 
-            toast.success('订单创建成功')
+            toast.success(t('checkout.orderSuccess'))
             navigate(`${prefix}/order/${result.order.orderNo}`)
         } catch {
-            toast.error('创建订单失败，请稍后重试')
+            toast.error(t('checkout.orderFailed'))
         } finally {
             setLoading(false)
         }
@@ -106,14 +114,14 @@ export default function FreshCheckout() {
 
     return (
         <div className="fc-page">
-            <h1 className="fc-title">确认订单</h1>
+            <h1 className="fc-title">{t('checkout.title')}</h1>
 
             <form className="fc-layout" onSubmit={handleSubmit}>
                 {/* ── 左侧 ── */}
                 <div>
                     {/* 商品列表 */}
                     <div className="fc-card">
-                        <div className="fc-card-title">商品清单</div>
+                        <div className="fc-card-title">{t('checkout.productList')}</div>
                         <div className="fc-items">
                             <div className="fc-item">
                                 {item.image
@@ -134,7 +142,7 @@ export default function FreshCheckout() {
                     {/* 邮箱 + 查询密码（仅游客） */}
                     {!isAuthenticated && (
                         <div className="fc-card">
-                            <div className="fc-card-title"><FiMail />订单查询信息</div>
+                            <div className="fc-card-title"><FiMail />{t('checkout.email')}</div>
                             <div className="fc-inline-fields">
                                 <div className="fc-inline-field">
                                     <div className="fc-input-wrap">
@@ -142,14 +150,14 @@ export default function FreshCheckout() {
                                         <input
                                             type="email"
                                             className="fc-input"
-                                            placeholder="邮箱地址"
+                                            placeholder={t('checkout.emailPlaceholder')}
                                             value={email}
                                             onChange={e => setEmail(e.target.value)}
                                         />
                                     </div>
                                     {email && !emailValid
-                                        ? <div className="fc-input-error">邮箱格式有误</div>
-                                        : <div className="fc-input-hint">用于接收或查询订单信息</div>
+                                        ? <div className="fc-input-error">{t('checkout.emailError')}</div>
+                                        : <div className="fc-input-hint">{t('checkout.emailDesc')}</div>
                                     }
                                 </div>
                                 <div className="fc-inline-field">
@@ -158,13 +166,13 @@ export default function FreshCheckout() {
                                         <input
                                             type="password"
                                             className="fc-input"
-                                            placeholder="查询密码（至少4位）"
+                                            placeholder={t('checkout.queryPasswordPlaceholder')}
                                             value={queryPassword}
                                             onChange={e => setQueryPassword(e.target.value)}
                                             maxLength={20}
                                         />
                                     </div>
-                                    <div className="fc-input-hint">下单后凭此密码查询订单</div>
+                                    <div className="fc-input-hint">{t('checkout.queryPasswordDesc')}</div>
                                 </div>
                             </div>
                         </div>
@@ -173,16 +181,16 @@ export default function FreshCheckout() {
                     {/* 已登录：折叠的「使用其它邮箱接收」 */}
                     {isAuthenticated && (
                         <div className="fc-card">
-                            <div className="fc-card-title"><FiMail />订单邮箱</div>
+                            <div className="fc-card-title"><FiMail />{t('checkout.email')}</div>
                             {!showEmailEdit ? (
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: '0.88rem' }}>
-                                    <div style={{ color: '#374151' }}>订单信息将关联到 <strong>{email || user?.email}</strong></div>
+                                    <div style={{ color: '#374151' }}>{t('checkout.emailSentTo')} <strong>{email || user?.email}</strong></div>
                                     <button
                                         type="button"
                                         onClick={() => setShowEmailEdit(true)}
                                         style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '0.85rem', cursor: 'pointer', padding: 0 }}
                                     >
-                                        使用其它邮箱
+                                        {t('checkout.useOtherEmail')}
                                     </button>
                                 </div>
                             ) : (
@@ -192,7 +200,7 @@ export default function FreshCheckout() {
                                         <input
                                             type="email"
                                             className="fc-input"
-                                            placeholder="新邮箱地址"
+                                            placeholder={t('checkout.emailPlaceholder')}
                                             value={email}
                                             onChange={e => setEmail(e.target.value)}
                                             autoFocus
@@ -200,15 +208,15 @@ export default function FreshCheckout() {
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                                         {email && !emailValid
-                                            ? <div className="fc-input-error">邮箱格式有误</div>
-                                            : <div className="fc-input-hint">仅本次订单生效</div>
+                                            ? <div className="fc-input-error">{t('checkout.emailError')}</div>
+                                            : <div className="fc-input-hint">{t('checkout.emailDesc')}</div>
                                         }
                                         <button
                                             type="button"
                                             onClick={() => { setEmail(user?.email || ''); setShowEmailEdit(false) }}
                                             style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: '0.8rem', cursor: 'pointer', padding: 0 }}
                                         >
-                                            恢复账户邮箱
+                                            {t('common.cancel')}
                                         </button>
                                     </div>
                                 </div>
@@ -218,7 +226,7 @@ export default function FreshCheckout() {
 
                     {/* 支付方式 */}
                     <div className="fc-card">
-                        <div className="fc-card-title"><FiCreditCard />支付方式</div>
+                        <div className="fc-card-title"><FiCreditCard />{t('checkout.payment')}</div>
                         <div className="fc-payment-grid">
                             {paymentMethods.filter(m => m.enabled).map(m => (
                                 <button
@@ -240,28 +248,28 @@ export default function FreshCheckout() {
                 {/* ── 右侧 sidebar ── */}
                 <div className="fc-sidebar">
                     <div className="fc-card">
-                        <div className="fc-card-title">订单摘要</div>
+                        <div className="fc-card-title">{t('checkout.summary')}</div>
 
                         <div className="fc-summary-rows">
                             <div className="fc-summary-row">
-                                <span>商品数量</span>
-                                <span>{itemCount} 件</span>
+                                <span>{t('checkout.itemCount')}</span>
+                                <span>{itemCount} {t('checkout.itemUnit')}</span>
                             </div>
                             <div className="fc-summary-row">
-                                <span>单价</span>
+                                <span>{t('checkout.unitPrice')}</span>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                     ¥{item.price.toFixed(2)}
                                     {isWholesale && (
                                         <span style={{
                                             fontSize: '0.7rem', background: '#FEF2F2',
                                             color: '#DC2626', borderRadius: 10, padding: '1px 6px', fontWeight: 600
-                                        }}>批发价</span>
+                                        }}>{t('products.wholesalePrice')}</span>
                                     )}
                                 </span>
                             </div>
                             {isWholesale && (
                                 <div className="fc-summary-row" style={{ color: '#10B981', fontSize: '0.82rem' }}>
-                                    <span>批发优惠</span>
+                                    <span>{t('products.bulkDiscount')}</span>
                                     <span>-¥{((item.basePrice - item.price) * item.quantity).toFixed(2)}</span>
                                 </div>
                             )}
@@ -270,17 +278,28 @@ export default function FreshCheckout() {
                         <div className="fc-summary-divider" />
 
                         <div className="fc-total-row">
-                            <span className="fc-total-label">应付金额</span>
+                            <span className="fc-total-label">{t('checkout.totalDue')}</span>
                             <span className="fc-total-price">¥{totalPrice.toFixed(2)}</span>
                         </div>
 
-                        <button type="submit" className="fc-pay-submit" disabled={loading}>
-                            {loading ? '提交中…' : `立即支付 ¥${totalPrice.toFixed(2)}`}
+                        <button type="submit" className="fc-pay-submit" disabled={loading || (hasAgreements && !agreed)}>
+                            {loading ? t('checkout.submitting') : `${t('checkout.submit')} ¥${totalPrice.toFixed(2)}`}
                         </button>
 
+                        {hasAgreements && (
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer', marginTop: -4, marginBottom: 8 }}>
+                                <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ accentColor: 'var(--primary)' }} />
+                                <span>{t('checkout.agree')}
+                                    {agreements.purchasePolicy && <Link to={`${prefix}/terms`} target="_blank" style={{ color: 'var(--primary)' }}> {t('checkout.purchasePolicy')}</Link>}
+                                    {agreements.purchasePolicy && agreements.refundPolicy && ` ${t('checkout.and')}`}
+                                    {agreements.refundPolicy && <Link to={`${prefix}/refund-policy`} target="_blank" style={{ color: 'var(--primary)' }}> {t('checkout.refundPolicy')}</Link>}
+                                </span>
+                            </label>
+                        )}
+
                         <div className="fc-tips">
-                            <div className="fc-tip"><FiShield size={12} /><span>安全支付，隐私保护</span></div>
-                            <div className="fc-tip"><FiZap size={12} /><span>支付成功后自动发放卡密</span></div>
+                            <div className="fc-tip"><FiShield size={12} /><span>{t('checkout.securePayment')}</span></div>
+                            <div className="fc-tip"><FiZap size={12} /><span>{t('checkout.autoDelivery')}</span></div>
                         </div>
                     </div>
                 </div>

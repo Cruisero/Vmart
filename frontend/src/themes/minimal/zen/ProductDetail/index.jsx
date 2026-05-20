@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { FiMinus, FiPlus } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import './ProductDetail.css'
@@ -18,6 +19,7 @@ const getImageUrl = (url, size = 'original') => {
 }
 
 export default function ZenProductDetail() {
+    const { t } = useTranslation()
     const { id } = useParams()
     const navigate = useNavigate()
     const storefront = useStorefront()
@@ -55,7 +57,7 @@ export default function ZenProductDetail() {
                     const hasTypes = p.variants.some(v => v.type?.trim())
                     if (hasTypes) {
                         const types = [...new Set(p.variants.map(v => v.type || '').filter(Boolean))]
-                        const firstStockType = types.find(t => p.variants.some(v => v.type === t && inStock(v)))
+                        const firstStockType = types.find(tt => p.variants.some(v => v.type === tt && inStock(v)))
                         const firstType = firstStockType || types[0]
                         setSelectedType(firstType)
                         const inType = p.variants.filter(v => v.type === firstType)
@@ -82,9 +84,9 @@ export default function ZenProductDetail() {
         navigate(`${prefix}/checkout`, { state: checkoutState })
     }
 
-    if (loading) return <div className="zd-page"><div className="zd-loading">加载中…</div></div>
+    if (loading) return <div className="zd-page"><div className="zd-loading">{t('common.loading')}</div></div>
     if (!product) return (
-        <div className="zd-page"><div className="zd-empty"><h2>商品不存在</h2><Link to={`${prefix}/`} className="zd-back">← 返回首页</Link></div></div>
+        <div className="zd-page"><div className="zd-empty"><h2>{t('products.notFound')}</h2><Link to={`${prefix}/`} className="zd-back">← {t('products.backHome')}</Link></div></div>
     )
 
     const discount = currentOrigPrice > currentPrice ? Math.round((1 - currentPrice / currentOrigPrice) * 100) : 0
@@ -110,24 +112,24 @@ export default function ZenProductDetail() {
                         <span className="zd-price">¥{currentPrice.toFixed(2)}</span>
                         {currentOrigPrice > currentPrice && <span className="zd-price-orig">¥{currentOrigPrice.toFixed(2)}</span>}
                         {discount > 0 && <span className="zd-discount">-{discount}%</span>}
-                        {currentPrice < basePrice && <span className="zd-ws-badge">批发价</span>}
+                        {currentPrice < basePrice && <span className="zd-ws-badge">{t('products.wholesalePrice')}</span>}
                     </div>
 
                     <div className="zd-meta">
-                        <span>已售 {product.sold}</span>
-                        <span style={{ color: isOutOfStock ? '#C45D3E' : '#bbb' }}>{isOutOfStock ? '暂无库存' : `库存 ${currentStock}`}</span>
+                        <span>{t('products.sales')} {product.sold}</span>
+                        <span style={{ color: isOutOfStock ? '#C45D3E' : '#bbb' }}>{isOutOfStock ? t('products.outOfStock') : `${t('products.stock')} ${currentStock}`}</span>
                     </div>
 
                     {(hasTypes || typeVariants.length > 0) && <>
                         <div className="zd-sep" />
                         {hasTypes && <>
-                            <div className="zd-label">类型</div>
-                            <div className="zd-tags">{types.map(t => (
-                                <button key={t} className={`zd-tag${selectedType === t ? ' active' : ''}`} onClick={() => { setSelectedType(t); const inType = product.variants.filter(v => v.type === t); setSelectedVariant(inType.find(v => (v.stock ?? 0) > 0) || inType[0] || null) }}>{t}</button>
+                            <div className="zd-label">{t('products.type')}</div>
+                            <div className="zd-tags">{types.map(tt => (
+                                <button key={tt} className={`zd-tag${selectedType === tt ? ' active' : ''}`} onClick={() => { setSelectedType(tt); const inType = product.variants.filter(v => v.type === tt); setSelectedVariant(inType.find(v => (v.stock ?? 0) > 0) || inType[0] || null) }}>{tt}</button>
                             ))}</div>
                         </>}
                         {typeVariants.length > 0 && <>
-                            <div className="zd-label">规格</div>
+                            <div className="zd-label">{t('products.variant')}</div>
                             <div className="zd-tags">{typeVariants.map(v => (
                                 <button key={v.id} className={`zd-tag${selectedVariant?.id === v.id ? ' active' : ''}`} onClick={() => setSelectedVariant(v)}>
                                     {v.name}<span className="zd-tag-price">¥{parseFloat(v.price).toFixed(2)}</span>
@@ -151,19 +153,19 @@ export default function ZenProductDetail() {
                     </div>
 
                     <button className="zd-buy-btn" onClick={handleBuyNow} disabled={isOutOfStock}>
-                        {isOutOfStock ? '暂无库存' : '立即下单'}
+                        {isOutOfStock ? t('products.outOfStock') : t('products.placeOrder')}
                     </button>
 
                     {activeWholesalePrices.length > 0 && <>
                         <div className="zd-sep" />
-                        <div className="zd-label">批量优惠</div>
+                        <div className="zd-label">{t('products.bulkDiscount')}</div>
                         <div className="zd-ws-list">
                             {activeWholesalePrices.map((tier, i) => {
                                 const saving = Math.round((1 - parseFloat(tier.price) / basePrice) * 100)
                                 const isActive = quantity >= tier.minQty && (i === activeWholesalePrices.length - 1 || quantity < activeWholesalePrices[i + 1].minQty)
                                 return (
                                     <div key={i} className={`zd-ws-item${isActive ? ' active' : ''}`}>
-                                        <span>≥{tier.minQty}件</span>
+                                        <span>{t('products.min')}{tier.minQty}{t('products.pieces')}</span>
                                         <span className="zd-ws-price">¥{parseFloat(tier.price).toFixed(2)}</span>
                                         {saving > 0 && <span className="zd-ws-saving">-{saving}%</span>}
                                     </div>
@@ -176,7 +178,7 @@ export default function ZenProductDetail() {
 
             {product.fullDescription && (
                 <div className="zd-full-desc">
-                    <div className="zd-label">商品详情</div>
+                    <div className="zd-label">{t('products.description')}</div>
                     <div className="zd-full-desc-body">{product.fullDescription}</div>
                 </div>
             )}

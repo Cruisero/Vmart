@@ -195,7 +195,7 @@ function AgentNoticeBanner({ text }) {
 function StorefrontFooter({ shopName }) {
     return (
         <footer className="sf-footer">
-            <span>{shopName} · Powered by VMart</span>
+            <span>{shopName} · <a href="https://vmart.cc" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by VMart</a></span>
         </footer>
     )
 }

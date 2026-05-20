@@ -242,7 +242,7 @@
     z-index: 2;
 }
 .product-oos-overlay span {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(var(--primary-rgb), 0.6);
     color: #fff;
     font-size: 0.78rem;
     font-weight: 600;

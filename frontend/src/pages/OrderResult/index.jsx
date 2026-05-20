@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { useParams, Link } from 'react-router-dom'
 import { FiCheck, FiClock, FiCopy, FiPackage, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
 import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
@@ -15,6 +16,7 @@ const statusConfig = {
 }
 
 function OrderResult() {
+    usePageTitle("订单详情")
     const { orderNo } = useParams()
     const { withPrefix } = useStorefrontPath()
     const storefront = useStorefront()

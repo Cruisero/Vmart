@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FiArrowRight, FiEye, FiEyeOff } from 'react-icons/fi'
+import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
@@ -8,8 +9,9 @@ import toast from 'react-hot-toast'
 import './Auth.css'
 
 export default function ZenLogin() {
+    const { t } = useTranslation()
     const navigate = useNavigate()
-    const login = useAuthStore(s => s.login)
+    const login = useAuthStore((s) => s.login)
     const storefront = useStorefront()
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
     const [form, setForm] = useState({ email: '', password: '' })
@@ -18,57 +20,94 @@ export default function ZenLogin() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!form.email || !form.password) { toast.error('请填写完整信息'); return }
+        if (!form.email || !form.password) { toast.error(t('auth.emailPlaceholder')); return }
         setLoading(true)
         try {
             const url = storefront?._tenantMode ? '/api/customer/login' : '/api/auth/login'
             const body = { email: form.email, password: form.password }
             if (storefront?._tenantMode) body.storefrontSlug = storefront.slug
             const res = await fetch(url, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || '登录失败')
+            if (!res.ok) throw new Error(data.error || t('common.failed'))
             login(data.user, data.token)
-            toast.success('登录成功')
+            toast.success(t('auth.loginSuccess'))
             const role = data.user.role
             if (!storefront?._tenantMode && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
                 navigate('/admin')
             } else {
                 navigate(`${prefix}/`)
             }
-        } catch (err) { toast.error(err.message) }
-        finally { setLoading(false) }
+        } catch (err) {
+            toast.error(err.message || t('common.failed'))
+        } finally {
+            setLoading(false)
+        }
     }
 
     return (
         <div className="za-page">
             <div className="za-card">
-                <h1 className="za-title">登录</h1>
-                <p className="za-sub">继续购物</p>
+                <div className="za-header">
+                    <div className="za-logo">
+                        <FiLock size={20} />
+                    </div>
+                    <h1 className="za-title">{t('user.welcome')}</h1>
+                    <p className="za-sub">{t('auth.login')}</p>
+                </div>
+
                 <form className="za-form" onSubmit={handleSubmit}>
                     <div className="za-field">
-                        <label className="za-label">邮箱</label>
-                        <input type="email" className="za-input" placeholder="email@example.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} autoComplete="email" />
+                        <label className="za-label">{t('auth.email')}</label>
+                        <div className="za-input-wrap">
+                            <FiMail className="za-input-icon" size={15} />
+                            <input
+                                type="email"
+                                className="za-input"
+                                placeholder={t('auth.emailPlaceholder')}
+                                value={form.email}
+                                onChange={e => setForm({ ...form, email: e.target.value })}
+                                autoComplete="email"
+                            />
+                        </div>
                     </div>
+
                     <div className="za-field">
                         <div className="za-label-row">
-                            <label className="za-label">密码</label>
-                            <Link to="/forgot-password" className="za-forgot">忘记密码？</Link>
+                            <label className="za-label">{t('auth.password')}</label>
                         </div>
                         <div className="za-input-wrap">
-                            <input type={showPw ? 'text' : 'password'} className="za-input" placeholder="请输入密码" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} autoComplete="current-password" />
-                            <button type="button" className="za-pw-toggle" onClick={() => setShowPw(!showPw)}>{showPw ? <FiEyeOff size={15} /> : <FiEye size={15} />}</button>
+                            <FiLock className="za-input-icon" size={15} />
+                            <input
+                                type={showPw ? 'text' : 'password'}
+                                className="za-input"
+                                placeholder={t('auth.passwordPlaceholder')}
+                                value={form.password}
+                                onChange={e => setForm({ ...form, password: e.target.value })}
+                                autoComplete="current-password"
+                            />
+                            <button type="button" className="za-toggle-pw" onClick={() => setShowPw(!showPw)}>
+                                {showPw ? <FiEyeOff size={15} /> : <FiEye size={15} />}
+                            </button>
                         </div>
                     </div>
+
                     <button type="submit" className="za-submit" disabled={loading}>
-                        {loading ? '登录中…' : <>登录 <FiArrowRight size={14} /></>}
+                        {loading ? <span className="za-spinner" /> : <>{t('auth.loginBtn')} <FiArrowRight size={15} /></>}
                     </button>
                 </form>
-                <div className="za-footer">还没有账号？<Link to={`${prefix}/register`} className="za-link">立即注册</Link></div>
-                <div className="za-divider"><span>或</span></div>
-                <Link to={`${prefix}/`} className="za-guest">游客购物（无需登录）</Link>
+
+                <div className="za-footer">
+                    {t('auth.noAccount')}
+                    <Link to={`${prefix}/register`} className="za-link">{t('auth.goRegister')}</Link>
+                </div>
+
+                <div className="za-divider"><span>—</span></div>
+
+                <Link to={`${prefix}/`} className="za-guest">{t('nav.home')}</Link>
             </div>
         </div>
     )

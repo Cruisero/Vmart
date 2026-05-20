@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiShoppingCart, FiSearch, FiUser, FiSun, FiMoon, FiTrendingUp, FiX, FiHeart } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../../store/cartStore'
 import { useAuthStore } from '../../../store/authStore'
 import { useThemeStore } from '../../../store/themeStore'
 import { useSkinStore } from '../../../store/skinStore'
 import { useStorefront } from '../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../utils/agentDomain'
+import LanguageToggle from '../LanguageToggle'
 import logoImg from '../../../assets/logo.png'
 import logoDarkImg from '../../../assets/logo-dark.png'
 import './Navbar.css'
 
 function Navbar() {
+    const { t } = useTranslation()
     const location = useLocation()
     const navigate = useNavigate()
     const cartItems = useCartStore((state) => state.items)
@@ -217,7 +220,7 @@ function Navbar() {
                         <input
                             type="text"
                             className="search-input"
-                            placeholder="搜索商品..."
+                            placeholder={t('nav.search')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onFocus={() => setShowDropdown(true)}
@@ -227,7 +230,7 @@ function Navbar() {
                             className="search-btn"
                             onClick={handleSubmit}
                         >
-                            搜索
+                            {t('search.title')}
                         </button>
                     </div>
 
@@ -239,7 +242,7 @@ function Navbar() {
                                 <div className="dropdown-section">
                                     <div className="dropdown-header">
                                         <FiSearch className="dropdown-icon" />
-                                        <span>搜索建议</span>
+                                        <span>{t('search.results')}</span>
                                     </div>
                                     <div className="suggestion-list">
                                         {suggestions.map((item) => (
@@ -265,7 +268,7 @@ function Navbar() {
                                 <div className="dropdown-section recommend-section">
                                     <div className="dropdown-header">
                                         <FiHeart className="dropdown-icon recommend" />
-                                        <span>猜你想要</span>
+                                        <span>{t('search.results')}</span>
                                     </div>
                                     <div className="recommend-products-grid search-products-grid">
                                         {matchedProducts.map((product) => (
@@ -297,7 +300,7 @@ function Navbar() {
                                 <div className="dropdown-section">
                                     <div className="dropdown-header">
                                         <FiTrendingUp className="dropdown-icon hot" />
-                                        <span>热门搜索</span>
+                                        <span>{t('search.title')}</span>
                                     </div>
                                     <div className="keyword-tags">
                                         {hotSearches.map((item, index) => (
@@ -318,7 +321,7 @@ function Navbar() {
                                 <div className="dropdown-section recommend-section">
                                     <div className="dropdown-header">
                                         <FiHeart className="dropdown-icon recommend" />
-                                        <span>猜你喜欢</span>
+                                        <span>{t('products.title')}</span>
                                     </div>
                                     <div className="recommend-products-grid">
                                         {recommendedProducts.map((product) => (
@@ -349,7 +352,7 @@ function Navbar() {
                             {searchQuery.trim() && suggestions.length === 0 && matchedProducts.length === 0 && !searchLoading && (
                                 <div className="no-suggestions">
                                     <FiSearch />
-                                    <span>未找到相关商品，按回车搜索</span>
+                                    <span>{t('search.noResults')}</span>
                                 </div>
                             )}
                         </div>
@@ -364,19 +367,19 @@ function Navbar() {
                             to={`${prefix}/`}
                             className={`nav-link ${location.pathname === (prefix || '/') || location.pathname === `${prefix}/` ? 'active' : ''}`}
                         >
-                            商品
+                            {t('nav.products')}
                         </Link>
                         <Link
                             to={`${prefix}/order-query`}
                             className={`nav-link ${location.pathname === `${prefix}/order-query` ? 'active' : ''}`}
                         >
-                            订单查询
+                            {t('nav.orderQuery')}
                         </Link>
                         <Link
                             to={`${prefix}/tickets/new`}
                             className={`nav-link ${location.pathname === `${prefix}/tickets/new` ? 'active' : ''}`}
                         >
-                            工单
+                            {t('nav.tickets')}
                         </Link>
                     </div>
 
@@ -384,22 +387,25 @@ function Navbar() {
                     <button
                         className="nav-icon-btn mobile-search-btn"
                         onClick={openMobileSearch}
-                        title="搜索"
+                        title={t('search.title')}
                     >
                         <FiSearch />
                     </button>
+
+                    {/* 语言切换 */}
+                    <LanguageToggle />
 
                     {/* 主题切换 */}
                     <button
                         className="nav-icon-btn theme-toggle-btn"
                         onClick={toggleTheme}
-                        title={theme === 'dark' ? '切换到浅色模式' : '切换到暗黑模式'}
+                        title={theme === 'dark' ? t('nav.switchToLight') : t('nav.switchToDark')}
                     >
                         {theme === 'dark' ? <FiSun /> : <FiMoon />}
                     </button>
 
                     {/* 购物车 */}
-                    <Link to={`${prefix}/cart`} className="nav-icon-btn cart-btn" title="购物车">
+                    <Link to={`${prefix}/cart`} className="nav-icon-btn cart-btn" title={t('nav.cart')}>
                         <FiShoppingCart />
                         {cartCount > 0 && (
                             <span className="cart-badge">{cartCount}</span>
@@ -410,7 +416,7 @@ function Navbar() {
                     {isAuthenticated ? (
                         <>
                             {user?.role === 'AGENT' && (
-                                <Link to="/agent" className="nav-link" style={{ color: '#10B981', fontWeight: 600 }}>代理后台</Link>
+                                <Link to="/agent" className="nav-link" style={{ color: '#10B981', fontWeight: 600 }}>{t('nav.agentDashboard')}</Link>
                             )}
                             <Link to={`${prefix}/user`} className="nav-user">
                                 <div className="user-avatar">
@@ -420,12 +426,12 @@ function Navbar() {
                                         <FiUser />
                                     )}
                                 </div>
-                                <span className="user-name">{user?.username || '用户'}</span>
+                                <span className="user-name">{user?.username || t('nav.user')}</span>
                             </Link>
                         </>
                     ) : (
                         <Link to={`${prefix}/login`} className="btn btn-primary nav-login-btn">
-                            登录
+                            {t('nav.login')}
                         </Link>
                     )}
                 </div>
@@ -441,7 +447,7 @@ function Navbar() {
                                 ref={mobileSearchInputRef}
                                 type="text"
                                 className="mobile-search-input"
-                                placeholder="搜索商品..."
+                                placeholder={t('nav.search')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={handleKeyDown}
@@ -456,7 +462,7 @@ function Navbar() {
                             )}
                         </div>
                         <button className="mobile-search-cancel" onClick={closeMobileSearch}>
-                            取消
+                            {t('common.cancel')}
                         </button>
                     </div>
 
@@ -482,7 +488,7 @@ function Navbar() {
                             <div className="mobile-hot-searches">
                                 <div className="mobile-section-title">
                                     <FiTrendingUp />
-                                    <span>热门搜索</span>
+                                    <span>{t('search.title')}</span>
                                 </div>
                                 <div className="mobile-keyword-tags">
                                     {hotSearches.map((item, index) => (

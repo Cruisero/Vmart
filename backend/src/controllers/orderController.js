@@ -73,6 +73,13 @@ exports.createOrder = async (req, res, next) => {
                 if (shop && shop.status === 'EXPIRED') {
                     return res.status(403).json({ error: '该商城套餐已到期，暂停接单' })
                 }
+                // 免费试用期间禁止交易
+                if (shop && shop.plan === 'FREE') {
+                    return res.status(403).json({
+                        error: '该商城正在免费试用中，暂不支持交易。商户升级套餐后即可下单。',
+                        code: 'TRIAL_NO_TRANSACTION'
+                    })
+                }
             }
         }
 

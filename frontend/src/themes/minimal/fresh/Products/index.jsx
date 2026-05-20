@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { FiShoppingBag } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import './Products.css'
@@ -64,6 +65,7 @@ function SkeletonCard() {
 }
 
 function ProductCard({ product, linkPrefix }) {
+    const { t } = useTranslation()
     const [imgError, setImgError] = useState(false)
     const imgSrc = getImageUrl(product.image, 'large')
     const outOfStock = product.stock <= 0
@@ -79,7 +81,7 @@ function ProductCard({ product, linkPrefix }) {
                         <span>{product.name}</span>
                     </div>
                 )}
-                {outOfStock && <div className="fp-oos-overlay"><span>已售罄</span></div>}
+                {outOfStock && <div className="fp-oos-overlay"><span>{t('products.soldOut')}</span></div>}
             </div>
             <div className="fp-card-body">
                 <div className="fp-card-name">{product.name}</div>
@@ -93,7 +95,7 @@ function ProductCard({ product, linkPrefix }) {
                             <span className="fp-price-orig">¥{product.originalPrice.toFixed(2)}</span>
                         )}
                     </div>
-                    <span className="fp-meta">已售 {product.sold}</span>
+                    <span className="fp-meta">{t('products.sales')} {product.sold}</span>
                 </div>
             </div>
         </Link>
@@ -101,6 +103,7 @@ function ProductCard({ product, linkPrefix }) {
 }
 
 export default function FreshProducts() {
+    const { t } = useTranslation()
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
     const storefront = useStorefront()
@@ -140,8 +143,8 @@ export default function FreshProducts() {
                 ) : products.length === 0 ? (
                     <div className="fp-empty">
                         <div className="fp-empty-icon"><FiShoppingBag size={48} /></div>
-                        <div className="fp-empty-title">暂无商品</div>
-                        <div className="fp-empty-desc">敬请期待更多商品上架</div>
+                        <div className="fp-empty-title">{t('products.noProducts')}</div>
+                        <div className="fp-empty-desc"></div>
                     </div>
                 ) : (
                     products.map(p => <ProductCard key={p.id} product={p} linkPrefix={linkPrefix} />)

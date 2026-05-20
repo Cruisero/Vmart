@@ -45,7 +45,7 @@ export default function DarkLuxuryTheme({ shop, slug, routes }) {
             <footer className="dl-footer">
                 <div className="dl-container">
                     <span>{shop.shopName}</span>
-                    <span style={{ opacity: 0.5 }}>· Powered by Vmart</span>
+                    <span style={{ opacity: 0.5 }}>· <a href="https://vmart.cc" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by Vmart</a></span>
                 </div>
             </footer>
         </div>

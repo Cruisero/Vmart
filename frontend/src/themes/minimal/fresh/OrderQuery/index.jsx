@@ -1,22 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link, Navigate } from 'react-router-dom'
-import { FiSearch, FiPackage, FiClock, FiCheckCircle, FiXCircle, FiAlertCircle, FiChevronRight, FiMail, FiHash, FiLock } from 'react-icons/fi'
+import { FiSearch, FiPackage, FiChevronRight, FiMail, FiHash, FiLock } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import './OrderQuery.css'
 
-const statusConfig = {
-    pending:   { label: '待支付', bg: '#FEF3C7', color: '#D97706' },
-    paid:      { label: '已支付', bg: '#DBEAFE', color: '#2563EB' },
-    completed: { label: '已完成', bg: '#D1FAE5', color: '#059669' },
-    cancelled: { label: '已取消', bg: '#F3F4F6', color: '#6B7280' },
-    expired:   { label: '已过期', bg: '#FEE2E2', color: '#DC2626' },
-    refunded:  { label: '已退款', bg: '#EDE9FE', color: '#B91C1C' },
-}
-
 export default function FreshOrderQuery() {
+    const { t } = useTranslation()
     const navigate = useNavigate()
     const { isAuthenticated } = useAuthStore()
     const storefront = useStorefront()
@@ -26,13 +19,22 @@ export default function FreshOrderQuery() {
     const [loading, setLoading] = useState(false)
     const [orders, setOrders] = useState(null)
 
+    const statusConfig = {
+        pending:   { label: t('order.pending'), bg: '#FEF3C7', color: '#D97706' },
+        paid:      { label: t('order.paid'), bg: '#DBEAFE', color: '#2563EB' },
+        completed: { label: t('order.completed'), bg: '#D1FAE5', color: '#059669' },
+        cancelled: { label: t('order.cancelled'), bg: '#F3F4F6', color: '#6B7280' },
+        expired:   { label: t('order.expired'), bg: '#FEE2E2', color: '#DC2626' },
+        refunded:  { label: t('order.refunded'), bg: '#EDE9FE', color: '#B91C1C' },
+    }
+
     const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
 
     const handleSubmit = async (e) => {
         e.preventDefault()
         const input = query.trim()
-        if (!input) { toast.error('请输入订单号或邮箱'); return }
-        if (!password.trim()) { toast.error('请输入查询密码'); return }
+        if (!input) { toast.error(t('orderQuery.missing')); return }
+        if (!password.trim()) { toast.error(t('orderQuery.missingPassword')); return }
 
         setLoading(true)
         setOrders(null)
@@ -50,7 +52,7 @@ export default function FreshOrderQuery() {
             if (data.order) { navigate(`${prefix}/order/${data.order.orderNo}`); return }
             if (data.orders) setOrders(data.orders)
         } catch {
-            toast.error('查询失败，请稍后重试')
+            toast.error(t('orderQuery.queryFailed'))
         } finally {
             setLoading(false)
         }
@@ -64,16 +66,14 @@ export default function FreshOrderQuery() {
     return (
         <div className="foq-page">
             <div className="foq-wrap">
-                {/* Header */}
                 <div className="foq-header">
                     <div className="foq-icon-wrap">
                         <FiPackage size={24} />
                     </div>
-                    <h1 className="foq-title">订单查询</h1>
-                    <p className="foq-sub">输入订单号或邮箱，配合查询密码查询订单</p>
+                    <h1 className="foq-title">{t('orderQuery.title')}</h1>
+                    <p className="foq-sub">{t('orderQuery.desc')}</p>
                 </div>
 
-                {/* Search card */}
                 <div className="foq-card">
                     <form onSubmit={handleSubmit}>
                         <div className="foq-input-row" style={{ marginBottom: '10px' }}>
@@ -87,14 +87,14 @@ export default function FreshOrderQuery() {
                                 <input
                                     className="foq-input"
                                     type="text"
-                                    placeholder="订单号 或 邮箱地址"
+                                    placeholder={t('orderQuery.orderNoOrEmail')}
                                     value={query}
                                     onChange={e => { setQuery(e.target.value); setOrders(null) }}
                                     autoFocus
                                 />
                                 {hasInput && (
                                     <span className="foq-input-hint">
-                                        {inputIsEmail ? '按邮箱查询' : '按订单号查询'}
+                                        {inputIsEmail ? t('orderQuery.byEmail') : t('orderQuery.byOrderNo')}
                                     </span>
                                 )}
                             </div>
@@ -107,7 +107,7 @@ export default function FreshOrderQuery() {
                                 <input
                                     className="foq-input"
                                     type="password"
-                                    placeholder="查询密码"
+                                    placeholder={t('orderQuery.passwordPlaceholder')}
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                 />
@@ -115,41 +115,39 @@ export default function FreshOrderQuery() {
                             <button type="submit" className="foq-search-btn" disabled={loading}>
                                 {loading
                                     ? <span className="foq-btn-spinner" />
-                                    : <><FiSearch size={15} /> 查询</>
+                                    : <><FiSearch size={15} /> {t('orderQuery.query')}</>
                                 }
                             </button>
                         </div>
                     </form>
 
-                    {/* Tips (shown when no results) */}
                     {!orders && (
                         <div className="foq-tips">
                             <div className="foq-tip-item">
                                 <span className="foq-tip-dot" />
-                                订单号可在支付成功页面找到
+                                {t('orderQuery.tipOrderNo')}
                             </div>
                             <div className="foq-tip-item">
                                 <span className="foq-tip-dot" />
-                                查询密码为下单时设置的密码
+                                {t('orderQuery.tipPassword')}
                             </div>
                             <div className="foq-tip-item">
                                 <span className="foq-tip-dot" />
-                                如有问题请通过工单联系客服
+                                {t('orderQuery.tipContact')}
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Results */}
                 {orders && (
                     <div className="foq-results">
                         <div className="foq-results-title">
-                            共找到 <strong>{orders.length}</strong> 个订单
+                            {t('orderQuery.foundOrders')} <strong>{orders.length}</strong> {t('orderQuery.ordersUnit')}
                         </div>
                         {orders.length === 0 ? (
                             <div className="foq-empty">
                                 <FiPackage size={36} style={{ color: '#D1D5DB', marginBottom: 12 }} />
-                                <p>未找到相关订单</p>
+                                <p>{t('orderQuery.noOrdersFound')}</p>
                             </div>
                         ) : (
                             <div className="foq-order-list">
@@ -166,7 +164,7 @@ export default function FreshOrderQuery() {
                                                 : <div className="foq-order-img foq-order-ph">📦</div>
                                             }
                                             <div className="foq-order-info">
-                                                <div className="foq-order-name">{order.product?.name || '商品'}</div>
+                                                <div className="foq-order-name">{order.product?.name || t('order.product')}</div>
                                                 <div className="foq-order-no">{order.orderNo}</div>
                                             </div>
                                             <div className="foq-order-right">

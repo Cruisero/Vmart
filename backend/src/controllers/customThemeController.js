@@ -4,6 +4,9 @@
 const prisma = require('../config/database')
 const logger = require('../utils/logger')
 
+// 当前公开主题列表
+const PUBLIC_SKINS = ['fresh', 'zen', 'class']
+
 // ─── 平台超管：列表 ─────────────────────────────────────────
 exports.listThemes = async (req, res) => {
     try {
@@ -161,7 +164,7 @@ exports.assignTenants = async (req, res) => {
 // ─── 商户后台：可用主题列表（公共 + 已分配的定制主题）──────
 exports.getAvailableThemes = async (req, res) => {
     try {
-        if (!req.tenantId) return res.json({ public: ['fresh', 'zen', 'classic'], custom: [] })
+        if (!req.tenantId) return res.json({ public: PUBLIC_SKINS, custom: [] })
 
         const assignments = await prisma.customThemeAssignment.findMany({
             where: { tenantId: req.tenantId, theme: { status: 'ACTIVE' } },
@@ -178,7 +181,7 @@ exports.getAvailableThemes = async (req, res) => {
             select: { plan: true }
         }) : null
 
-        let publicSkins = ['fresh', 'zen', 'classic']
+        let publicSkins = [...PUBLIC_SKINS]
         try {
             const setting = await prisma.platformSetting.findUnique({ where: { key: 'plan_config' } })
             if (setting?.value && shop) {
@@ -187,20 +190,13 @@ exports.getAvailableThemes = async (req, res) => {
                 const planInfo = (config.plans || []).find(p => p.key === planKey)
                 if (planInfo?.features?.skins) {
                     if (Array.isArray(planInfo.features.skins)) {
-                        publicSkins = planInfo.features.skins
+                        publicSkins = planInfo.features.skins.filter(s => PUBLIC_SKINS.includes(s))
                     } else if (planInfo.features.skins !== '全部') {
-                        publicSkins = [planInfo.features.skins]
+                        publicSkins = PUBLIC_SKINS.includes(planInfo.features.skins) ? [planInfo.features.skins] : []
                     }
                 }
             }
         } catch {}
-
-        // 过滤私有公共主题：不在白名单中的商户看不到
-        const privateAllowlist = await getPrivateSkinsAllowlist()
-        publicSkins = publicSkins.filter(skin => {
-            if (!privateAllowlist[skin]) return true // 非私有
-            return privateAllowlist[skin].includes(req.tenantId)
-        })
 
         res.json({
             public: publicSkins,
@@ -216,95 +212,10 @@ exports.getAvailableThemes = async (req, res) => {
     }
 }
 
-// ─── 私有公共主题 allowlist 管理 ─────────────────────────────
-const PRIVATE_SKINS_KEY = 'private_skins_allowlist'
-
-async function getPrivateSkinsAllowlist() {
-    try {
-        const setting = await prisma.platformSetting.findUnique({ where: { key: PRIVATE_SKINS_KEY } })
-        if (!setting?.value) return {}
-        return JSON.parse(setting.value) || {}
-    } catch {
-        return {}
-    }
-}
-
-exports.getPrivateSkins = async (req, res) => {
-    try {
-        const allowlist = await getPrivateSkinsAllowlist()
-
-        // 反查 tenant 详情用于展示
-        const allTenantIds = [...new Set(Object.values(allowlist).flat())]
-        const tenants = allTenantIds.length ? await prisma.tenant.findMany({
-            where: { id: { in: allTenantIds } },
-            select: { id: true, shopName: true, shopSlug: true, user: { select: { email: true } } }
-        }) : []
-        const tenantMap = Object.fromEntries(tenants.map(t => [t.id, t]))
-
-        const result = {}
-        Object.entries(allowlist).forEach(([skin, tenantIds]) => {
-            result[skin] = tenantIds.map(tid => ({
-                tenantId: tid,
-                tenant: tenantMap[tid] || null
-            }))
-        })
-
-        res.json({ skins: result })
-    } catch (e) {
-        res.status(500).json({ error: e.message })
-    }
-}
-
-exports.assignPrivateSkin = async (req, res) => {
-    try {
-        const { skin } = req.params
-        const { tenantIds } = req.body
-        if (!['fresh', 'zen', 'classic'].includes(skin)) {
-            return res.status(400).json({ error: '只能将公共主题设为私有' })
-        }
-        if (!Array.isArray(tenantIds)) return res.status(400).json({ error: 'tenantIds 必须为数组' })
-
-        const allowlist = await getPrivateSkinsAllowlist()
-
-        if (tenantIds.length === 0) {
-            // 清空 = 取消私有，恢复公开
-            delete allowlist[skin]
-        } else {
-            allowlist[skin] = tenantIds
-        }
-
-        await prisma.platformSetting.upsert({
-            where: { key: PRIVATE_SKINS_KEY },
-            create: { key: PRIVATE_SKINS_KEY, value: JSON.stringify(allowlist), description: '私有公共主题白名单' },
-            update: { value: JSON.stringify(allowlist) }
-        })
-
-        // 已使用此私有主题但被踢出白名单的商户 → 切回 fresh
-        if (tenantIds.length > 0) {
-            await prisma.tenant.updateMany({
-                where: { shopSkin: skin, id: { notIn: tenantIds } },
-                data: { shopSkin: 'fresh' }
-            })
-        }
-
-        res.json({ message: '已更新', skin, count: tenantIds.length })
-    } catch (e) {
-        logger.error('[customTheme.assignPrivateSkin]', e)
-        res.status(500).json({ error: e.message })
-    }
-}
-
 // 主题切换校验工具：返回是否允许该 tenant 使用 skin
 exports.canUseSkin = async (tenantId, skin) => {
     if (!skin) return false
-    if (['fresh', 'zen', 'classic'].includes(skin)) {
-        // 检查私有 allowlist
-        const allowlist = await getPrivateSkinsAllowlist()
-        if (allowlist[skin]) {
-            return allowlist[skin].includes(tenantId)
-        }
-        return true
-    }
+    if (PUBLIC_SKINS.includes(skin)) return true
     if (skin.startsWith('custom:')) {
         const themeKey = skin.split(':')[1]
         const allowed = await prisma.customTheme.findFirst({

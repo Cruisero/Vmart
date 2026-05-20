@@ -8,6 +8,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { useParams, Link, useLocation } from 'react-router-dom'
 import { Routes, Route } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { StorefrontContext } from '../../store/storefrontStore'
 
 // 主题组件（复用现有）
@@ -44,8 +45,12 @@ import UserCenter from '../../pages/User'
 import Search from '../../pages/Search'
 import TicketNew from '../../pages/TicketNew'
 import TicketDetail from '../../pages/TicketDetail'
+import { TermsPage, RefundPolicyPage } from '../../pages/PolicyPage'
 
 import './MerchantStorefront.css'
+
+// Origin 主题
+import OriginTheme from '../../themes/Origin/class'
 
 // 定制主题动态加载（vite glob 收集 src/themes/custom/<key>/index.jsx 作为完整主题入口）
 const customThemeModules = import.meta.glob('../../themes/custom/*/index.jsx')
@@ -72,7 +77,7 @@ function NoticeBanner({ text, slug }) {
 function Footer({ shopName }) {
     return (
         <footer className="sf-footer">
-            <span>{shopName} · Powered by Vmart</span>
+            <span>{shopName} · <a href="https://vmart.cc" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by Vmart</a></span>
         </footer>
     )
 }
@@ -82,6 +87,7 @@ export default function MerchantStorefront() {
     const [shop, setShop] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
+    const { i18n } = useTranslation()
 
     useEffect(() => {
         setLoading(true)
@@ -112,6 +118,29 @@ export default function MerchantStorefront() {
         return () => document.documentElement.classList.remove('sf-no-scrollbar')
     }, [])
 
+    // 根据商户语言设置切换 i18n（必须在 early return 之前）
+    // 优先级：访客手动选择(localStorage) > 商户强制设置 > 商户「自动」+浏览器语言 > 默认中文
+    useEffect(() => {
+        if (!shop) return
+        const storefrontLangKey = `vmart-lang-${slug}`
+        const userPicked = localStorage.getItem(storefrontLangKey) // 访客手动选过
+        const shopLang = shop.language || 'zh'
+
+        let lang
+        if (userPicked === 'zh' || userPicked === 'en') {
+            lang = userPicked
+        } else if (shopLang === 'auto') {
+            // 浏览器语言判断
+            const browserLang = (navigator.language || 'zh').toLowerCase()
+            lang = browserLang.startsWith('zh') ? 'zh' : 'en'
+        } else {
+            lang = shopLang
+        }
+
+        if (i18n.language !== lang) i18n.changeLanguage(lang)
+        return () => { i18n.changeLanguage('zh') }
+    }, [shop?.language, slug])
+
     if (loading) return <div className="sf-loading"><div className="sf-spinner" /></div>
 
     if (error || !shop) {
@@ -133,6 +162,8 @@ export default function MerchantStorefront() {
         shopSkin: skin,
         shopNotice: shop.shopNotice,
         featureCard: shop.featureCard || null,
+        agreements: shop.agreements || null,
+        language: shop.language || 'zh',
         // 主题组件里凡是用 /api/s/${slug} 的，改为读 apiBase
         apiBase: `/api/v`,
         _tenantMode: true,
@@ -141,18 +172,20 @@ export default function MerchantStorefront() {
 
     const routes = (
         <Routes>
-            <Route index element={skin === 'fresh' ? <FreshProducts /> : skin === 'classic' ? <Products /> : <ZenProducts />} />
-            <Route path="products/:id" element={skin === 'fresh' ? <FreshProductDetail /> : skin === 'classic' ? <ProductDetail /> : <ZenProductDetail />} />
-            <Route path="checkout" element={skin === 'fresh' ? <FreshCheckout /> : skin === 'classic' ? <Checkout /> : <ZenCheckout />} />
+            <Route index element={skin === 'fresh' ? <FreshProducts /> : <ZenProducts />} />
+            <Route path="products/:id" element={skin === 'fresh' ? <FreshProductDetail /> : <ZenProductDetail />} />
+            <Route path="checkout" element={skin === 'fresh' ? <FreshCheckout /> : <ZenCheckout />} />
             <Route path="cart" element={<Cart />} />
-            <Route path="order/:orderNo" element={skin === 'fresh' ? <FreshOrderResult /> : skin === 'classic' ? <OrderResult /> : <ZenOrderResult />} />
-            <Route path="order-query" element={skin === 'fresh' ? <FreshOrderQuery /> : skin === 'classic' ? <OrderQuery /> : <ZenOrderQuery />} />
-            <Route path="login" element={skin === 'fresh' ? <FreshLogin /> : skin === 'classic' ? <Login /> : <ZenLogin />} />
-            <Route path="register" element={skin === 'fresh' ? <FreshRegister /> : skin === 'classic' ? <Register /> : <ZenRegister />} />
+            <Route path="order/:orderNo" element={skin === 'fresh' ? <FreshOrderResult /> : <ZenOrderResult />} />
+            <Route path="order-query" element={skin === 'fresh' ? <FreshOrderQuery /> : <ZenOrderQuery />} />
+            <Route path="login" element={skin === 'fresh' ? <FreshLogin /> : <ZenLogin />} />
+            <Route path="register" element={skin === 'fresh' ? <FreshRegister /> : <ZenRegister />} />
             <Route path="search" element={<Search />} />
             <Route path="tickets/new" element={<TicketNew />} />
             <Route path="tickets/:id" element={<TicketDetail />} />
-            <Route path="user/*" element={skin === 'fresh' ? <FreshUserCenter /> : skin === 'classic' ? <UserCenter /> : <ZenUserCenter />} />
+            <Route path="terms" element={<TermsPage />} />
+            <Route path="refund-policy" element={<RefundPolicyPage />} />
+            <Route path="user/*" element={skin === 'fresh' ? <FreshUserCenter /> : <ZenUserCenter />} />
         </Routes>
     )
 
@@ -175,7 +208,9 @@ export default function MerchantStorefront() {
                         <CustomTheme shop={shop} slug={slug} routes={routes} />
                     </Suspense>
                 )
-            })() : (
+            })() : skin === 'class' ? (
+                <OriginTheme shop={shop} slug={slug} />
+            ) : (
                 <>
                     {skin === 'fresh' && (
                         <div className="sf-root" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#F3F4F6' }}>
@@ -185,15 +220,7 @@ export default function MerchantStorefront() {
                             <Footer shopName={shop.shopName} />
                         </div>
                     )}
-                    {skin === 'classic' && (
-                        <div className="sf-root">
-                            <Navbar />
-                            <NoticeBanner text={shop.shopNotice} slug={slug} />
-                            <main className="main-content">{routes}</main>
-                            <Footer shopName={shop.shopName} />
-                        </div>
-                    )}
-                    {skin !== 'fresh' && skin !== 'classic' && !skin?.startsWith?.('custom:') && (
+                    {skin !== 'fresh' && !skin?.startsWith?.('custom:') && (
                         <div className="sf-root" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#FAFAF8' }}>
                             <ZenNavbar />
                             <NoticeBanner text={shop.shopNotice} slug={slug} />

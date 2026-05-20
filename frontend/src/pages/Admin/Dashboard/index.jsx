@@ -525,6 +525,65 @@ function PlatformNotices() {
     )
 }
 
+// 免费试用横幅
+function TrialBanner() {
+    const [plan, setPlan] = useState(null)
+    const token = useAuthStore(state => state.token)
+
+    useEffect(() => {
+        if (!token) return
+        fetch('/api/admin/plan-limits', { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.json())
+            .then(d => setPlan(d.plan))
+            .catch(() => {})
+    }, [token])
+
+    if (plan !== 'FREE') return null
+
+    const basePath = window.location.pathname.replace(/\/?$/, '') || '/admin'
+    const settingsPath = basePath.replace(/\/[^/]*$/, '/settings') || '/admin/settings'
+
+    return (
+        <div style={{
+            padding: '14px 20px',
+            marginBottom: 16,
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08))',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap'
+        }}>
+            <div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#4f46e5' }}>
+                    🎉 您正在免费试用中
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#6366f1', marginTop: 3 }}>
+                    所有功能均可体验，但试用期间暂不支持交易。升级套餐后立即开始接单。
+                </div>
+            </div>
+            <a
+                href={settingsPath}
+                style={{
+                    padding: '8px 20px',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    color: '#fff',
+                    borderRadius: 8,
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
+                }}
+            >
+                升级套餐 →
+            </a>
+        </div>
+    )
+}
+
 // 仪表盘首页
 function DashboardHome() {
     const location = useLocation()
@@ -694,6 +753,8 @@ function DashboardHome() {
 
     return (
         <div className="dashboard-home">
+            {/* 免费试用横幅 */}
+            <TrialBanner />
             {/* 平台公告 */}
             <PlatformNotices />
             {/* 顶部警报栏 */}

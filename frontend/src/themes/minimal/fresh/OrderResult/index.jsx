@@ -1,22 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { FiCheck, FiClock, FiCopy, FiPackage, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import toast from 'react-hot-toast'
 import './OrderResult.css'
 
-const statusConfig = {
-    pending:   { label: '待支付',  icon: FiClock,        bg: '#FEF3C7', iconBg: '#FDE68A', iconColor: '#D97706', border: '#FCD34D' },
-    paid:      { label: '已支付',  icon: FiCheck,        bg: '#EFF6FF', iconBg: '#DBEAFE', iconColor: '#2563EB', border: '#BFDBFE' },
-    completed: { label: '已完成',  icon: FiCheck,        bg: '#ECFDF5', iconBg: '#D1FAE5', iconColor: '#059669', border: '#A7F3D0' },
-    cancelled: { label: '已取消',  icon: FiAlertCircle,  bg: '#FEF2F2', iconBg: '#FEE2E2', iconColor: '#DC2626', border: '#FECACA' },
-    refunded:  { label: '已退款',  icon: FiRefreshCw,    bg: '#F5F3FF', iconBg: '#EDE9FE', iconColor: '#B91C1C', border: '#DDD6FE' },
-}
-
 const ORDER_TIMEOUT_MINUTES = 15
 
 export default function FreshOrderResult() {
+    const { t } = useTranslation()
     const { orderNo } = useParams()
     const storefront = useStorefront()
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
@@ -26,6 +20,14 @@ export default function FreshOrderResult() {
     const [qrCodeUrl, setQrCodeUrl] = useState(null)
     const [usdtPayment, setUsdtPayment] = useState(null)
     const [countdown, setCountdown] = useState(null)
+
+    const statusConfig = {
+        pending:   { label: t('order.pending'),   icon: FiClock,        bg: '#FEF3C7', iconBg: '#FDE68A', iconColor: '#D97706', border: '#FCD34D' },
+        paid:      { label: t('order.paid'),      icon: FiCheck,        bg: '#EFF6FF', iconBg: '#DBEAFE', iconColor: '#2563EB', border: '#BFDBFE' },
+        completed: { label: t('order.completed'), icon: FiCheck,        bg: '#ECFDF5', iconBg: '#D1FAE5', iconColor: '#059669', border: '#A7F3D0' },
+        cancelled: { label: t('order.cancelled'), icon: FiAlertCircle,  bg: '#FEF2F2', iconBg: '#FEE2E2', iconColor: '#DC2626', border: '#FECACA' },
+        refunded:  { label: t('order.refunded'),  icon: FiRefreshCw,    bg: '#F5F3FF', iconBg: '#EDE9FE', iconColor: '#B91C1C', border: '#DDD6FE' },
+    }
 
     const fetchOrder = async () => {
         setLoading(true)
@@ -42,8 +44,8 @@ export default function FreshOrderResult() {
                 product: { name: o.productName || o.product?.name, image: o.product?.image || null },
                 quantity: o.quantity,
                 totalAmount: parseFloat(o.totalAmount) || 0,
-                paymentMethod: o.paymentMethod === 'alipay' ? '支付宝' :
-                    o.paymentMethod === 'wechat' ? '微信支付' :
+                paymentMethod: o.paymentMethod === 'alipay' ? 'Alipay' :
+                    o.paymentMethod === 'wechat' ? 'WeChat Pay' :
                     o.paymentMethod === 'bsc_usdt' ? 'USDT-BEP20' : o.paymentMethod,
                 createdAt: o.createdAt ? new Date(o.createdAt).toLocaleString() : '',
                 paidAt: o.paidAt ? new Date(o.paidAt).toLocaleString() : null,
@@ -76,7 +78,7 @@ export default function FreshOrderResult() {
     }, [order?.createdAt, order?.status])
 
     const formatCountdown = (s) => {
-        if (s === null || s <= 0) return '已过期'
+        if (s === null || s <= 0) return t('order.expired')
         return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
     }
 
@@ -90,7 +92,7 @@ export default function FreshOrderResult() {
                 const res = await fetch(`/api/payment/status/${order.orderNo}`)
                 const data = await res.json()
                 if (data.orderStatus === 'paid' || data.orderStatus === 'completed') {
-                    setQrCodeUrl(null); toast.success('支付成功！'); window.location.reload()
+                    setQrCodeUrl(null); toast.success(t('common.success')); window.location.reload()
                 }
             } catch {}
         }, 3000)
@@ -107,7 +109,7 @@ export default function FreshOrderResult() {
         setPaying(true)
         try {
             let method = 'alipay'
-            if (order.paymentMethod === '微信支付') method = 'wechat'
+            if (order.paymentMethod === 'WeChat Pay') method = 'wechat'
             else if (['USDT-TRC20','usdt'].includes(order.paymentMethod)) method = 'usdt'
             else if (['USDT-BEP20','bsc_usdt'].includes(order.paymentMethod)) method = 'bsc_usdt'
 
@@ -121,17 +123,17 @@ export default function FreshOrderResult() {
             if (data.paymentType === 'usdt' || data.paymentType === 'bsc_usdt') {
                 setUsdtPayment({ type: data.paymentType, walletAddress: data.walletAddress,
                     usdtAmount: data.usdtAmount, exchangeRate: data.exchangeRate })
-                toast.success('请向指定地址转账 USDT')
+                toast.success('Please send USDT to the wallet address')
             } else if (data.paymentType === 'qrcode' && data.qrCode) {
                 setQrCodeUrl(data.qrCode)
-                toast.success('请使用支付宝扫描二维码支付')
+                toast.success(t('order.scanToPay'))
             } else if (data.payUrl) {
                 window.location.href = data.payUrl
             } else {
-                toast.error(data.error || '获取支付信息失败')
+                toast.error(data.error || t('common.failed'))
             }
         } catch {
-            toast.error('支付请求失败')
+            toast.error(t('common.networkError'))
         } finally {
             setPaying(false)
         }
@@ -142,20 +144,20 @@ export default function FreshOrderResult() {
             const res = await fetch(`/api/orders/${order.orderNo}/cancel`, { method: 'POST' })
             const data = await res.json()
             if (res.ok) {
-                toast.success('订单已取消')
+                toast.success(t('order.cancelSuccess'))
                 setQrCodeUrl(null); setUsdtPayment(null)
                 fetchOrder()
             } else {
-                toast.error(data.error || '取消失败')
+                toast.error(data.error || t('common.failed'))
             }
         } catch {
-            toast.error('取消订单失败')
+            toast.error(t('common.failed'))
         }
     }
 
     const copy = (text) => navigator.clipboard.writeText(text)
-        .then(() => toast.success('已复制'))
-        .catch(() => toast.error('复制失败'))
+        .then(() => toast.success(t('order.copied')))
+        .catch(() => toast.error(t('common.failed')))
 
     if (loading) return (
         <div className="for-page">
@@ -167,9 +169,9 @@ export default function FreshOrderResult() {
         <div className="for-page">
             <div className="for-empty">
                 <FiPackage size={48} style={{ color: '#D1D5DB', marginBottom: 16 }} />
-                <h2>订单不存在</h2>
-                <p>未找到订单号 {orderNo}</p>
-                <Link to={`${prefix}/order-query`} className="for-btn-outline">重新查询</Link>
+                <h2>{t('orderQuery.notFound')}</h2>
+                <p>{orderNo}</p>
+                <Link to={`${prefix}/order-query`} className="for-btn-outline">{t('orderQuery.query')}</Link>
             </div>
         </div>
     )
@@ -185,17 +187,17 @@ export default function FreshOrderResult() {
                     {usdtPayment ? (
                         <div className="for-usdt">
                             <div className="for-usdt-title">
-                                {usdtPayment.type === 'bsc_usdt' ? '🟡 USDT-BEP20 支付' : '💎 USDT-TRC20 支付'}
+                                {usdtPayment.type === 'bsc_usdt' ? '🟡 USDT-BEP20' : '💎 USDT-TRC20'}
                             </div>
                             <div className="for-usdt-amount">
-                                <span className="for-usdt-label">请转账</span>
+                                <span className="for-usdt-label">Amount</span>
                                 <span className="for-usdt-val">{usdtPayment.usdtAmount} USDT</span>
                                 <button className="for-copy-sm" onClick={() => copy(usdtPayment.usdtAmount.toString())}>
-                                    <FiCopy size={12} /> 复制
+                                    <FiCopy size={12} /> {t('order.copy')}
                                 </button>
                             </div>
                             <div className="for-addr-label">
-                                收款地址（{usdtPayment.type === 'bsc_usdt' ? 'BEP20/BSC' : 'TRC20/波场'}）
+                                Address ({usdtPayment.type === 'bsc_usdt' ? 'BEP20/BSC' : 'TRC20/TRON'})
                             </div>
                             <div className="for-addr-box">
                                 <code>{usdtPayment.walletAddress}</code>
@@ -206,43 +208,43 @@ export default function FreshOrderResult() {
                             <div className="for-qr-wrap">
                                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(usdtPayment.walletAddress)}`} alt="QR" />
                             </div>
-                            <div className="for-usdt-info">汇率：1 USDT = ¥{usdtPayment.exchangeRate} · 原价 ¥{order.totalAmount.toFixed(2)}</div>
+                            <div className="for-usdt-info">Rate: 1 USDT = ¥{usdtPayment.exchangeRate} · ¥{order.totalAmount.toFixed(2)}</div>
                             <div className="for-usdt-warn">
-                                ⚠️ 请务必转账 <strong>{usdtPayment.usdtAmount} USDT</strong>，金额不符将无法自动确认
+                                ⚠️ Please send exactly <strong>{usdtPayment.usdtAmount} USDT</strong> for auto-confirmation
                             </div>
                             {countdown !== null && (
                                 <div className={`for-countdown${countdown <= 60 ? ' urgent' : ''}`}>
-                                    <FiClock size={14} /> 支付剩余时间：<strong>{formatCountdown(countdown)}</strong>
+                                    <FiClock size={14} /> {t('order.countdown')}: <strong>{formatCountdown(countdown)}</strong>
                                 </div>
                             )}
-                            <button className="for-btn-ghost" onClick={cancelPayment}>取消支付</button>
+                            <button className="for-btn-ghost" onClick={cancelPayment}>{t('order.cancelOrder')}</button>
                         </div>
                     ) : qrCodeUrl ? (
                         <div className="for-qr-section">
-                            <div className="for-qr-title">请使用支付宝扫码支付</div>
+                            <div className="for-qr-title">{t('order.scanToPay')}</div>
                             <div className="for-qr-box">
-                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}`} alt="支付二维码" />
+                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}`} alt="QR" />
                             </div>
                             <div className="for-qr-amount">¥{order.totalAmount.toFixed(2)}</div>
-                            <div className="for-qr-hint">扫码后支付状态将自动更新</div>
+                            <div className="for-qr-hint">{t('order.scanToPay')}</div>
                             {countdown !== null && (
                                 <div className={`for-countdown${countdown <= 60 ? ' urgent' : ''}`}>
-                                    <FiClock size={14} /> 支付剩余时间：<strong>{formatCountdown(countdown)}</strong>
+                                    <FiClock size={14} /> {t('order.countdown')}: <strong>{formatCountdown(countdown)}</strong>
                                 </div>
                             )}
-                            <button className="for-btn-ghost" onClick={cancelPayment}>取消支付</button>
+                            <button className="for-btn-ghost" onClick={cancelPayment}>{t('order.cancelOrder')}</button>
                         </div>
                     ) : (
                         <div className="for-pending-default">
                             <div className="for-pending-notice">
                                 <FiClock size={18} style={{ color: '#D97706', flexShrink: 0 }} />
                                 <div>
-                                    <div className="for-pn-title">订单待支付</div>
-                                    <div className="for-pn-sub">请尽快完成支付，超时订单将自动取消</div>
+                                    <div className="for-pn-title">{t('order.pending')}</div>
+                                    <div className="for-pn-sub">{t('order.countdown')}</div>
                                 </div>
                             </div>
                             <button className="for-pay-btn" onClick={handlePayment} disabled={paying}>
-                                {paying ? '生成中…' : `立即支付 ¥${order.totalAmount.toFixed(2)}`}
+                                {paying ? t('checkout.submitting') : `${t('checkout.payNow')} ¥${order.totalAmount.toFixed(2)}`}
                             </button>
                         </div>
                     )}
@@ -253,9 +255,9 @@ export default function FreshOrderResult() {
             {(order.status === 'completed' || order.status === 'paid') && order.cards.length > 0 && (
                 <div className="for-card">
                     <div className="for-card-header">
-                        <div className="for-card-title">🎁 卡密信息</div>
+                        <div className="for-card-title">🎁 {t('order.cardKeys')}</div>
                         <button className="for-copy-all" onClick={() => copy(order.cards.map(c => c.content).join('\n'))}>
-                            <FiCopy size={12} /> 复制全部
+                            <FiCopy size={12} /> {t('order.copyAll')}
                         </button>
                     </div>
                     <div className="for-cards-list">
@@ -263,15 +265,14 @@ export default function FreshOrderResult() {
                             <div key={card.id} className="for-card-item">
                                 <div className="for-card-idx">#{i + 1}</div>
                                 <code className="for-card-content">{card.content}</code>
-                                <button className="for-copy-icon" onClick={() => copy(card.content)} title="复制">
+                                <button className="for-copy-icon" onClick={() => copy(card.content)} title={t('order.copy')}>
                                     <FiCopy size={13} />
                                 </button>
                             </div>
                         ))}
                     </div>
                     <div className="for-cards-footer">
-                        <span>共 <strong>{order.cards.length}</strong> 个卡密</span>
-                        <span className="for-cards-warn">⚠️ 请妥善保管，避免泄露</span>
+                        <span><strong>{order.cards.length}</strong> {t('order.cardKeys')}</span>
                     </div>
                 </div>
             )}
@@ -281,8 +282,7 @@ export default function FreshOrderResult() {
                 <div className="for-card for-status-notice cancelled">
                     <FiAlertCircle size={20} />
                     <div>
-                        <div className="for-pn-title">订单已取消</div>
-                        <div className="for-pn-sub">如需购买请重新下单</div>
+                        <div className="for-pn-title">{t('order.cancelled')}</div>
                     </div>
                 </div>
             )}
@@ -292,15 +292,14 @@ export default function FreshOrderResult() {
                 <div className="for-card for-status-notice refunded">
                     <FiRefreshCw size={20} />
                     <div>
-                        <div className="for-pn-title">商品已退款</div>
-                        <div className="for-pn-sub">如有疑问请联系客服</div>
+                        <div className="for-pn-title">{t('order.refunded')}</div>
                     </div>
                 </div>
             )}
 
             {/* ── Product info ── */}
             <div className="for-card">
-                <div className="for-card-title" style={{ marginBottom: 16 }}>商品信息</div>
+                <div className="for-card-title" style={{ marginBottom: 16 }}>{t('checkout.productInfo')}</div>
                 <div className="for-product-row">
                     {order.product.image
                         ? <img className="for-product-img" src={order.product.image} alt={order.product.name} />
@@ -308,7 +307,7 @@ export default function FreshOrderResult() {
                     }
                     <div className="for-product-info">
                         <div className="for-product-name">{order.product.name}</div>
-                        <div className="for-product-qty">数量：{order.quantity}</div>
+                        <div className="for-product-qty">{t('checkout.quantity')}: {order.quantity}</div>
                     </div>
                     <div className="for-product-price">¥{order.totalAmount.toFixed(2)}</div>
                 </div>
@@ -319,7 +318,7 @@ export default function FreshOrderResult() {
                 <div className="for-card for-note-card">
                     <span className="for-note-icon">📋</span>
                     <div>
-                        <div className="for-note-title">商家提示</div>
+                        <div className="for-note-title">📋</div>
                         <div className="for-note-body">{order.deliveryNote}</div>
                     </div>
                 </div>
@@ -330,30 +329,29 @@ export default function FreshOrderResult() {
                 <div className="for-card for-cards-pending">
                     <FiClock size={20} style={{ color: '#059669' }} />
                     <div>
-                        <div className="for-pn-title" style={{ color: '#065F46' }}>卡密发放中</div>
-                        <div className="for-pn-sub">请在订单详情或邮箱中查看卡密信息</div>
+                        <div className="for-pn-title" style={{ color: '#065F46' }}>{t('order.cardKeys')}</div>
                     </div>
                 </div>
             )}
 
             {/* ── Order details ── */}
             <div className="for-card">
-                <div className="for-card-title" style={{ marginBottom: 16 }}>订单详情</div>
+                <div className="for-card-title" style={{ marginBottom: 16 }}>{t('order.title')}</div>
                 <div className="for-details">
                     <div className="for-detail-row">
-                        <span className="for-detail-label">订单状态</span>
+                        <span className="for-detail-label">{t('order.status')}</span>
                         <span className="for-detail-status" style={{ color: sc.iconColor }}>
                             <StatusIcon size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
                             {sc.label}
                         </span>
                     </div>
                     {[
-                        ['订单号', order.orderNo],
-                        ['接收邮箱', order.email],
-                        ['支付方式', order.paymentMethod],
-                        ['创建时间', order.createdAt],
-                        ...(order.paidAt ? [['支付时间', order.paidAt]] : []),
-                        ['订单金额', `¥${order.totalAmount.toFixed(2)}`],
+                        [t('order.orderNo'), order.orderNo],
+                        [t('checkout.email'), order.email],
+                        [t('order.paymentMethod'), order.paymentMethod],
+                        [t('order.createdAt'), order.createdAt],
+                        ...(order.paidAt ? [[t('order.paidAt'), order.paidAt]] : []),
+                        [t('order.amount'), `¥${order.totalAmount.toFixed(2)}`],
                     ].map(([label, val], i, arr) => (
                         <div key={label} className={`for-detail-row${i === arr.length - 1 ? ' last' : ''}`}>
                             <span className="for-detail-label">{label}</span>

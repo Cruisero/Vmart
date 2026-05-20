@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast'
 import './Auth.css'
 
 export default function FreshRegister() {
+    const { t } = useTranslation()
     const navigate = useNavigate()
     const login = useAuthStore((s) => s.login)
     const storefront = useStorefront()
@@ -24,10 +26,10 @@ export default function FreshRegister() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!form.username || !form.email || !form.password) { toast.error('请填写完整信息'); return }
-        if (form.password !== form.confirmPassword) { toast.error('两次密码输入不一致'); return }
-        if (form.password.length < 6) { toast.error('密码至少6位'); return }
-        if (otp.enabled && !otp.code) { toast.error('请输入邮箱验证码'); return }
+        if (!form.username || !form.email || !form.password) { toast.error(t('auth.emailPlaceholder')); return }
+        if (form.password !== form.confirmPassword) { toast.error(t('auth.passwordMismatch')); return }
+        if (form.password.length < 6) { toast.error(t('auth.passwordMin')); return }
+        if (otp.enabled && !otp.code) { toast.error(t('auth.emailPlaceholder')); return }
         setLoading(true)
         try {
             const registerBody = { email: form.email, password: form.password, username: form.username }
@@ -43,9 +45,9 @@ export default function FreshRegister() {
                 body: JSON.stringify(registerBody)
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || '注册失败')
+            if (!res.ok) throw new Error(data.error || t('common.failed'))
             login(data.user, data.token)
-            toast.success('注册成功')
+            toast.success(t('auth.registerSuccess'))
             navigate(`${prefix}/`)
         } catch (err) {
             toast.error(err.message)
@@ -57,25 +59,23 @@ export default function FreshRegister() {
     return (
         <div className="fa-page">
             <div className="fa-card">
-                {/* Header */}
                 <div className="fa-header">
                     <div className="fa-logo">
                         <FiUser size={20} />
                     </div>
-                    <h1 className="fa-title">创建账号</h1>
-                    <p className="fa-sub">注册即可开始购物</p>
+                    <h1 className="fa-title">{t('auth.register')}</h1>
+                    <p className="fa-sub">{t('auth.register')}</p>
                 </div>
 
-                {/* Form */}
                 <form className="fa-form" onSubmit={handleSubmit}>
                     <div className="fa-field">
-                        <label className="fa-label">用户名</label>
+                        <label className="fa-label">{t('auth.email')}</label>
                         <div className="fa-input-wrap">
                             <FiUser className="fa-input-icon" size={15} />
                             <input
                                 type="text"
                                 className="fa-input"
-                                placeholder="请输入用户名"
+                                placeholder={t('auth.emailPlaceholder')}
                                 value={form.username}
                                 onChange={e => setForm({ ...form, username: e.target.value })}
                                 autoComplete="username"
@@ -84,13 +84,13 @@ export default function FreshRegister() {
                     </div>
 
                     <div className="fa-field">
-                        <label className="fa-label">邮箱</label>
+                        <label className="fa-label">{t('auth.email')}</label>
                         <div className="fa-input-wrap">
                             <FiMail className="fa-input-icon" size={15} />
                             <input
                                 type="email"
                                 className="fa-input"
-                                placeholder="请输入邮箱地址"
+                                placeholder={t('auth.emailPlaceholder')}
                                 value={form.email}
                                 onChange={e => setForm({ ...form, email: e.target.value })}
                                 autoComplete="email"
@@ -100,12 +100,12 @@ export default function FreshRegister() {
 
                     {otp.enabled && (
                         <div className="fa-field">
-                            <label className="fa-label">邮箱验证码</label>
+                            <label className="fa-label">OTP</label>
                             <div className="fa-input-wrap" style={{ display: 'flex', gap: 8 }}>
                                 <input
                                     type="text"
                                     className="fa-input"
-                                    placeholder="6 位数字"
+                                    placeholder="6 digits"
                                     value={otp.code}
                                     onChange={e => otp.setCode(e.target.value.replace(/\D/g, ''))}
                                     maxLength={6}
@@ -125,7 +125,7 @@ export default function FreshRegister() {
                                         whiteSpace: 'nowrap'
                                     }}
                                 >
-                                    {otp.sending ? '发送中...' : otp.cooldown > 0 ? `${otp.cooldown}s` : '获取验证码'}
+                                    {otp.sending ? '...' : otp.cooldown > 0 ? `${otp.cooldown}s` : 'Send Code'}
                                 </button>
                             </div>
                             {otp.error && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: 4 }}>{otp.error}</div>}
@@ -134,13 +134,13 @@ export default function FreshRegister() {
                     )}
 
                     <div className="fa-field">
-                        <label className="fa-label">密码</label>
+                        <label className="fa-label">{t('auth.password')}</label>
                         <div className="fa-input-wrap">
                             <FiLock className="fa-input-icon" size={15} />
                             <input
                                 type={showPw ? 'text' : 'password'}
                                 className="fa-input"
-                                placeholder="请输入密码（至少6位）"
+                                placeholder={t('auth.passwordPlaceholder')}
                                 value={form.password}
                                 onChange={e => setForm({ ...form, password: e.target.value })}
                                 autoComplete="new-password"
@@ -152,13 +152,13 @@ export default function FreshRegister() {
                     </div>
 
                     <div className="fa-field">
-                        <label className="fa-label">确认密码</label>
+                        <label className="fa-label">{t('auth.confirmPassword')}</label>
                         <div className="fa-input-wrap">
                             <FiLock className="fa-input-icon" size={15} />
                             <input
                                 type={showPw ? 'text' : 'password'}
                                 className="fa-input"
-                                placeholder="请再次输入密码"
+                                placeholder={t('auth.confirmPlaceholder')}
                                 value={form.confirmPassword}
                                 onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
                                 autoComplete="new-password"
@@ -166,20 +166,14 @@ export default function FreshRegister() {
                         </div>
                     </div>
 
-                    <label className="fa-terms">
-                        <input type="checkbox" required />
-                        <span>我已阅读并同意 <a href="/terms" className="fa-link" style={{ marginLeft: 0 }}>用户协议</a></span>
-                    </label>
-
                     <button type="submit" className="fa-submit" disabled={loading}>
-                        {loading ? <span className="fa-spinner" /> : <>注册 <FiArrowRight size={15} /></>}
+                        {loading ? <span className="fa-spinner" /> : <>{t('auth.registerBtn')} <FiArrowRight size={15} /></>}
                     </button>
                 </form>
 
-                {/* Footer */}
                 <div className="fa-footer">
-                    已有账号？
-                    <Link to={`${prefix}/login`} className="fa-link">立即登录</Link>
+                    {t('auth.hasAccount')}
+                    <Link to={`${prefix}/login`} className="fa-link">{t('auth.goLogin')}</Link>
                 </div>
             </div>
         </div>

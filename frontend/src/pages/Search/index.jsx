@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { FiShoppingCart, FiSearch, FiBox } from 'react-icons/fi'
 import { useCartStore } from '../../store/cartStore'
 import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import toast from 'react-hot-toast'
 import './Search.css'
 
@@ -22,6 +23,7 @@ const getImageUrl = (url, size = 'large') => {
 function Search() {
     const [searchParams] = useSearchParams()
     const query = searchParams.get('q') || ''
+    usePageTitle(query ? `搜索：${query}` : '搜索')
     const [sortBy, setSortBy] = useState('default')
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(false)

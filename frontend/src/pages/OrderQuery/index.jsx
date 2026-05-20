@@ -1,22 +1,16 @@
 import { useState } from 'react'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { useNavigate, Link } from 'react-router-dom'
 import { FiSearch, FiPackage, FiClock, FiCheckCircle, FiXCircle, FiAlertCircle } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
 import { useStorefront } from '../../store/storefrontStore'
 import './OrderQuery.css'
 
-const statusMap = {
-    pending: { label: '待支付', icon: <FiClock />, color: '#f59e0b' },
-    paid: { label: '已支付', icon: <FiCheckCircle />, color: '#3b82f6' },
-    completed: { label: '已完成', icon: <FiCheckCircle />, color: '#10b981' },
-    cancelled: { label: '已取消', icon: <FiXCircle />, color: '#94a3b8' },
-    refunding: { label: '退款中', icon: <FiAlertCircle />, color: '#f97316' },
-    expired: { label: '已过期', icon: <FiAlertCircle />, color: '#ef4444' },
-    refunded: { label: '已退款', icon: <FiAlertCircle />, color: '#7c3aed' }
-}
-
 function OrderQuery() {
+    const { t } = useTranslation()
+    usePageTitle(t('orderQuery.title'))
     const navigate = useNavigate()
     const { isAuthenticated } = useAuthStore()
     const storefront = useStorefront()
@@ -25,6 +19,16 @@ function OrderQuery() {
     const [loading, setLoading] = useState(false)
     const [orders, setOrders] = useState(null)
 
+    const statusMap = {
+        pending: { label: t('order.pending'), icon: <FiClock />, color: '#f59e0b' },
+        paid: { label: t('order.paid'), icon: <FiCheckCircle />, color: '#3b82f6' },
+        completed: { label: t('order.paid'), icon: <FiCheckCircle />, color: '#10b981' },
+        cancelled: { label: t('order.cancelled'), icon: <FiXCircle />, color: '#94a3b8' },
+        refunding: { label: t('order.refunding'), icon: <FiAlertCircle />, color: '#f97316' },
+        expired: { label: t('order.expired'), icon: <FiAlertCircle />, color: '#ef4444' },
+        refunded: { label: t('order.refunded'), icon: <FiAlertCircle />, color: '#7c3aed' }
+    }
+
     const isEmail = (str) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)
 
     const handleSubmit = async (e) => {
@@ -32,11 +36,11 @@ function OrderQuery() {
 
         const input = query.trim()
         if (!input) {
-            toast.error('请输入订单号或邮箱')
+            toast.error(t('orderQuery.orderNoPlaceholder'))
             return
         }
         if (!password.trim()) {
-            toast.error('请输入查询密码')
+            toast.error(t('orderQuery.passwordPlaceholder'))
             return
         }
 
@@ -66,7 +70,7 @@ function OrderQuery() {
                 setOrders(data.orders)
             }
         } catch (error) {
-            toast.error('查询失败，请稍后重试')
+            toast.error(t('common.networkError'))
         } finally {
             setLoading(false)
         }
@@ -79,9 +83,9 @@ function OrderQuery() {
                     <FiPackage />
                 </div>
 
-                <h1>订单查询</h1>
+                <h1>{t('orderQuery.title')}</h1>
                 <p className="query-desc">
-                    输入订单号或下单邮箱，查询订单状态和卡密信息
+                    {t('orderQuery.desc')}
                 </p>
 
                 <form className="query-form" onSubmit={handleSubmit}>
@@ -89,13 +93,13 @@ function OrderQuery() {
                         <input
                             type="text"
                             className="input query-input"
-                            placeholder="请输入订单号或邮箱地址"
+                            placeholder={t('orderQuery.orderNoPlaceholder')}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                         />
                         {query.trim() && (
                             <span className="input-hint">
-                                {isEmail(query.trim()) ? '📧 将按邮箱查询所有订单' : '📋 将按订单号查询'}
+                                {isEmail(query.trim()) ? `📧 ${t('orderQuery.emailQueryDesc')}` : `📋 ${t('orderQuery.orderNo')}`}
                             </span>
                         )}
                     </div>
@@ -104,7 +108,7 @@ function OrderQuery() {
                         <input
                             type="password"
                             className="input query-input"
-                            placeholder="请输入查询密码"
+                            placeholder={t('orderQuery.passwordPlaceholder')}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
@@ -118,12 +122,12 @@ function OrderQuery() {
                         {loading ? (
                             <span className="loading-text">
                                 <span className="spinner-small"></span>
-                                查询中...
+                                {t('orderQuery.querying')}
                             </span>
                         ) : (
                             <>
                                 <FiSearch />
-                                查询订单
+                                {t('orderQuery.query')}
                             </>
                         )}
                     </button>
@@ -133,7 +137,7 @@ function OrderQuery() {
                 {orders && (
                     <div className="order-results">
                         <h3 className="results-title">
-                            查询到 {orders.length} 个订单
+                            {orders.length} {t('orderQuery.title')}
                         </h3>
                         <div className="order-list">
                             {orders.map(order => {
@@ -150,7 +154,7 @@ function OrderQuery() {
                                                     <img src={order.product.image} alt="" className="order-item-img" />
                                                 )}
                                                 <div>
-                                                    <div className="order-item-name">{order.product?.name || '商品'}</div>
+                                                    <div className="order-item-name">{order.product?.name || t('order.product')}</div>
                                                     <div className="order-item-no">{order.orderNo}</div>
                                                 </div>
                                             </div>
@@ -171,12 +175,9 @@ function OrderQuery() {
 
                 {!orders && (
                     <div className="query-tips">
-                        <h3>📌 温馨提示</h3>
+                        <h3>📌 {t('common.noData') === '暂无数据' ? '温馨提示' : 'Tips'}</h3>
                         <ul>
-                            <li>订单号可在支付成功页面或邮件中找到</li>
-                            <li>邮箱+查询密码可查看该邮箱下的所有订单</li>
-                            <li>卡密信息将在支付成功后自动发放</li>
-                            <li>如有问题请通过工单联系客服</li>
+                            <li>{t('orderQuery.desc')}</li>
                         </ul>
                     </div>
                 )}

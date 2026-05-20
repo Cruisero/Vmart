@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { FiArrowLeft, FiSend, FiClock, FiCheck, FiAlertCircle, FiPackage, FiCheckCircle, FiX, FiRotateCcw } from 'react-icons/fi'
 import { useAuthStore } from '../../store/authStore'
@@ -21,6 +22,7 @@ const typeMap = {
 }
 
 function TicketDetail() {
+    usePageTitle("工单详情")
     const { id } = useParams()
     const navigate = useNavigate()
     const { isAuthenticated, token, user } = useAuthStore()

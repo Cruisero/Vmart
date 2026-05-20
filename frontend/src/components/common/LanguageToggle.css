@@ -1,0 +1,79 @@
+/* 语言切换 - 分段控件样式 */
+.vmart-lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding: 2px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 999px;
+    height: 28px;
+    line-height: 1;
+    user-select: none;
+}
+
+.vmart-lang-toggle .vlt-option {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    background: transparent;
+    padding: 0 12px;
+    height: 24px;
+    min-width: 32px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+.vmart-lang-toggle .vlt-option:hover:not(.active) {
+    color: #111827;
+}
+
+.vmart-lang-toggle .vlt-option.active {
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+
+/* 暗色模式 */
+:root.dark .vmart-lang-toggle,
+[data-theme="dark"] .vmart-lang-toggle {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+:root.dark .vmart-lang-toggle .vlt-option,
+[data-theme="dark"] .vmart-lang-toggle .vlt-option {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+:root.dark .vmart-lang-toggle .vlt-option:hover:not(.active),
+[data-theme="dark"] .vmart-lang-toggle .vlt-option:hover:not(.active) {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+:root.dark .vmart-lang-toggle .vlt-option.active,
+[data-theme="dark"] .vmart-lang-toggle .vlt-option.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+/* 移动端紧凑 */
+@media (max-width: 600px) {
+    .vmart-lang-toggle {
+        height: 26px;
+    }
+    .vmart-lang-toggle .vlt-option {
+        padding: 0 10px;
+        min-width: 28px;
+        height: 22px;
+        font-size: 11px;
+    }
+}

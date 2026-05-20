@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiCreditCard, FiMail, FiArrowLeft, FiCheck, FiEdit3 } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
 import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
@@ -23,6 +25,8 @@ const paymentColors = {
 }
 
 function Checkout() {
+    const { t } = useTranslation()
+    usePageTitle(t('checkout.title'))
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const agentSlug = searchParams.get('agent')
@@ -37,9 +41,13 @@ function Checkout() {
     const [queryPassword, setQueryPassword] = useState('')
     const [paymentMethod, setPaymentMethod] = useState('alipay')
     const [loading, setLoading] = useState(false)
-    const [agreed, setAgreed] = useState(false)
+    const [agreed, setAgreed] = useState(true) // 默认勾选
     const [paymentMethods, setPaymentMethods] = useState([])
     const [remark, setRemark] = useState('')
+
+    // 协议数据从 StorefrontContext 读取
+    const agreements = storefront?.agreements || null
+    const hasAgreements = !!(agreements?.purchasePolicy || agreements?.refundPolicy)
 
     // 代理分站下单：单独的商品数据
     const [agentProduct, setAgentProduct] = useState(null)
@@ -69,7 +77,7 @@ function Checkout() {
                         setAgentProduct(data.product)
                     }
                 })
-                .catch(() => toast.error('获取商品信息失败'))
+                .catch(() => toast.error(t('common.networkError')))
         }
     }, [agentSlug, agentProductId])
 
@@ -106,10 +114,10 @@ function Checkout() {
         return (
             <div className="checkout-page">
                 <div className="checkout-empty">
-                    <h2>购物车为空</h2>
-                    <p>请先添加商品到购物车</p>
+                    <h2>{t('checkout.cartEmpty')}</h2>
+                    <p>{t('checkout.cartEmptyDesc')}</p>
                     <Link to="/products" className="btn btn-primary">
-                        去购物
+                        {t('checkout.goShop')}
                     </Link>
                 </div>
             </div>
@@ -120,7 +128,7 @@ function Checkout() {
         return (
             <div className="checkout-page">
                 <div className="checkout-empty">
-                    <p>加载商品信息...</p>
+                    <p>{t('checkout.loading')}</p>
                 </div>
             </div>
         )
@@ -130,25 +138,25 @@ function Checkout() {
         e.preventDefault()
 
         if (!email || !email.trim()) {
-            toast.error('请输入接收卡密的邮箱')
+            toast.error(t('checkout.emailRequired'))
             return
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(email.trim())) {
-            toast.error('请输入正确的邮箱格式')
+            toast.error(t('checkout.emailError'))
             return
         }
 
         if (!isAuthenticated) {
             if (!queryPassword.trim() || queryPassword.trim().length < 4) {
-                toast.error('请设置至少 4 位的查询密码')
+                toast.error(t('checkout.queryPasswordError'))
                 return
             }
         }
 
-        if (!agreed) {
-            toast.error('请同意用户协议')
+        if (hasAgreements && !agreed) {
+            toast.error(t('checkout.agreeError'))
             return
         }
 
@@ -156,7 +164,6 @@ function Checkout() {
 
         try {
             if (isAgentCheckout) {
-                // 代理分站下单：单个商品
                 const res = await fetch('/api/orders', {
                     method: 'POST',
                     headers: {
@@ -180,10 +187,9 @@ function Checkout() {
                     setLoading(false)
                     return
                 }
-                toast.success('订单创建成功')
+                toast.success(t('checkout.orderSuccess'))
                 navigate(withPrefix(`/order/${result.order.orderNo}`))
             } else {
-                // 普通结账流程
                 const orderPromises = cartItems.map(item =>
                     fetch('/api/orders', {
                         method: 'POST',
@@ -206,19 +212,19 @@ function Checkout() {
                 const results = await Promise.all(orderPromises)
                 const errors = results.filter(r => r.error)
                 if (errors.length > 0) {
-                    toast.error(errors[0].error || '订单创建失败')
+                    toast.error(errors[0].error || t('checkout.orderFailed'))
                     setLoading(false)
                     return
                 }
 
                 const firstOrder = results[0]
                 clearCart()
-                toast.success('订单创建成功')
+                toast.success(t('checkout.orderSuccess'))
                 navigate(withPrefix(`/order/${firstOrder.order.orderNo}`))
             }
         } catch (error) {
             console.error('创建订单失败:', error)
-            toast.error('创建订单失败，请稍后重试')
+            toast.error(t('checkout.orderFailed'))
         } finally {
             setLoading(false)
         }
@@ -228,24 +234,24 @@ function Checkout() {
         <div className="checkout-page">
             <button className="back-btn" onClick={() => navigate(-1)}>
                 <FiArrowLeft />
-                {isAgentCheckout ? '返回商品' : '返回购物车'}
+                {isAgentCheckout ? t('checkout.backToProduct') : t('checkout.backToCart')}
             </button>
 
-            <h1 className="section-title">确认订单</h1>
+            <h1 className="section-title">{t('checkout.title')}</h1>
 
             <form className="checkout-container" onSubmit={handleSubmit}>
                 {/* 左侧 - 订单信息 */}
                 <div className="checkout-main">
                     {/* 商品列表 */}
                     <div className="checkout-section">
-                        <h3>商品信息</h3>
+                        <h3>{t('checkout.productInfo')}</h3>
                         <div className="checkout-items">
                             {items.map((item) => (
                                 <div key={item.id} className="checkout-item">
                                     <img src={item.image} alt={item.name} />
                                     <div className="item-details">
                                         <h4>{item.name}{item.variant ? ` (${item.variant.name})` : ''}</h4>
-                                        <p>数量: {item.quantity}</p>
+                                        <p>{t('checkout.quantity')}: {item.quantity}</p>
                                     </div>
                                     <div className="item-price">
                                         ¥{(item.price * item.quantity).toFixed(2)}
@@ -259,7 +265,7 @@ function Checkout() {
                             <div style={{ marginTop: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                                 {agentProduct.variants?.length > 0 && (
                                     <div>
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>规格：</label>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>{t('checkout.variant')}：</label>
                                         <select
                                             value={selectedVariant?.id || ''}
                                             onChange={e => {
@@ -268,7 +274,7 @@ function Checkout() {
                                             }}
                                             style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #E5E7EB' }}
                                         >
-                                            <option value="">默认</option>
+                                            <option value="">{t('checkout.default')}</option>
                                             {agentProduct.variants.map(v => (
                                                 <option key={v.id} value={v.id}>{v.name} - ¥{v.price.toFixed(2)}</option>
                                             ))}
@@ -276,7 +282,7 @@ function Checkout() {
                                     </div>
                                 )}
                                 <div>
-                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>数量：</label>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>{t('checkout.quantity')}：</label>
                                     <input
                                         type="number" min={1} max={agentProduct.stock}
                                         value={agentQty}
@@ -292,27 +298,27 @@ function Checkout() {
                     <div className="checkout-section">
                         <h3>
                             <FiMail />
-                            订单邮箱
+                            {t('checkout.email')}
                         </h3>
-                        <p className="section-desc">用于接收或查询订单信息</p>
+                        <p className="section-desc">{t('checkout.emailDesc')}</p>
                         <input
                             type="email"
                             className="input"
-                            placeholder="邮箱地址"
+                            placeholder={t('checkout.emailPlaceholder')}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
                         />
                         {email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
-                            <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>请输入正确的邮箱格式</p>
+                            <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>{t('checkout.emailError')}</p>
                         )}
                         {!isAuthenticated && (
                             <>
-                                <p className="section-desc" style={{ marginTop: 12 }}>查询密码 - 后续凭此查询订单</p>
+                                <p className="section-desc" style={{ marginTop: 12 }}>{t('checkout.queryPasswordDesc')}</p>
                                 <input
                                     type="password"
                                     className="input"
-                                    placeholder="设置至少 4 位查询密码"
+                                    placeholder={t('checkout.queryPasswordPlaceholder')}
                                     value={queryPassword}
                                     onChange={(e) => setQueryPassword(e.target.value)}
                                     minLength={4}
@@ -327,7 +333,7 @@ function Checkout() {
                     <div className="checkout-section">
                         <h3>
                             <FiCreditCard />
-                            支付方式
+                            {t('checkout.payment')}
                         </h3>
                         <div className="payment-methods">
                             {paymentMethods.filter(m => !m.disabled).map((method) => (
@@ -354,12 +360,12 @@ function Checkout() {
                     <div className="checkout-section">
                         <h3>
                             <FiEdit3 />
-                            订单备注
+                            {t('checkout.remark')}
                         </h3>
-                        <p className="section-desc">如有特殊要求，请在此备注（选填）</p>
+                        <p className="section-desc">{t('checkout.remarkDesc')}</p>
                         <textarea
                             className="input remark-input"
-                            placeholder="例如：请发送到备用邮箱 xxx@example.com"
+                            placeholder={t('checkout.remarkPlaceholder')}
                             value={remark}
                             onChange={(e) => setRemark(e.target.value)}
                             maxLength={500}
@@ -372,49 +378,52 @@ function Checkout() {
                 {/* 右侧 - 订单摘要 */}
                 <div className="checkout-sidebar">
                     <div className="order-summary">
-                        <h3>订单摘要</h3>
+                        <h3>{t('checkout.summary')}</h3>
 
                         <div className="summary-rows">
                             <div className="summary-row">
-                                <span>商品数量</span>
-                                <span>{itemCount} 件</span>
+                                <span>{t('checkout.itemCount')}</span>
+                                <span>{itemCount} {t('checkout.itemUnit')}</span>
                             </div>
                             <div className="summary-row">
-                                <span>商品金额</span>
+                                <span>{t('checkout.subtotal')}</span>
                                 <span>¥{totalPrice.toFixed(2)}</span>
                             </div>
                             <div className="summary-row">
-                                <span>优惠</span>
+                                <span>{t('checkout.discount')}</span>
                                 <span className="discount">-¥0.00</span>
                             </div>
                         </div>
 
                         <div className="summary-total">
-                            <span>应付金额</span>
+                            <span>{t('checkout.totalDue')}</span>
                             <span className="total-price">¥{totalPrice.toFixed(2)}</span>
                         </div>
 
-                        <label className="agree-terms">
-                            <input
-                                type="checkbox"
-                                checked={agreed}
-                                onChange={(e) => setAgreed(e.target.checked)}
-                            />
-                            <span>我已阅读并同意 <a href="/terms" target="_blank" rel="noopener noreferrer">购买协议</a> 和 <a href="/refund-policy" target="_blank" rel="noopener noreferrer">退款政策</a></span>
-                        </label>
+                        {hasAgreements && (
+                            <label className="agree-terms">
+                                <input
+                                    type="checkbox"
+                                    checked={agreed}
+                                    onChange={(e) => setAgreed(e.target.checked)}
+                                />
+                                <span>{t('checkout.agree')}
+                                    {agreements.purchasePolicy && <Link to={withPrefix('/terms')} target="_blank">{t('checkout.purchasePolicy')}</Link>}
+                                    {agreements.purchasePolicy && agreements.refundPolicy && ` ${t('checkout.and')} `}
+                                    {agreements.refundPolicy && <Link to={withPrefix('/refund-policy')} target="_blank">{t('checkout.refundPolicy')}</Link>}
+                                </span>
+                            </label>
+                        )}
 
                         <button
                             type="submit"
                             className="btn btn-primary btn-lg submit-order-btn"
-                            disabled={loading || !agreed}
+                            disabled={loading || (hasAgreements && !agreed)}
                         >
-                            {loading ? '提交中...' : `立即支付 ¥${totalPrice.toFixed(2)}`}
+                            {loading ? t('checkout.submitting') : `${t('checkout.submit')} ¥${totalPrice.toFixed(2)}`}
                         </button>
 
-                        <div className="security-tips">
-                            <p>🔒 安全支付，隐私保护</p>
-                            <p>⚡ 支付成功后自动发放卡密</p>
-                        </div>
+                       
                     </div>
                 </div>
             </form>

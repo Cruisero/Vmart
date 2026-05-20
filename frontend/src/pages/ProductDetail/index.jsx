@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { FiShoppingCart, FiMinus, FiPlus, FiCheck, FiShield, FiZap, FiArrowLeft } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../store/cartStore'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import toast from 'react-hot-toast'
 import './ProductDetail.css'
 
@@ -20,6 +22,7 @@ const getImageUrl = (url, size = 'original') => {
 }
 
 function ProductDetail() {
+    const { t } = useTranslation()
     const { id } = useParams()
     const navigate = useNavigate()
     const [quantity, setQuantity] = useState(1)
@@ -27,6 +30,8 @@ function ProductDetail() {
     const [loading, setLoading] = useState(true)
     const [activeImageIndex, setActiveImageIndex] = useState(0)
     const [selectedVariant, setSelectedVariant] = useState(null) // 选中的规格
+
+    usePageTitle(product?.name || t('products.description'))
     const [selectedType, setSelectedType] = useState('') // 选中的规格类型
     const addItem = useCartStore((state) => state.addItem)
     const storefront = useStorefront()
@@ -107,7 +112,7 @@ function ProductDetail() {
         if (product) {
             addItem(product, quantity, selectedVariant)
             const variantInfo = selectedVariant ? ` (${selectedVariant.name})` : ''
-            toast.success(`已添加 ${quantity} 件商品${variantInfo}到购物车`)
+            toast.success(t('products.addToCart'))
         }
     }
 
@@ -132,10 +137,10 @@ function ProductDetail() {
     if (!product) {
         return (
             <div className="product-not-found">
-                <h2>商品不存在</h2>
-                <p>您访问的商品可能已下架或不存在</p>
+                <h2>{t('products.notFound')}</h2>
+                <p>{t('products.removed')}</p>
                 <Link to={`${linkPrefix}/`} className="btn btn-primary">
-                    返回商品列表
+                    {t('products.backHome')}
                 </Link>
             </div>
         )
@@ -148,7 +153,7 @@ function ProductDetail() {
             {/* 返回按钮 */}
             <button className="back-btn" onClick={() => navigate(-1)}>
                 <FiArrowLeft />
-                返回
+                {t('common.back')}
             </button>
 
             <div className="product-detail-container">
@@ -222,7 +227,7 @@ function ProductDetail() {
                                 <div className="variant-selector">
                                     {/* 类型选择 */}
                                     <div className="variant-row">
-                                        <span className="variant-label">类型</span>
+                                        <span className="variant-label">{t('products.type')}</span>
                                         <div className="variant-options">
                                             {types.map((type) => (
                                                 <button
@@ -244,7 +249,7 @@ function ProductDetail() {
 
                                     {/* 规格选择 */}
                                     <div className="variant-row">
-                                        <span className="variant-label">规格</span>
+                                        <span className="variant-label">{t('products.variant')}</span>
                                         <div className="variant-options">
                                             {typeVariants.map((variant) => (
                                                 <button
@@ -264,7 +269,7 @@ function ProductDetail() {
                             // 无类型分组，直接显示规格
                             return (
                                 <div className="variant-selector">
-                                    <span className="variant-label">规格</span>
+                                    <span className="variant-label">{t('products.variant')}</span>
                                     <div className="variant-options">
                                         {product.variants.map((variant) => (
                                             <button
@@ -285,7 +290,7 @@ function ProductDetail() {
                     {/* 价格区域 */}
                     <div className="price-section">
                         <div className="price-row">
-                            <span className="price-label">价格</span>
+                            <span className="price-label">{t('products.price')}</span>
                             <span className="price-value">
                                 ¥{(selectedVariant?.price || product.price).toFixed(2)}
                             </span>
@@ -299,16 +304,16 @@ function ProductDetail() {
                             )}
                         </div>
                         <div className="sales-row">
-                            <span>已售 {product.sold}</span>
+                            <span>{t('products.sales')} {product.sold}</span>
                             <span className={currentStock === 0 ? 'out-of-stock' : ''}>
-                                {currentStock > 0 ? `库存 ${currentStock}` : '暂无库存'}
+                                {currentStock > 0 ? `${t('products.stock')} ${currentStock}` : t('products.soldOut')}
                             </span>
                         </div>
                     </div>
 
                     {/* 数量选择 */}
                     <div className="quantity-section">
-                        <span className="quantity-label">数量</span>
+                        <span className="quantity-label">{t('products.quantity')}</span>
                         <div className="quantity-control">
                             <button
                                 className="qty-btn"
@@ -327,7 +332,7 @@ function ProductDetail() {
                             </button>
                         </div>
                         <span className="qty-total">
-                            小计: <strong>¥{((selectedVariant?.price || product.price) * quantity).toFixed(2)}</strong>
+                            {t('products.subtotal')}: <strong>¥{((selectedVariant?.price || product.price) * quantity).toFixed(2)}</strong>
                         </span>
                     </div>
 
@@ -339,14 +344,14 @@ function ProductDetail() {
                             disabled={isOutOfStock}
                         >
                             <FiShoppingCart />
-                            {isOutOfStock ? '暂无库存' : '加入购物车'}
+                            {isOutOfStock ? t('products.soldOut') : t('products.addToCart')}
                         </button>
                         <button
                             className="btn btn-primary btn-lg"
                             onClick={handleBuyNow}
                             disabled={isOutOfStock}
                         >
-                            {isOutOfStock ? '补货中' : '立即购买'}
+                            {isOutOfStock ? t('products.soldOut') : t('products.buyNow')}
                         </button>
                     </div>
 
@@ -354,15 +359,15 @@ function ProductDetail() {
                     <div className="service-guarantee">
                         <div className="guarantee-item">
                             <FiZap />
-                            <span>即时发货</span>
+                            <span>{t('guarantee.instantDelivery')}</span>
                         </div>
                         <div className="guarantee-item">
                             <FiShield />
-                            <span>安全保障</span>
+                            <span>{t('guarantee.secure')}</span>
                         </div>
                         <div className="guarantee-item">
                             <FiCheck />
-                            <span>正品保证</span>
+                            <span>{t('guarantee.authentic')}</span>
                         </div>
                     </div>
                 </div>
@@ -370,7 +375,7 @@ function ProductDetail() {
 
             {/* 商品详情 */}
             <div className="product-description-section">
-                <h2 className="section-subtitle">商品详情</h2>
+                <h2 className="section-subtitle">{t('products.description')}</h2>
                 <div className="description-content">
                     <pre>{product.fullDescription}</pre>
                 </div>

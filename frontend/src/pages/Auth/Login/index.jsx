@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { usePageTitle } from '../../../hooks/usePageTitle'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../store/authStore'
 import { useStorefront, useStorefrontPath } from '../../../store/storefrontStore'
 import toast from 'react-hot-toast'
@@ -9,6 +11,8 @@ import './Auth.css'
 const API_BASE = '/api'
 
 function Login() {
+    const { t } = useTranslation()
+    usePageTitle(t('auth.login'))
     const navigate = useNavigate()
     const { withPrefix } = useStorefrontPath()
     const storefront = useStorefront()
@@ -29,7 +33,7 @@ function Login() {
         e.preventDefault()
 
         if (!formData.email || !formData.password) {
-            toast.error('请填写完整信息')
+            toast.error(t('auth.emailPlaceholder'))
             return
         }
 
@@ -50,14 +54,12 @@ function Login() {
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(data.error || '登录失败')
+                throw new Error(data.error || t('common.failed'))
             }
 
-            // 使用真实的 token 和用户信息
             login(data.user, data.token)
-            toast.success('登录成功')
+            toast.success(t('auth.loginSuccess'))
 
-            // 根据角色跳转
             const role = data.user.role
             if (!storefront?._tenantMode && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
                 navigate('/admin')
@@ -65,7 +67,7 @@ function Login() {
                 navigate(withPrefix('/'))
             }
         } catch (error) {
-            toast.error(error.message || '邮箱或密码错误')
+            toast.error(error.message || t('common.failed'))
         } finally {
             setLoading(false)
         }
@@ -75,20 +77,20 @@ function Login() {
         <div className="auth-page">
             <div className="auth-container">
                 <div className="auth-header">
-                    <h1>欢迎回来</h1>
-                    <p>登录您的 HaoDongXi 账号</p>
+                    <h1>{t('user.welcome')}</h1>
+                    <p>{t('auth.login')}</p>
                 </div>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>邮箱</label>
+                        <label>{t('auth.email')}</label>
                         <div className="input-wrapper">
                             <FiMail className="input-icon" />
                             <input
                                 type="email"
                                 name="email"
                                 className="input with-icon"
-                                placeholder="请输入邮箱"
+                                placeholder={t('auth.emailPlaceholder')}
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -96,14 +98,14 @@ function Login() {
                     </div>
 
                     <div className="form-group">
-                        <label>密码</label>
+                        <label>{t('auth.password')}</label>
                         <div className="input-wrapper">
                             <FiLock className="input-icon" />
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 name="password"
                                 className="input with-icon"
-                                placeholder="请输入密码"
+                                placeholder={t('auth.passwordPlaceholder')}
                                 value={formData.password}
                                 onChange={handleChange}
                             />
@@ -117,38 +119,28 @@ function Login() {
                         </div>
                     </div>
 
-                    <div className="form-options">
-                        <label className="remember-me">
-                            <input type="checkbox" />
-                            <span>记住我</span>
-                        </label>
-                        <Link to="/forgot-password" className="forgot-password">忘记密码？</Link>
-                    </div>
-
                     <button
                         type="submit"
                         className="btn btn-primary btn-lg auth-btn"
                         disabled={loading}
                     >
-                        {loading ? '登录中...' : '登录'}
+                        {loading ? t('auth.logging') : t('auth.loginBtn')}
                     </button>
                 </form>
 
                 <div className="auth-footer">
-                    <p>还没有账号？ <Link to={withPrefix('/register')}>立即注册</Link></p>
+                    <p>{t('auth.noAccount')} <Link to={withPrefix('/register')}>{t('auth.goRegister')}</Link></p>
                 </div>
 
                 <div className="auth-divider">
-                    <span>或</span>
+                    <span>—</span>
                 </div>
 
                 <div className="guest-option">
                     <Link to={withPrefix('/')} className="btn btn-secondary">
-                        游客购物（无需登录）
+                        {t('nav.home')}
                     </Link>
                 </div>
-
-
             </div>
         </div>
     )

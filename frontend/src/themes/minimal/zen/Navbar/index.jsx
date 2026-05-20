@@ -1,12 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { FiPackage, FiLogOut } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../../store/authStore'
 import { useSkinStore } from '../../../../store/skinStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
+import LanguageToggle from '../../../../components/common/LanguageToggle'
 import './Navbar.css'
 
 export default function ZenNavbar() {
+    const { t } = useTranslation()
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
     const storefront = useStorefront()
@@ -14,7 +17,6 @@ export default function ZenNavbar() {
 
     const handleLogout = () => { logout(); navigate('/') }
 
-    // In storefront mode, override branding and link prefix
     const displayName = storefront ? storefront.shopName : (siteName || 'VMART')
     const displayLogo = storefront ? storefront.shopLogo : siteLogo
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
@@ -29,17 +31,18 @@ export default function ZenNavbar() {
                     }
                 </Link>
                 <nav className="zn-actions">
-                    <Link to={`${prefix}/order-query`} className="zn-link"><FiPackage size={14} /><span>订单查询</span></Link>
+                    <Link to={`${prefix}/order-query`} className="zn-link"><FiPackage size={14} /><span>{t('nav.orderQuery')}</span></Link>
+                    <LanguageToggle />
                     {isAuthenticated ? (
                         <>
                             {!storefront && user?.role === 'AGENT' && (
-                                <Link to="/agent" className="zn-link" style={{ color: '#10B981', fontWeight: 600 }}>代理后台</Link>
+                                <Link to="/agent" className="zn-link" style={{ color: '#10B981', fontWeight: 600 }}>Agent</Link>
                             )}
-                            <Link to={storefront ? `${prefix}/user` : '/user'} className="zn-link">{user?.username || '账户'}</Link>
+                            <Link to={storefront ? `${prefix}/user` : '/user'} className="zn-link">{user?.username || t('nav.user')}</Link>
                             <button className="zn-link zn-logout" onClick={handleLogout}><FiLogOut size={14} /></button>
                         </>
                     ) : (
-                        <Link to={`${prefix}/login`} className="zn-login-btn">登录</Link>
+                        <Link to={`${prefix}/login`} className="zn-login-btn">{t('nav.login')}</Link>
                     )}
                 </nav>
             </div>
