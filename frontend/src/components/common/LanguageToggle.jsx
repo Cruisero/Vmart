@@ -7,15 +7,14 @@ import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../store/storefrontStore'
 import './LanguageToggle.css'
 
-export default function LanguageToggle({ className = '' }) {
+export default function LanguageToggle({ className = '', alwaysShow = false }) {
     const { i18n } = useTranslation()
     const storefront = useStorefront()
 
     // 只有商户设置为「auto」时显示切换按钮
-    if (!storefront || storefront.language !== 'auto') return null
+    if (!alwaysShow && (!storefront || storefront.language !== 'auto')) return null
 
-    const slug = storefront.slug
-    const storageKey = `vmart-lang-${slug}`
+    const storageKey = storefront?.slug ? `vmart-lang-${storefront.slug}` : 'vmart-lang'
     const current = i18n.language === 'en' ? 'en' : 'zh'
 
     const switchTo = (lang) => {

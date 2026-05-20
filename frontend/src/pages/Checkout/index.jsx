@@ -6,10 +6,11 @@ import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
 import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
+import { formatPrice } from '../../utils/currencyFormat'
 import toast from 'react-hot-toast'
 import './Checkout.css'
 
-// 支付方式图标映射
+// Payment method icon mapping
 const paymentIcons = {
     alipay: '💳',
     wechat: '💚',
@@ -35,29 +36,30 @@ function Checkout() {
     const { items: cartItems, getTotalPrice, clearCart } = useCartStore()
     const { user, isAuthenticated } = useAuthStore()
     const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const { withPrefix } = useStorefrontPath()
 
     const [email, setEmail] = useState(user?.email || '')
     const [queryPassword, setQueryPassword] = useState('')
     const [paymentMethod, setPaymentMethod] = useState('alipay')
     const [loading, setLoading] = useState(false)
-    const [agreed, setAgreed] = useState(true) // 默认勾选
+    const [agreed, setAgreed] = useState(true) // checked by default
     const [paymentMethods, setPaymentMethods] = useState([])
     const [remark, setRemark] = useState('')
 
-    // 协议数据从 StorefrontContext 读取
+    // Agreement data from StorefrontContext
     const agreements = storefront?.agreements || null
     const hasAgreements = !!(agreements?.purchasePolicy || agreements?.refundPolicy)
 
-    // 代理分站下单：单独的商品数据
+    // Agent checkout: separate product data
     const [agentProduct, setAgentProduct] = useState(null)
     const [agentQty, setAgentQty] = useState(1)
     const [selectedVariant, setSelectedVariant] = useState(null)
 
-    // 判断是否来自代理分站
+    // Determine if this is an agent checkout
     const isAgentCheckout = !!(agentSlug && agentProductId)
 
-    // 当前使用的商品列表
+    // Current items list
     const items = isAgentCheckout
         ? (agentProduct ? [{ id: agentProduct.id, name: agentProduct.name, image: agentProduct.image, price: selectedVariant ? selectedVariant.price : agentProduct.price, quantity: agentQty, variant: selectedVariant }] : [])
         : cartItems
@@ -67,7 +69,7 @@ function Checkout() {
         : getTotalPrice()
     const itemCount = isAgentCheckout ? agentQty : cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
-    // 获取代理分站商品信息
+    // Fetch agent product info
     useEffect(() => {
         if (isAgentCheckout) {
             fetch(`/api/s/${agentSlug}/products/${agentProductId}`)
@@ -81,7 +83,7 @@ function Checkout() {
         }
     }, [agentSlug, agentProductId])
 
-    // 从API获取支付方式
+    // Fetch payment methods from API
     useEffect(() => {
         const fetchPaymentMethods = async () => {
             try {
@@ -103,7 +105,7 @@ function Checkout() {
                     }
                 }
             } catch (error) {
-                console.error('获取支付方式失败:', error)
+                console.error('Failed to fetch payment methods:', error)
                 setPaymentMethods([])
             }
         }
@@ -223,7 +225,7 @@ function Checkout() {
                 navigate(withPrefix(`/order/${firstOrder.order.orderNo}`))
             }
         } catch (error) {
-            console.error('创建订单失败:', error)
+            console.error('Failed to create order:', error)
             toast.error(t('checkout.orderFailed'))
         } finally {
             setLoading(false)
@@ -240,9 +242,9 @@ function Checkout() {
             <h1 className="section-title">{t('checkout.title')}</h1>
 
             <form className="checkout-container" onSubmit={handleSubmit}>
-                {/* 左侧 - 订单信息 */}
+                {/* Left side - Order info */}
                 <div className="checkout-main">
-                    {/* 商品列表 */}
+                    {/* Product list */}
                     <div className="checkout-section">
                         <h3>{t('checkout.productInfo')}</h3>
                         <div className="checkout-items">
@@ -254,18 +256,18 @@ function Checkout() {
                                         <p>{t('checkout.quantity')}: {item.quantity}</p>
                                     </div>
                                     <div className="item-price">
-                                        ¥{(item.price * item.quantity).toFixed(2)}
+                                        {formatPrice(item.price * item.quantity, currency)}
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* 代理分站：数量选择和规格选择 */}
+                        {/* Agent checkout: quantity and variant selection */}
                         {isAgentCheckout && (
                             <div style={{ marginTop: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                                 {agentProduct.variants?.length > 0 && (
                                     <div>
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>{t('checkout.variant')}：</label>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>{t('checkout.variant')}:</label>
                                         <select
                                             value={selectedVariant?.id || ''}
                                             onChange={e => {
@@ -276,13 +278,13 @@ function Checkout() {
                                         >
                                             <option value="">{t('checkout.default')}</option>
                                             {agentProduct.variants.map(v => (
-                                                <option key={v.id} value={v.id}>{v.name} - ¥{v.price.toFixed(2)}</option>
+                                                <option key={v.id} value={v.id}>{v.name} - {formatPrice(v.price, currency)}</option>
                                             ))}
                                         </select>
                                     </div>
                                 )}
                                 <div>
-                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>{t('checkout.quantity')}：</label>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, marginRight: 8 }}>{t('checkout.quantity')}:</label>
                                     <input
                                         type="number" min={1} max={agentProduct.stock}
                                         value={agentQty}
@@ -294,7 +296,7 @@ function Checkout() {
                         )}
                     </div>
 
-                    {/* 订单邮箱 */}
+                    {/* Order email */}
                     <div className="checkout-section">
                         <h3>
                             <FiMail />
@@ -329,7 +331,7 @@ function Checkout() {
                         )}
                     </div>
 
-                    {/* 支付方式 */}
+                    {/* Payment method */}
                     <div className="checkout-section">
                         <h3>
                             <FiCreditCard />
@@ -356,7 +358,7 @@ function Checkout() {
                         </div>
                     </div>
 
-                    {/* 订单备注 */}
+                    {/* Order remark */}
                     <div className="checkout-section">
                         <h3>
                             <FiEdit3 />
@@ -375,7 +377,7 @@ function Checkout() {
                     </div>
                 </div>
 
-                {/* 右侧 - 订单摘要 */}
+                {/* Right side - Order summary */}
                 <div className="checkout-sidebar">
                     <div className="order-summary">
                         <h3>{t('checkout.summary')}</h3>
@@ -387,17 +389,17 @@ function Checkout() {
                             </div>
                             <div className="summary-row">
                                 <span>{t('checkout.subtotal')}</span>
-                                <span>¥{totalPrice.toFixed(2)}</span>
+                                <span>{formatPrice(totalPrice, currency)}</span>
                             </div>
                             <div className="summary-row">
                                 <span>{t('checkout.discount')}</span>
-                                <span className="discount">-¥0.00</span>
+                                <span className="discount">-{formatPrice(0, currency)}</span>
                             </div>
                         </div>
 
                         <div className="summary-total">
                             <span>{t('checkout.totalDue')}</span>
-                            <span className="total-price">¥{totalPrice.toFixed(2)}</span>
+                            <span className="total-price">{formatPrice(totalPrice, currency)}</span>
                         </div>
 
                         {hasAgreements && (
@@ -420,7 +422,7 @@ function Checkout() {
                             className="btn btn-primary btn-lg submit-order-btn"
                             disabled={loading || (hasAgreements && !agreed)}
                         >
-                            {loading ? t('checkout.submitting') : `${t('checkout.submit')} ¥${totalPrice.toFixed(2)}`}
+                            {loading ? t('checkout.submitting') : `${t('checkout.submit')} ${formatPrice(totalPrice, currency)}`}
                         </button>
 
                        

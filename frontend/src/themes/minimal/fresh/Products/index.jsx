@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { FiShoppingBag } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
+import { formatPrice } from '../../../../utils/currencyFormat'
 import './Products.css'
 
 const API_BASE = '/api'
@@ -65,7 +66,9 @@ function SkeletonCard() {
 }
 
 function ProductCard({ product, linkPrefix }) {
-    const { t } = useTranslation()
+    const L = useBuyerL()
+    const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const [imgError, setImgError] = useState(false)
     const imgSrc = getImageUrl(product.image, 'large')
     const outOfStock = product.stock <= 0
@@ -81,7 +84,7 @@ function ProductCard({ product, linkPrefix }) {
                         <span>{product.name}</span>
                     </div>
                 )}
-                {outOfStock && <div className="fp-oos-overlay"><span>{t('products.soldOut')}</span></div>}
+                {outOfStock && <div className="fp-oos-overlay"><span>{L('products.soldOut')}</span></div>}
             </div>
             <div className="fp-card-body">
                 <div className="fp-card-name">{product.name}</div>
@@ -90,12 +93,12 @@ function ProductCard({ product, linkPrefix }) {
                 )}
                 <div className="fp-card-footer">
                     <div className="fp-price-wrap">
-                        <span className="fp-price">¥{product.price.toFixed(2)}</span>
+                        <span className="fp-price">{formatPrice(product.price, currency)}</span>
                         {product.originalPrice && (
-                            <span className="fp-price-orig">¥{product.originalPrice.toFixed(2)}</span>
+                            <span className="fp-price-orig">{formatPrice(product.originalPrice, currency)}</span>
                         )}
                     </div>
-                    <span className="fp-meta">{t('products.sales')} {product.sold}</span>
+                    <span className="fp-meta">{L('products.sales')} {product.sold}</span>
                 </div>
             </div>
         </Link>
@@ -103,7 +106,7 @@ function ProductCard({ product, linkPrefix }) {
 }
 
 export default function FreshProducts() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
     const storefront = useStorefront()
@@ -143,7 +146,7 @@ export default function FreshProducts() {
                 ) : products.length === 0 ? (
                     <div className="fp-empty">
                         <div className="fp-empty-icon"><FiShoppingBag size={48} /></div>
-                        <div className="fp-empty-title">{t('products.noProducts')}</div>
+                        <div className="fp-empty-title">{L('products.noProducts')}</div>
                         <div className="fp-empty-desc"></div>
                     </div>
                 ) : (

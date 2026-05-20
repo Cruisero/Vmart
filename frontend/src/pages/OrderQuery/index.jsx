@@ -175,7 +175,7 @@ function OrderQuery() {
 
                 {!orders && (
                     <div className="query-tips">
-                        <h3>📌 {t('common.noData') === '暂无数据' ? '温馨提示' : 'Tips'}</h3>
+                        <h3>📌 Tips</h3>
                         <ul>
                             <li>{t('orderQuery.desc')}</li>
                         </ul>

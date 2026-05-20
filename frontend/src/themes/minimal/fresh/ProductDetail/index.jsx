@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { FiMinus, FiPlus } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
+import { formatPrice } from '../../../../utils/currencyFormat'
 import './ProductDetail.css'
 
 function resolveWholesalePrice(basePrice, wholesalePrices, qty) {
@@ -23,10 +24,11 @@ const getImageUrl = (url, size = 'original') => {
 }
 
 export default function FreshProductDetail() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const { id } = useParams()
     const navigate = useNavigate()
     const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const [product, setProduct] = useState(null)
     const [loading, setLoading] = useState(true)
     const [imgError, setImgError] = useState(false)
@@ -123,10 +125,10 @@ export default function FreshProductDetail() {
     if (!product) return (
         <div className="fd-page">
             <div className="fd-not-found">
-                <h2>{t('products.notFound')}</h2>
-                <p>{t('products.removed')}</p>
+                <h2>{L('products.notFound')}</h2>
+                <p>{L('products.removed')}</p>
                 <Link to={`${prefix}/`} style={{ marginTop: 16, display: 'inline-flex', color: '#DC2626', fontSize: '0.85rem' }}>
-                    {t('products.backHome')}
+                    {L('products.backHome')}
                 </Link>
             </div>
         </div>
@@ -165,19 +167,19 @@ export default function FreshProductDetail() {
 
                     {/* 价格 */}
                     <div className="fd-price-row">
-                        <span className="fd-price">¥{currentPrice.toFixed(2)}</span>
+                        <span className="fd-price">{formatPrice(currentPrice, currency)}</span>
                         {currentOrigPrice > currentPrice && <>
-                            <span className="fd-price-orig">¥{currentOrigPrice.toFixed(2)}</span>
-                            <span className="fd-discount">{t('products.save')} {discount}%</span>
+                            <span className="fd-price-orig">{formatPrice(currentOrigPrice, currency)}</span>
+                            <span className="fd-discount">{L('products.save')} {discount}%</span>
                         </>}
                         {currentPrice < basePrice && (
-                            <span className="fd-wholesale-badge">{t('products.wholesalePrice')}</span>
+                            <span className="fd-wholesale-badge">{L('products.wholesalePrice')}</span>
                         )}
                     </div>
                     <div className="fd-meta-row" style={{ marginBottom: 0 }}>
-                        <span>{t('products.sales')} {product.sold}</span>
+                        <span>{L('products.sales')} {product.sold}</span>
                         <span style={{ color: isOutOfStock ? '#EF4444' : '#9CA3AF' }}>
-                            {isOutOfStock ? t('products.outOfStock') : `${t('products.stock')} ${currentStock}`}
+                            {isOutOfStock ? L('products.outOfStock') : `${L('products.stock')} ${currentStock}`}
                         </span>
                     </div>
 
@@ -186,7 +188,7 @@ export default function FreshProductDetail() {
                     {(hasTypes || typeVariants.length > 0) && <>
                         <div className="fd-divider" />
                         {hasTypes && <>
-                            <div className="fd-section-label">{t('products.type')}</div>
+                            <div className="fd-section-label">{L('products.type')}</div>
                             <div className="fd-variants" style={{ marginBottom: 16 }}>
                                 {types.map(type => (
                                     <button
@@ -202,7 +204,7 @@ export default function FreshProductDetail() {
                             </div>
                         </>}
                         {typeVariants.length > 0 && <>
-                            <div className="fd-section-label">{t('products.variant')}</div>
+                            <div className="fd-section-label">{L('products.variant')}</div>
                             <div className="fd-variants">
                                 {typeVariants.map(v => (
                                     <button
@@ -211,7 +213,7 @@ export default function FreshProductDetail() {
                                         onClick={() => setSelectedVariant(v)}
                                     >
                                         {v.name}
-                                        <span className="fd-variant-price">¥{parseFloat(v.price).toFixed(2)}</span>
+                                        <span className="fd-variant-price">{formatPrice(v.price, currency)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -247,10 +249,10 @@ export default function FreshProductDetail() {
                             </button>
                         </div>
                         <span className="fd-subtotal">
-                            {t('products.subtotal')} <strong>¥{(currentPrice * quantity).toFixed(2)}</strong>
+                            {L('products.subtotal')} <strong>{formatPrice(currentPrice * quantity, currency)}</strong>
                             {currentPrice < basePrice && (
                                 <span style={{ fontSize: '0.75rem', color: '#10B981', marginLeft: 6 }}>
-                                    {t('products.wholesaleEnjoyed')}
+                                    {L('products.wholesaleEnjoyed')}
                                 </span>
                             )}
                         </span>
@@ -258,7 +260,7 @@ export default function FreshProductDetail() {
 
                     {/* 按钮 */}
                     <button className="fd-buy-btn" onClick={handleBuyNow} disabled={isOutOfStock}>
-                        {isOutOfStock ? t('products.outOfStock') : t('products.placeOrder')}
+                        {isOutOfStock ? L('products.outOfStock') : L('products.placeOrder')}
                     </button>
 
                     {/* 批量优惠 */}
@@ -267,7 +269,7 @@ export default function FreshProductDetail() {
                         <div className="fd-guarantees">
                             <div className="fd-wholesale-label">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                                {t('products.bulkDiscount')}
+                                {L('products.bulkDiscount')}
                             </div>
                             {activeWholesalePrices.map((tier, i) => {
                                 const saving = Math.round((1 - parseFloat(tier.price) / basePrice) * 100)
@@ -275,9 +277,9 @@ export default function FreshProductDetail() {
                                     (i === activeWholesalePrices.length - 1 || quantity < activeWholesalePrices[i + 1].minQty)
                                 return (
                                     <div key={i} className={`fd-wholesale-card ${isActive ? 'active' : ''}`}>
-                                        <span className="fd-wc-qty">{t('products.min')}{tier.minQty}{t('products.pieces')}</span>
-                                        <span className="fd-wc-price">¥{parseFloat(tier.price).toFixed(2)}</span>
-                                        {saving > 0 && <span className="fd-wc-saving">{t('products.save')}{saving}%</span>}
+                                        <span className="fd-wc-qty">{L('products.min')}{tier.minQty}{L('products.pieces')}</span>
+                                        <span className="fd-wc-price">{formatPrice(tier.price, currency)}</span>
+                                        {saving > 0 && <span className="fd-wc-saving">{L('products.save')}{saving}%</span>}
                                     </div>
                                 )
                             })}
@@ -289,7 +291,7 @@ export default function FreshProductDetail() {
             {/* 商品详情 */}
             {product.fullDescription && (
                 <div className="fd-desc-section">
-                    <div className="fd-desc-title">{t('products.description')}</div>
+                    <div className="fd-desc-title">{L('products.description')}</div>
                     <div className="fd-desc-content">{product.fullDescription}</div>
                 </div>
             )}

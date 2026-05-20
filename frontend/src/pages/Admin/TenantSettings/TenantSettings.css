@@ -1064,3 +1064,75 @@
     color: var(--primary);
     background: rgba(239, 68, 68, 0.04);
 }
+
+
+/* 后台语言/货币偏好 - 内联切换 */
+.admin-prefs-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.admin-prefs-inline .prefs-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding: 3px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 10px;
+    height: 36px;
+}
+
+.admin-prefs-inline .prefs-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    background: transparent;
+    padding: 0 14px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.admin-prefs-inline .prefs-btn:hover:not(.active) {
+    color: #111827;
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.admin-prefs-inline .prefs-btn.active {
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+
+:root.dark .admin-prefs-inline .prefs-toggle-group,
+[data-theme="dark"] .admin-prefs-inline .prefs-toggle-group {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+:root.dark .admin-prefs-inline .prefs-btn,
+[data-theme="dark"] .admin-prefs-inline .prefs-btn {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+:root.dark .admin-prefs-inline .prefs-btn:hover:not(.active),
+[data-theme="dark"] .admin-prefs-inline .prefs-btn:hover:not(.active) {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+:root.dark .admin-prefs-inline .prefs-btn.active,
+[data-theme="dark"] .admin-prefs-inline .prefs-btn.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    box-shadow: none;
+}

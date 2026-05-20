@@ -351,6 +351,7 @@ exports.getMerchantStorefront = async (req, res, next) => {
         let featureCard = null
         let agreements = null
         let language = 'zh'
+        let currency = 'CNY'
         try {
             const ts = await prisma.tenantSetting.findUnique({
                 where: { tenantId: tenant.id },
@@ -377,6 +378,8 @@ exports.getMerchantStorefront = async (req, res, next) => {
                 }
                 // 店铺语言
                 if (sys.language) language = sys.language
+                // 经营货币
+                if (sys.currency) currency = sys.currency
             }
         } catch {}
 
@@ -391,6 +394,7 @@ exports.getMerchantStorefront = async (req, res, next) => {
                 featureCard,
                 agreements,
                 language,
+                currency,
                 tenantId: tenant.id,
                 _tenantMode: true
             }

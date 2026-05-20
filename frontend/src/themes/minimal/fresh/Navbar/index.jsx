@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { FiPackage, FiLogOut } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useAuthStore } from '../../../../store/authStore'
 import { useSkinStore } from '../../../../store/skinStore'
 import { useStorefront } from '../../../../store/storefrontStore'
@@ -9,7 +9,7 @@ import LanguageToggle from '../../../../components/common/LanguageToggle'
 import './Navbar.css'
 
 export default function FreshNavbar() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
     const storefront = useStorefront()
@@ -52,7 +52,7 @@ export default function FreshNavbar() {
             <div className="fn-actions">
                 <Link to={`${prefix}/order-query`} className="fn-link">
                     <FiPackage size={15} />
-                    <span>{t('nav.orderQuery')}</span>
+                    <span>{L('nav.orderQuery')}</span>
                 </Link>
 
                 <LanguageToggle />
@@ -80,7 +80,7 @@ export default function FreshNavbar() {
                     </>
                 ) : (
                     <Link to={`${prefix}/login`} className="fn-login-btn">
-                        {t('nav.login')} / {t('nav.register')}
+                        {L('nav.login')} / {L('nav.register')}
                     </Link>
                 )}
             </div>

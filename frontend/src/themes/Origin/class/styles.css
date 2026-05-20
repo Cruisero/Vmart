@@ -543,6 +543,19 @@
     border: 1px solid var(--border-color);
 }
 
+.og-root .checkout-page .payment-option:hover:not(.disabled) {
+    background: rgba(17, 24, 39, 0.04);
+}
+
+.og-root .checkout-page .payment-option.active {
+    border-color: var(--og-primary);
+    background: rgba(17, 24, 39, 0.06);
+}
+
+.og-root .checkout-page .payment-option.active .check-icon {
+    color: var(--og-primary);
+}
+
 /* ── 通用卡片 ── */
 .og-root .card,
 .og-root [class*="-card"] {

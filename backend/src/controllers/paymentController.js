@@ -124,11 +124,30 @@ exports.createPayment = async (req, res, next) => {
 
         // 解析租户支付配置（如果是租户订单）
         let tenantPayConfig = null
+        let storeCurrency = 'CNY'
+        let usdToCnyRate = 7.2
         if (order.tenantId) {
             const ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
             if (ts?.paymentConfig) {
                 try { tenantPayConfig = JSON.parse(ts.paymentConfig) } catch {}
             }
+            // 读取商城经营货币
+            if (ts?.systemSettings) {
+                try {
+                    const sys = JSON.parse(ts.systemSettings)
+                    if (sys.currency) storeCurrency = sys.currency
+                } catch {}
+            }
+            // USD→CNY 汇率从 paymentConfig 的 usdt_exchange_rate 读取（复用同一个字段）
+            if (tenantPayConfig?.usdt_exchange_rate) {
+                usdToCnyRate = parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2
+            }
+        }
+
+        // 计算实际支付金额（USD 商城 + 人民币通道需要换算）
+        let payAmount = parseFloat(order.totalAmount)
+        if (storeCurrency === 'USD' && (paymentMethod === 'alipay' || paymentMethod === 'wechat')) {
+            payAmount = Math.round(payAmount * usdToCnyRate * 100) / 100 // USD → CNY
         }
 
         // 根据支付方式生成支付信息
@@ -140,11 +159,15 @@ exports.createPayment = async (req, res, next) => {
                 privateKey: tenantPayConfig.alipay_private_key,
                 alipayPublicKey: tenantPayConfig.alipay_public_key
             } : null
-            const result = await generateAlipayQrCode(order, payment, tenantSdkConfig)
+            // 传入换算后的金额
+            const orderForPay = { ...order, totalAmount: payAmount }
+            const result = await generateAlipayQrCode(orderForPay, payment, tenantSdkConfig)
             paymentData = {
                 paymentType: 'qrcode',
                 qrCode: result.qrCode,
-                payUrl: null
+                payUrl: null,
+                // 如果做了汇率换算，返回换算信息给前端展示
+                ...(storeCurrency === 'USD' ? { cnyAmount: payAmount, exchangeRate: usdToCnyRate } : {})
             }
         } else if (paymentMethod === 'wechat') {
             const payUrl = await generateWechatUrl(order, payment)
@@ -160,6 +183,10 @@ exports.createPayment = async (req, res, next) => {
                 EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
                 ENABLED: true
             } : null
+            // USD 商城：金额已经是美元，汇率设为 1（不需要 CNY→USD 换算）
+            if (storeCurrency === 'USD' && overrideConfig) {
+                overrideConfig.EXCHANGE_RATE = 1
+            }
             const usdtInfo = await usdtService.createUsdtPayment(order, overrideConfig)
             paymentData = {
                 paymentType: 'usdt',
@@ -175,6 +202,10 @@ exports.createPayment = async (req, res, next) => {
                 EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
                 ENABLED: true
             } : null
+            // USD 商城：金额已经是美元，汇率设为 1
+            if (storeCurrency === 'USD' && overrideConfig) {
+                overrideConfig.EXCHANGE_RATE = 1
+            }
             const usdtInfo = await bscUsdtService.createBscUsdtPayment(order, overrideConfig)
             paymentData = {
                 paymentType: 'bsc_usdt',

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import './Auth.css'
 
 export default function ZenLogin() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const navigate = useNavigate()
     const login = useAuthStore((s) => s.login)
     const storefront = useStorefront()
@@ -20,7 +20,7 @@ export default function ZenLogin() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!form.email || !form.password) { toast.error(t('auth.emailPlaceholder')); return }
+        if (!form.email || !form.password) { toast.error(L('auth.emailPlaceholder')); return }
         setLoading(true)
         try {
             const url = storefront?._tenantMode ? '/api/customer/login' : '/api/auth/login'
@@ -32,9 +32,9 @@ export default function ZenLogin() {
                 body: JSON.stringify(body)
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || t('common.failed'))
+            if (!res.ok) throw new Error(data.error || L('common.failed'))
             login(data.user, data.token)
-            toast.success(t('auth.loginSuccess'))
+            toast.success(L('auth.loginSuccess'))
             const role = data.user.role
             if (!storefront?._tenantMode && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
                 navigate('/admin')
@@ -42,7 +42,7 @@ export default function ZenLogin() {
                 navigate(`${prefix}/`)
             }
         } catch (err) {
-            toast.error(err.message || t('common.failed'))
+            toast.error(err.message || L('common.failed'))
         } finally {
             setLoading(false)
         }
@@ -55,19 +55,19 @@ export default function ZenLogin() {
                     <div className="za-logo">
                         <FiLock size={20} />
                     </div>
-                    <h1 className="za-title">{t('user.welcome')}</h1>
-                    <p className="za-sub">{t('auth.login')}</p>
+                    <h1 className="za-title">{L('user.welcome')}</h1>
+                    <p className="za-sub">{L('nav.login')}</p>
                 </div>
 
                 <form className="za-form" onSubmit={handleSubmit}>
                     <div className="za-field">
-                        <label className="za-label">{t('auth.email')}</label>
+                        <label className="za-label">{L('order.email')}</label>
                         <div className="za-input-wrap">
                             <FiMail className="za-input-icon" size={15} />
                             <input
                                 type="email"
                                 className="za-input"
-                                placeholder={t('auth.emailPlaceholder')}
+                                placeholder={L('auth.emailPlaceholder')}
                                 value={form.email}
                                 onChange={e => setForm({ ...form, email: e.target.value })}
                                 autoComplete="email"
@@ -77,14 +77,14 @@ export default function ZenLogin() {
 
                     <div className="za-field">
                         <div className="za-label-row">
-                            <label className="za-label">{t('auth.password')}</label>
+                            <label className="za-label">{L('auth.password')}</label>
                         </div>
                         <div className="za-input-wrap">
                             <FiLock className="za-input-icon" size={15} />
                             <input
                                 type={showPw ? 'text' : 'password'}
                                 className="za-input"
-                                placeholder={t('auth.passwordPlaceholder')}
+                                placeholder={L('auth.passwordPlaceholder')}
                                 value={form.password}
                                 onChange={e => setForm({ ...form, password: e.target.value })}
                                 autoComplete="current-password"
@@ -96,18 +96,18 @@ export default function ZenLogin() {
                     </div>
 
                     <button type="submit" className="za-submit" disabled={loading}>
-                        {loading ? <span className="za-spinner" /> : <>{t('auth.loginBtn')} <FiArrowRight size={15} /></>}
+                        {loading ? <span className="za-spinner" /> : <>{L('nav.login')} <FiArrowRight size={15} /></>}
                     </button>
                 </form>
 
                 <div className="za-footer">
-                    {t('auth.noAccount')}
-                    <Link to={`${prefix}/register`} className="za-link">{t('auth.goRegister')}</Link>
+                    {L('auth.noAccount')}
+                    <Link to={`${prefix}/register`} className="za-link">{L('auth.goRegister')}</Link>
                 </div>
 
                 <div className="za-divider"><span>—</span></div>
 
-                <Link to={`${prefix}/`} className="za-guest">{t('nav.home')}</Link>
+                <Link to={`${prefix}/`} className="za-guest">{L('nav.home')}</Link>
             </div>
         </div>
     )

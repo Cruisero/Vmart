@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../store/cartStore'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
+import { formatPrice } from '../../utils/currencyFormat'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import toast from 'react-hot-toast'
 import './ProductDetail.css'
@@ -35,6 +36,7 @@ function ProductDetail() {
     const [selectedType, setSelectedType] = useState('') // 选中的规格类型
     const addItem = useCartStore((state) => state.addItem)
     const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const linkPrefix = storefront ? getStorefrontBasePath(storefront) : ''
 
     const productUrl = storefront
@@ -199,7 +201,7 @@ function ProductDetail() {
                                     className={`thumbnail-item ${activeImageIndex === index ? 'active' : ''}`}
                                     onClick={() => setActiveImageIndex(index)}
                                 >
-                                    <img src={getImageUrl(img, 'medium')} alt={`缩略图 ${index + 1}`} />
+                                    <img src={getImageUrl(img, 'medium')} alt={`${t('products.thumbnail')} ${index + 1}`} />
                                 </button>
                             ))}
                         </div>
@@ -258,7 +260,7 @@ function ProductDetail() {
                                                     onClick={() => setSelectedVariant(variant)}
                                                 >
                                                     {variant.name}
-                                                    <span className="variant-price">¥{parseFloat(variant.price).toFixed(2)}</span>
+                                                    <span className="variant-price">{formatPrice(variant.price, currency)}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -278,7 +280,7 @@ function ProductDetail() {
                                                 onClick={() => setSelectedVariant(variant)}
                                             >
                                                 {variant.name}
-                                                <span className="variant-price">¥{parseFloat(variant.price).toFixed(2)}</span>
+                                                <span className="variant-price">{formatPrice(variant.price, currency)}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -292,12 +294,12 @@ function ProductDetail() {
                         <div className="price-row">
                             <span className="price-label">{t('products.price')}</span>
                             <span className="price-value">
-                                ¥{(selectedVariant?.price || product.price).toFixed(2)}
+                                {formatPrice(selectedVariant?.price || product.price, currency)}
                             </span>
                             {(selectedVariant?.originalPrice || product.originalPrice) > (selectedVariant?.price || product.price) && (
                                 <>
                                     <span className="price-original">
-                                        ¥{(selectedVariant?.originalPrice || product.originalPrice).toFixed(2)}
+                                        {formatPrice(selectedVariant?.originalPrice || product.originalPrice, currency)}
                                     </span>
                                     <span className="discount-badge">-{discount}%</span>
                                 </>
@@ -332,7 +334,7 @@ function ProductDetail() {
                             </button>
                         </div>
                         <span className="qty-total">
-                            {t('products.subtotal')}: <strong>¥{((selectedVariant?.price || product.price) * quantity).toFixed(2)}</strong>
+                            {t('products.subtotal')}: <strong>{formatPrice((selectedVariant?.price || product.price) * quantity, currency)}</strong>
                         </span>
                     </div>
 

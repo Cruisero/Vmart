@@ -10,9 +10,13 @@ import {
     FiShield, FiUser, FiSearch, FiShare2, FiMonitor
 } from 'react-icons/fi'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../../store/authStore'
 import { useSkinStore } from '../../../store/skinStore'
 import { useMerchantStore } from '../../../store/merchantStore'
+import { useAdminPrefsStore } from '../../../store/adminPrefsStore'
+import { useAdminL } from '../../../hooks/useAdminL'
+import { formatMoney, getCurrencySymbol } from '../../../utils/adminFormat'
 import './Dashboard.css'
 import TenantSettings from '../TenantSettings'
 
@@ -31,7 +35,7 @@ function ToastProvider({ children }) {
         }, duration)
     }
 
-    const showConfirm = (title, message, onConfirm, confirmText = '确认') => {
+    const showConfirm = (title, message, onConfirm, confirmText = 'Confirm') => {
         setConfirmDialog({ title, message, onConfirm, confirmText })
     }
 
@@ -63,7 +67,7 @@ function ToastProvider({ children }) {
                 ))}
             </div>
 
-            {/* 确认弹窗 */}
+            {/* Confirm弹窗 */}
             {confirmDialog && (
                 <div className="confirm-overlay" onClick={closeConfirm}>
                     <div className="confirm-dialog" onClick={e => e.stopPropagation()}>
@@ -74,10 +78,10 @@ function ToastProvider({ children }) {
                         <p className="confirm-message">{confirmDialog.message}</p>
                         <div className="confirm-actions">
                             <button className="btn btn-cancel" onClick={closeConfirm}>
-                                取消
+                                Cancel
                             </button>
                             <button className="btn btn-primary" onClick={handleConfirm}>
-                                {confirmDialog.confirmText || '确认'}
+                                {confirmDialog.confirmText || L('admin.common.confirm')}
                             </button>
                         </div>
                     </div>
@@ -103,7 +107,7 @@ function CustomSelect({ value, onChange, options, placeholder, name, required })
         setSelectedLabel(option ? option.label : '')
     }, [value, options])
 
-    // 点击外部关闭
+    // 点击外部Close
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (selectRef.current && !selectRef.current.contains(e.target)) {
@@ -174,19 +178,19 @@ function CustomSelect({ value, onChange, options, placeholder, name, required })
 
 // 侧边栏菜单
 const menuItems = [
-    { path: '/admin', icon: FiHome, label: '仪表盘', exact: true, permission: 'dashboard.view' },
-    { path: '/admin/products', icon: FiPackage, label: '商品管理', permission: 'products.view' },
-    { path: '/admin/orders', icon: FiShoppingBag, label: '订单管理', permission: 'orders.view' },
-    { path: '/admin/tickets', icon: FiMessageCircle, label: '工单管理', permission: 'tickets.view' },
-    { path: '/admin/cards', icon: FiCreditCard, label: '卡密管理', permission: 'cards.view' },
-    { path: '/admin/users', icon: FiUsers, label: '用户管理', permission: 'customers.view' },
-    { path: '/admin/agents', icon: FiShare2, label: '代理管理', permission: 'agents.review' },
-    { path: '/admin/support', icon: FiSend, label: '联系客服', ownerOnly: true },
-    { path: '/admin/settings', icon: FiSettings, label: '商城设置', ownerOnly: true },
-    { path: '/admin/setup', icon: FiFlag, label: '新手起航', tenantOnly: true },
+    { path: '/admin', icon: FiHome, labelZh: '仪表盘', labelEn: 'Dashboard', exact: true, permission: 'dashboard.view' },
+    { path: '/admin/products', icon: FiPackage, labelZh: '商品管理', labelEn: 'Products', permission: 'products.view' },
+    { path: '/admin/orders', icon: FiShoppingBag, labelZh: '订单管理', labelEn: 'Orders', permission: 'orders.view' },
+    { path: '/admin/tickets', icon: FiMessageCircle, labelZh: '工单管理', labelEn: 'Tickets', permission: 'tickets.view' },
+    { path: '/admin/cards', icon: FiCreditCard, labelZh: '卡密管理', labelEn: 'Card Keys', permission: 'cards.view' },
+    { path: '/admin/users', icon: FiUsers, labelZh: '用户管理', labelEn: 'Customers', permission: 'customers.view' },
+    { path: '/admin/agents', icon: FiShare2, labelZh: '代理管理', labelEn: 'Agents', permission: 'agents.review' },
+    { path: '/admin/support', icon: FiSend, labelZh: '联系客服', labelEn: 'Support', ownerOnly: true },
+    { path: '/admin/settings', icon: FiSettings, labelZh: '商城设置', labelEn: 'Settings', ownerOnly: true },
+    { path: '/admin/setup', icon: FiFlag, labelZh: '新手起航', labelEn: 'Get Started', tenantOnly: true },
 ]
 
-// 商户联系客服（工单）页面
+// 商户联系客服（tickets）页面
 function MerchantSupportPage() {
     const { token } = useAuthStore()
     const mToken = useMerchantStore(state => state.token)
@@ -215,7 +219,7 @@ function MerchantSupportPage() {
 
     const handleCreate = async (e) => {
         e.preventDefault()
-        if (!form.subject || !form.content) { showToast('请填写主题和内容', 'error'); return }
+        if (!form.subject || !form.content) { showToast('Please fill in subject and content', 'error'); return }
         setSubmitting(true)
         try {
             const r = await fetch('/api/platform/tickets', {
@@ -224,17 +228,17 @@ function MerchantSupportPage() {
                 body: JSON.stringify({ subject: form.subject, content: form.content, images: form.images.length ? form.images : null })
             })
             const d = await r.json()
-            if (!r.ok) { showToast(d.error || '提交失败', 'error'); return }
-            showToast('工单已提交', 'success')
+            if (!r.ok) { showToast(d.error || 'Submission failed', 'error'); return }
+            showToast('Ticket submitted', 'success')
             setForm({ subject: '', content: '', images: [] })
             setView('list')
             fetchTickets()
-        } catch { showToast('网络错误', 'error') }
+        } catch { showToast('Network error', 'error') }
         finally { setSubmitting(false) }
     }
 
     const handleReply = async () => {
-        if (!replyContent.trim()) { showToast('请输入内容', 'error'); return }
+        if (!replyContent.trim()) { showToast('Please enter content', 'error'); return }
         setSubmitting(true)
         try {
             const r = await fetch(`/api/platform/tickets/${selectedTicket.id}/reply`, {
@@ -242,14 +246,14 @@ function MerchantSupportPage() {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
                 body: JSON.stringify({ content: replyContent, images: replyImages.length ? replyImages : null })
             })
-            if (!r.ok) { const d = await r.json(); showToast(d.error || '发送失败', 'error'); return }
+            if (!r.ok) { const d = await r.json(); showToast(d.error || 'Send failed', 'error'); return }
             setReplyContent('')
             setReplyImages([])
-            // 刷新详情
+            // Refresh详情
             const dr = await fetch(`/api/platform/tickets/${selectedTicket.id}`, { headers: { Authorization: `Bearer ${authToken}` } })
             const dd = await dr.json()
             setSelectedTicket(dd.ticket)
-        } catch { showToast('网络错误', 'error') }
+        } catch { showToast('Network error', 'error') }
         finally { setSubmitting(false) }
     }
 
@@ -266,38 +270,38 @@ function MerchantSupportPage() {
                 const url = d.images[0].urls.original
                 if (target === 'create') setForm(f => ({ ...f, images: [...f.images, url] }))
                 else setReplyImages(imgs => [...imgs, url])
-                showToast('图片上传成功', 'success')
+                showToast('Image uploaded', 'success')
             } else {
-                showToast(d.error || '上传失败', 'error')
+                showToast(d.error || 'Upload failed', 'error')
             }
         } catch {
-            showToast('上传失败', 'error')
+            showToast('Upload failed', 'error')
         } finally {
             setUploading(false)
             e.target.value = ''
         }
     }
 
-    const statusMap = { OPEN: { label: '待处理', color: '#F59E0B' }, IN_PROGRESS: { label: '处理中', color: '#3B82F6' }, CLOSED: { label: '已关闭', color: '#6B7280' } }
+    const statusMap = { OPEN: { label: 'Pending', color: '#F59E0B' }, IN_PROGRESS: { label: 'In Progress', color: '#3B82F6' }, CLOSED: { label: 'Closed', color: '#6B7280' } }
 
     if (view === 'create') {
         return (
             <div className="admin-page">
                 <div className="page-header">
-                    <h2>提交工单</h2>
-                    <button className="btn btn-secondary" onClick={() => setView('list')}>返回列表</button>
+                    <h2>Submit Ticket</h2>
+                    <button className="btn btn-secondary" onClick={() => setView('list')}>Back to List</button>
                 </div>
                 <form onSubmit={handleCreate} style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>主题</label>
-                        <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="简要描述问题" required style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>Subject</label>
+                        <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Brief description" required style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>详细描述</label>
-                        <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="详细描述你遇到的问题..." required rows={6} style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical' }} />
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>Description</label>
+                        <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="Describe your issue in detail..." required rows={6} style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical' }} />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>附件图片</label>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>Attachments</label>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                             {form.images.map((url, i) => (
                                 <div key={i} style={{ position: 'relative' }}>
@@ -312,7 +316,7 @@ function MerchantSupportPage() {
                         </div>
                     </div>
                     <button type="submit" className="btn btn-primary" disabled={submitting} style={{ alignSelf: 'flex-start' }}>
-                        {submitting ? '提交中...' : '提交工单'}
+                        {submitting ? 'Submitting...' : 'Submit Ticket'}
                     </button>
                 </form>
             </div>
@@ -330,18 +334,18 @@ function MerchantSupportPage() {
                         {selectedTicket.status !== 'CLOSED' && (
                             <button
                                 onClick={async () => {
-                                    if (!confirm('确认关闭此工单？关闭后 24 小时内可重新打开。')) return
+                                    if (!confirm('Close this ticket? You can reopen within 24 hours.')) return
                                     const r = await fetch(`/api/platform/tickets/${selectedTicket.id}/close`, {
                                         method: 'POST', headers: { Authorization: `Bearer ${authToken}` }
                                     })
                                     if (r.ok) {
-                                        showToast('工单已关闭', 'success')
+                                        showToast('Ticket closed', 'success')
                                         const dr = await fetch(`/api/platform/tickets/${selectedTicket.id}`, { headers: { Authorization: `Bearer ${authToken}` } })
                                         const dd = await dr.json()
                                         setSelectedTicket(dd.ticket)
                                     } else {
                                         const d = await r.json()
-                                        showToast(d.error || '关闭失败', 'error')
+                                        showToast(d.error || 'Close failed', 'error')
                                     }
                                 }}
                                 style={{
@@ -351,11 +355,11 @@ function MerchantSupportPage() {
                                 }}
                             >
                                 <FiX size={13} />
-                                关闭工单
+                                Close Ticket
                             </button>
                         )}
                     </h2>
-                    <button className="btn btn-secondary" onClick={() => { setView('list'); setSelectedTicket(null) }}>返回列表</button>
+                    <button className="btn btn-secondary" onClick={() => { setView('list'); setSelectedTicket(null) }}>Back to List</button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 4, minHeight: 0 }}>
                     {selectedTicket.messages?.map(msg => (
@@ -367,7 +371,7 @@ function MerchantSupportPage() {
                             maxWidth: '85%'
                         }}>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 6 }}>
-                                {msg.senderType === 'MERCHANT' ? '我' : '平台客服'} · {new Date(msg.createdAt).toLocaleString()}
+                                {msg.senderType === 'MERCHANT' ? 'Me' : 'Support'} · {new Date(msg.createdAt).toLocaleString()}
                             </div>
                             <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{msg.content}</div>
                             {msg.images && Array.isArray(msg.images) && msg.images.length > 0 && (
@@ -384,18 +388,18 @@ function MerchantSupportPage() {
                 </div>
                 {selectedTicket.status !== 'CLOSED' && (
                     <div style={{ flexShrink: 0, paddingTop: 12, borderTop: '1px solid var(--border-color)', marginTop: 12 }}>
-                        <textarea value={replyContent} onChange={e => setReplyContent(e.target.value)} placeholder="输入回复内容..." rows={3} style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical' }} />
+                        <textarea value={replyContent} onChange={e => setReplyContent(e.target.value)} placeholder="Type your reply..." rows={3} style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical' }} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                             <label style={{ cursor: 'pointer', padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: 6, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                                 <FiImage size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
-                                {uploading ? '上传中...' : '添加图片'}
+                                {uploading ? 'Uploading...' : 'Add Image'}
                                 <input type="file" accept="image/*" onChange={e => handleUpload(e, 'reply')} style={{ display: 'none' }} />
                             </label>
                             {replyImages.map((url, i) => (
                                 <img key={i} src={url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
                             ))}
                             <button className="btn btn-primary" onClick={handleReply} disabled={submitting} style={{ marginLeft: 'auto' }}>
-                                {submitting ? '发送中...' : '发送'}
+                                {submitting ? 'Sending...' : 'Send'}
                             </button>
                         </div>
                     </div>
@@ -408,8 +412,8 @@ function MerchantSupportPage() {
                         <div style={{ flexShrink: 0, marginTop: 12, padding: '14px 18px', background: 'var(--bg-secondary)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                                 {canReopen
-                                    ? `此工单已关闭（${hoursLeft} 小时内可重新打开）`
-                                    : '此工单已关闭超过 24 小时，如需帮助请提交新工单'}
+                                    ? `Ticket closed (can reopen within ${hoursLeft} hours)`
+                                    : 'Ticket closed for over 24 hours. Please submit a new ticket.'}
                             </span>
                             {canReopen && (
                                 <button className="btn btn-secondary" onClick={async () => {
@@ -417,15 +421,15 @@ function MerchantSupportPage() {
                                         method: 'POST', headers: { Authorization: `Bearer ${authToken}` }
                                     })
                                     if (r.ok) {
-                                        showToast('工单已重新打开', 'success')
+                                        showToast('Ticket reopened', 'success')
                                         const dr = await fetch(`/api/platform/tickets/${selectedTicket.id}`, { headers: { Authorization: `Bearer ${authToken}` } })
                                         const dd = await dr.json()
                                         setSelectedTicket(dd.ticket)
                                     } else {
                                         const d = await r.json()
-                                        showToast(d.error || '操作失败', 'error')
+                                        showToast(d.error || 'Operation failed', 'error')
                                     }
-                                }}>重新打开</button>
+                                }}>Reopen</button>
                             )}
                         </div>
                     )
@@ -437,13 +441,13 @@ function MerchantSupportPage() {
     return (
         <div className="admin-page">
             <div className="page-header">
-                <h2>联系客服</h2>
-                <button className="btn btn-primary" onClick={() => setView('create')}>+ 新建工单</button>
+                <h2>Contact Support</h2>
+                <button className="btn btn-primary" onClick={() => setView('create')}>+ New Ticket</button>
             </div>
-            {loading ? <p>加载中...</p> : tickets.length === 0 ? (
+            {loading ? <p>Loading...</p> : tickets.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
                     <FiSend size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
-                    <p>暂无工单，有问题可以提交工单联系平台客服</p>
+                    <p>No tickets yet. Submit a ticket if you need help.</p>
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -459,7 +463,7 @@ function MerchantSupportPage() {
                             }}>
                                 <div>
                                     <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{t.subject}</div>
-                                    {lastMsg && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>{lastMsg.senderType === 'ADMIN' ? '客服回复：' : ''}{lastMsg.content?.slice(0, 50)}</div>}
+                                    {lastMsg && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>{lastMsg.senderType === 'ADMIN' ? 'Support: ' : ''}{lastMsg.content?.slice(0, 50)}</div>}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                     <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: 12, background: `${s.color}20`, color: s.color, fontWeight: 600 }}>{s.label}</span>
@@ -511,7 +515,7 @@ function PlatformNotices() {
                 }}>
                     <span style={{ fontSize: '1rem', flexShrink: 0 }}>📢</span>
                     <div style={{ flex: 1, fontSize: '0.85rem', color: '#1e40af', lineHeight: 1.5 }}>
-                        <span style={{ color: '#64748b', fontSize: '0.78rem', marginRight: 8 }}>来自 Vmart</span>
+                        <span style={{ color: '#64748b', fontSize: '0.78rem', marginRight: 8 }}>From Vmart</span>
                         <strong>{n.title}</strong>
                         {n.content && <span style={{ color: '#3b82f6', marginLeft: 6 }}>{n.content}</span>}
                     </div>
@@ -558,10 +562,10 @@ function TrialBanner() {
         }}>
             <div>
                 <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#4f46e5' }}>
-                    🎉 您正在免费试用中
+                    🎉 Free Trial Active
                 </div>
                 <div style={{ fontSize: '0.78rem', color: '#6366f1', marginTop: 3 }}>
-                    所有功能均可体验，但试用期间暂不支持交易。升级套餐后立即开始接单。
+                    All features available. Upgrade to start accepting orders.
                 </div>
             </div>
             <a
@@ -578,7 +582,7 @@ function TrialBanner() {
                     boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
                 }}
             >
-                升级套餐 →
+                Upgrade →
             </a>
         </div>
     )
@@ -591,6 +595,7 @@ function DashboardHome() {
     const navigate = useNavigate()
     const token = useAuthStore(state => state.token)
     const user = useAuthStore(state => state.user)
+    const L = useAdminL()
     const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)
     const [stats, setStats] = useState({
         totalOrders: 0,
@@ -633,7 +638,7 @@ function DashboardHome() {
                     setTrendData(prev => ({ ...prev, [trendDays]: data.trend }))
                 }
             } catch (error) {
-                console.error('获取趋势数据失败:', error)
+                console.error('获取趋势数据Failed:', error)
             }
         }
         if (token && expandedCard && dashboardPermissions.viewStatsGrid) {
@@ -645,11 +650,11 @@ function DashboardHome() {
         if (!expandedCard) return null;
 
         const config = {
-            orders: { label: '订单趋势', color: '#ef4444', fillId: 'colorOrders' },
-            revenue: { label: '收入趋势', color: '#10b981', fillId: 'colorRevenue' },
-            products: { label: '商品新增趋势', color: '#f59e0b', fillId: 'colorProducts' },
-            users: { label: '用户新增趋势', color: '#3b82f6', fillId: 'colorUsers' },
-            visits: { label: '访问量趋势', color: '#8b5cf6', fillId: 'colorVisits' }
+            orders: { label: 'Order Trend', color: '#ef4444', fillId: 'colorOrders' },
+            revenue: { label: 'Revenue Trend', color: '#10b981', fillId: 'colorRevenue' },
+            products: { label: 'Product Trend', color: '#f59e0b', fillId: 'colorProducts' },
+            users: { label: 'User Growth', color: '#3b82f6', fillId: 'colorUsers' },
+            visits: { label: 'Visit Trend', color: '#8b5cf6', fillId: 'colorVisits' }
         };
 
         const { label, color, fillId } = config[expandedCard];
@@ -659,12 +664,12 @@ function DashboardHome() {
                 <div className="full-trend-header">
                     <div className="full-trend-title">{label}</div>
                     <div className="trend-tabs" style={{ marginBottom: 0 }}>
-                        <span className={`trend-tab ${trendDays === 7 ? 'active' : ''}`} onClick={() => setTrendDays(7)}>7天</span>
-                        <span className={`trend-tab ${trendDays === 30 ? 'active' : ''}`} onClick={() => setTrendDays(30)}>30天</span>
+                        <span className={`trend-tab ${trendDays === 7 ? 'active' : ''}`} onClick={() => setTrendDays(7)}>7d</span>
+                        <span className={`trend-tab ${trendDays === 30 ? 'active' : ''}`} onClick={() => setTrendDays(30)}>30d</span>
                     </div>
                 </div>
                 {!trendData[trendDays] ? (
-                    <div style={{ padding: '20px', color: 'var(--text-muted)' }}>加载中...</div>
+                    <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Loading...</div>
                 ) : (
                     <div className="trend-chart-mini">
                         <ResponsiveContainer width="100%" height="100%">
@@ -720,7 +725,7 @@ function DashboardHome() {
                 })
                 setRecentOrders(data.recentOrders || [])
             } catch (error) {
-                console.error('获取仪表盘数据失败:', error)
+                console.error('获取仪表盘数据Failed:', error)
             } finally {
                 setLoading(false)
             }
@@ -734,21 +739,21 @@ function DashboardHome() {
         const now = new Date()
         const diffMs = now - date
         const diffMins = Math.floor(diffMs / 60000)
-        if (diffMins < 60) return `${diffMins}分钟前`
+        if (diffMins < 60) return `${diffMins}m ago`
         const diffHours = Math.floor(diffMins / 60)
-        if (diffHours < 24) return `${diffHours}小时前`
+        if (diffHours < 24) return `${diffHours}h ago`
         return date.toLocaleDateString()
     }
 
     const paymentMethodLabels = {
-        'alipay': '支付宝',
+        'alipay': 'Alipay',
         'usdt_trc20': 'USDT (TRC20)',
         'bsc_usdt': 'USDT (BSC)',
-        'wechat': '微信支付'
+        'wechat': 'WeChat Pay'
     }
 
     if (loading) {
-        return <div className="dashboard-home"><p>加载中...</p></div>
+        return <div className="dashboard-home"><p>Loading...</p></div>
     }
 
     return (
@@ -787,7 +792,7 @@ function DashboardHome() {
                         >
                             <FiAlertTriangle />
                             <span className="alert-stock-text">
-                                🔴 {stats.stockAlertProducts.length} 个商品库存为0：
+                                🔴 {stats.stockAlertProducts.length} product(s) out of stock:
                             </span>
                             <span className="alert-stock-links">
                                 {stats.stockAlertProducts.map((p) => (
@@ -807,28 +812,28 @@ function DashboardHome() {
                     {stats.pendingTickets > 0 && (
                         <Link to={`${basePath}/tickets`} className="alert-item alert-warning">
                             <FiMessageCircle />
-                            <span>{stats.pendingTickets} 个未读工单</span>
+                            <span>{stats.pendingTickets} unread ticket(s)</span>
                             <FiTrendingUp className="alert-arrow" />
                         </Link>
                     )}
                     {stats.paidOrders > 0 && (
                         <Link to={`${basePath}/orders?status=PAID`} className="alert-item alert-shipping">
                             <FiSend />
-                            <span>{stats.paidOrders} 个待发货订单</span>
+                            <span>{stats.paidOrders} order(s) to ship</span>
                             <FiTrendingUp className="alert-arrow" />
                         </Link>
                     )}
                     {stats.refundingOrders > 0 && (
                         <Link to={`${basePath}/orders?status=REFUNDING`} className="alert-item alert-refund">
                             <FiAlertCircle />
-                            <span>{stats.refundingOrders} 个待退款订单</span>
+                            <span>{L(`${stats.refundingOrders} 个待退款订单`, `${stats.refundingOrders} order(s) pending refund`)}</span>
                             <FiTrendingUp className="alert-arrow" />
                         </Link>
                     )}
                     {stats.unpaidOrders > 0 && (
                         <div className="alert-item alert-info">
                             <FiClock />
-                            <span>{stats.unpaidOrders} 个待支付订单</span>
+                            <span>{L(`${stats.unpaidOrders} 个待支付订单`, `${stats.unpaidOrders} unpaid order(s)`)}</span>
                         </div>
                     )}
                 </div>
@@ -843,11 +848,11 @@ function DashboardHome() {
                             <div className="stat-card-top">
                                 <div className="stat-icon orders"><FiShoppingBag /></div>
                                 {dashboardPermissions.viewTodayStats && (
-                                    <div className="stat-trend up"><FiTrendingUp />&nbsp;+{stats.todayOrders} 今日</div>
+                                    <div className="stat-trend up"><FiTrendingUp />&nbsp;+{stats.todayOrders} {L('admin.dashboard.stats.todaySuffix')}</div>
                                 )}
                             </div>
                             <span className="stat-value">{stats.totalOrders.toLocaleString()}</span>
-                            <span className="stat-label">总订单</span>
+                            <span className="stat-label">{L('admin.dashboard.stats.totalOrders')}</span>
                         </div>
                     </div>
 
@@ -856,11 +861,11 @@ function DashboardHome() {
                             <div className="stat-card-top">
                                 <div className="stat-icon revenue"><FiDollarSign /></div>
                                 {dashboardPermissions.viewTodayStats && (
-                                    <div className="stat-trend up"><FiTrendingUp />&nbsp;+¥{stats.todayRevenue.toFixed(2)}</div>
+                                    <div className="stat-trend up"><FiTrendingUp />&nbsp;+{formatMoney(stats.todayRevenue)}</div>
                                 )}
                             </div>
-                            <span className="stat-value">¥{stats.totalRevenue.toFixed(2)}</span>
-                            <span className="stat-label">总收入</span>
+                            <span className="stat-value">{formatMoney(stats.totalRevenue)}</span>
+                            <span className="stat-label">{L('admin.dashboard.stats.totalRevenue')}</span>
                         </div>
                     </div>
 
@@ -870,7 +875,7 @@ function DashboardHome() {
                                 <div className="stat-icon products"><FiBox /></div>
                             </div>
                             <span className="stat-value">{stats.totalProducts.toLocaleString()}</span>
-                            <span className="stat-label">商品数</span>
+                            <span className="stat-label">{L('admin.dashboard.stats.totalProducts')}</span>
                         </div>
                     </div>
 
@@ -880,7 +885,7 @@ function DashboardHome() {
                                 <div className="stat-icon users"><FiUsers /></div>
                             </div>
                             <span className="stat-value">{stats.totalUsers.toLocaleString()}</span>
-                            <span className="stat-label">用户数</span>
+                            <span className="stat-label">{L('admin.dashboard.stats.totalUsers')}</span>
                         </div>
                     </div>
 
@@ -889,11 +894,11 @@ function DashboardHome() {
                             <div className="stat-card-top">
                                 <div className="stat-icon clock"><FiActivity /></div>
                                 {dashboardPermissions.viewTodayStats && (
-                                    <div className="stat-trend up"><FiTrendingUp />&nbsp;+{stats.todayVisits} 今日</div>
+                                    <div className="stat-trend up"><FiTrendingUp />&nbsp;+{stats.todayVisits} {L('admin.dashboard.stats.todaySuffix')}</div>
                                 )}
                             </div>
                             <span className="stat-value">{stats.totalVisits.toLocaleString()}</span>
-                            <span className="stat-label">总访问量</span>
+                            <span className="stat-label">{L('admin.dashboard.stats.totalVisits')}</span>
                         </div>
                     </div>
                 </div>
@@ -908,14 +913,14 @@ function DashboardHome() {
                         <FiActivity />
                         <div>
                             <span className="today-value">{stats.todayOrders}</span>
-                            <span className="today-label">今日订单</span>
+                            <span className="today-label">{L('admin.dashboard.stats.todayOrders')}</span>
                         </div>
                     </div>
                     <div className="today-card">
                         <FiDollarSign />
                         <div>
-                            <span className="today-value">¥{stats.todayRevenue.toFixed(2)}</span>
-                            <span className="today-label">今日收入</span>
+                            <span className="today-value">{formatMoney(stats.todayRevenue)}</span>
+                            <span className="today-label">{L('admin.dashboard.stats.todayRevenue')}</span>
                         </div>
                     </div>
                 </div>
@@ -925,26 +930,26 @@ function DashboardHome() {
             {stats.unpaidOrders > 0 && (
                 <div className="payment-monitor">
                     <div className="payment-monitor-header">
-                        <h3><FiCreditCard style={{ marginRight: 8, verticalAlign: 'middle' }} />支付监控</h3>
-                        <span className="payment-count">{stats.unpaidOrders} 笔待确认</span>
+                        <h3><FiCreditCard style={{ marginRight: 8, verticalAlign: 'middle' }} />{L('admin.dashboard.paymentMonitor.title')}</h3>
+                        <span className="payment-count">{L(`${stats.unpaidOrders} 笔待确认`, `${stats.unpaidOrders} pending`)}</span>
                     </div>
                     <div className="payment-summary-grid">
                         {Object.entries(stats.paymentMethodSummary).map(([method, data]) => (
                             <div key={method} className={`payment-summary-item ${method}`}>
                                 <span className="payment-method-name">{paymentMethodLabels[method] || method}</span>
-                                <span className="payment-method-count">{data.count} 笔</span>
-                                <span className="payment-method-amount">¥{data.amount.toFixed(2)}</span>
+                                <span className="payment-method-count">{data.count} {L('admin.dashboard.paymentMonitor.countUnit')}</span>
+                                <span className="payment-method-amount">{formatMoney(data.amount)}</span>
                             </div>
                         ))}
                     </div>
                     <table className="admin-table">
                         <thead>
                             <tr>
-                                <th>订单号</th>
-                                <th>商品</th>
-                                <th>支付方式</th>
-                                <th>金额</th>
-                                <th>时间</th>
+                                <th>{L('admin.orders.table.orderNo')}</th>
+                                <th>{L('admin.cards.table.product')}</th>
+                                <th>{L('admin.dashboard.paymentMonitor.table.method')}</th>
+                                <th>{L('admin.orders.table.amount')}</th>
+                                <th>{L('admin.common.time')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -954,11 +959,11 @@ function DashboardHome() {
                                     <td>{p.productName}</td>
                                     <td>
                                         <span className={`payment-badge ${p.paymentMethod}`}>
-                                            {paymentMethodLabels[p.paymentMethod] || p.paymentMethod || '未选择'}
+                                            {paymentMethodLabels[p.paymentMethod] || p.paymentMethod || L('admin.dashboard.paymentMonitor.noMethod')}
                                         </span>
                                     </td>
                                     <td>
-                                        ¥{p.amount.toFixed(2)}
+                                        {formatMoney(p.amount)}
                                         {p.usdtAmount && <span className="crypto-amount"> / {p.usdtAmount} USDT</span>}
                                         {p.bscUsdtAmount && <span className="crypto-amount"> / {p.bscUsdtAmount} USDT</span>}
                                     </td>
@@ -970,17 +975,17 @@ function DashboardHome() {
                 </div>
             )}
 
-            {/* 最近订单 */}
+            {/* 最近Order */}
             <div className="recent-orders">
-                <h3>最近订单</h3>
+                <h3>{L('admin.dashboard.recentOrders.title')}</h3>
                 <table className="admin-table">
                     <thead>
                         <tr>
-                            <th>订单号</th>
-                            <th>商品</th>
-                            <th>金额</th>
-                            <th>状态</th>
-                            <th>时间</th>
+                            <th>{L('admin.orders.table.orderNo')}</th>
+                            <th>{L('admin.cards.table.product')}</th>
+                            <th>{L('admin.orders.table.amount')}</th>
+                            <th>{L('admin.common.status')}</th>
+                            <th>{L('admin.common.time')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -988,22 +993,17 @@ function DashboardHome() {
                             <tr key={order.orderNo}>
                                 <td className="order-no">{order.orderNo}</td>
                                 <td>{order.productName}</td>
-                                <td>¥{parseFloat(order.amount || order.totalAmount || 0).toFixed(2)}</td>
+                                <td>{formatMoney(order.amount || order.totalAmount || 0)}</td>
                                 <td>
                                     <span className={`status-badge ${order.status?.toLowerCase()}`}>
-                                        {order.status === 'completed' ? '已完成' :
-                                         order.status === 'pending' ? '待支付' :
-                                         order.status === 'paid' ? '已支付' :
-                                         order.status === 'cancelled' ? '已取消' :
-                                         order.status === 'refunding' ? '退款中' :
-                                         order.status === 'refunded' ? '已退款' : order.status}
+                                        {({pending: L('admin.dashboard.orderStatus.pending'), paid: L('admin.dashboard.orderStatus.paid'), completed: L('admin.dashboard.orderStatus.completed'), cancelled: L('admin.dashboard.orderStatus.cancelled'), refunding: L('admin.dashboard.orderStatus.refunding'), refunded: L('admin.dashboard.orderStatus.refunded')}[order.status?.toLowerCase()] || order.status)}
                                     </span>
                                 </td>
                                 <td className="time">{formatTime(order.createdAt)}</td>
                             </tr>
                         ))}
                         {recentOrders.length === 0 && (
-                            <tr><td colSpan="5" style={{ textAlign: 'center' }}>暂无订单</td></tr>
+                            <tr><td colSpan="5" style={{ textAlign: 'center' }}>{L('admin.dashboard.recentOrders.noData')}</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -1014,10 +1014,11 @@ function DashboardHome() {
 
 
 
-// 商品管理
+// Product管理
 function ProductsManage() {
+    const L = useAdminL()
     const location = useLocation()
-    // 推导 basePath：从当前路径反向计算（admin 路径是 .../admin/products）
+    // 推导 basePath：从Current路径反向计算（admin 路径是 .../admin/products）
     const basePath = location.pathname.replace(/\/products.*$/, '') || '/admin'
     const { showToast, showConfirm } = useToast()
     const token = useAuthStore(state => state.token)
@@ -1025,10 +1026,10 @@ function ProductsManage() {
     const [showModal, setShowModal] = useState(false)
     const [showCategoryModal, setShowCategoryModal] = useState(false)
     const [editingProduct, setEditingProduct] = useState(null)
-    const [pendingImages, setPendingImages] = useState([]) // 待上传的图片
+    const [pendingImages, setPendingImages] = useState([]) // pending的图片
     const [uploadProgress, setUploadProgress] = useState(0)
     const [isUploading, setIsUploading] = useState(false)
-    const [products, setProducts] = useState([]) // 从 API 获取的商品
+    const [products, setProducts] = useState([]) // 从 API 获取的Product
     const [categories, setCategories] = useState([]) // 分类列表
     const [loading, setLoading] = useState(true)
     const [stockMode, setStockMode] = useState('auto') // 'auto' = 库存=卡密数量, 'manual' = 手动设置
@@ -1043,13 +1044,13 @@ function ProductsManage() {
         categoryId: '',
         images: [],
         weight: 0,
-        variants: [], // 商品规格
-        wholesalePrices: [], // 批发价阶梯（无规格时用）
-        wholesaleTiers: [], // 扁平批发价列表（有规格时用）
+        variants: [], // Variants
+        wholesalePrices: [], // 批发价阶梯（无Variant时用）
+        wholesaleTiers: [], // 扁平批发价列表（有Variant时用）
         status: 'active'
     })
 
-    // 从 API 获取商品列表和设置
+    // 从 API 获取Product列表和设置
     const [stockAlertIds, setStockAlertIds] = useState([])
 
     useEffect(() => {
@@ -1066,7 +1067,7 @@ function ProductsManage() {
             const data = await res.json()
             setStockAlertIds(data.productIds || [])
         } catch (e) {
-            console.error('获取库存警报设置失败:', e)
+            console.error('获取库存警报设置Failed:', e)
         }
     }
 
@@ -1085,9 +1086,9 @@ function ProductsManage() {
                 body: JSON.stringify({ productIds: newIds })
             })
             setStockAlertIds(newIds)
-            showToast(isEnabled ? '已关闭库存警报' : '已开启库存警报', 'success')
+            showToast(isEnabled ? 'Stock alert disabled' : 'Stock alert enabled', 'success')
         } catch (e) {
-            showToast('设置失败', 'error')
+            showToast('Setting failed', 'error')
         }
     }
 
@@ -1101,7 +1102,7 @@ function ProductsManage() {
                 setStockMode(data.settings.stockMode)
             }
         } catch (error) {
-            console.error('获取设置失败:', error)
+            console.error('获取设置Failed:', error)
         }
     }
 
@@ -1116,7 +1117,7 @@ function ProductsManage() {
             const data = await response.json()
             setProducts(data.products || [])
         } catch (error) {
-            console.error('获取商品列表失败:', error)
+            console.error('获取Product列表Failed:', error)
         } finally {
             setLoading(false)
         }
@@ -1133,14 +1134,14 @@ function ProductsManage() {
             const data = await response.json()
             setCategories(data.categories || [])
         } catch (error) {
-            console.error('获取分类失败:', error)
+            console.error('获取分类Failed:', error)
         }
     }
 
-    // 添加分类
+    // Add Category
     const handleAddCategory = async () => {
         if (!newCategory.name.trim()) {
-            showToast('请输入分类名称', 'error')
+            showToast('Enter category name', 'error')
             return
         }
         try {
@@ -1152,18 +1153,18 @@ function ProductsManage() {
                 },
                 body: JSON.stringify(newCategory)
             })
-            if (!response.ok) throw new Error('添加失败')
-            showToast('分类添加成功', 'success')
+            if (!response.ok) throw new Error('Failed to add')
+            showToast('Category added', 'success')
             setNewCategory({ name: '', icon: '📦' })
             fetchCategories()
         } catch (error) {
-            showToast('添加分类失败', 'error')
+            showToast('Failed to add category', 'error')
         }
     }
 
-    // 删除分类
+    // Delete分类
     const handleDeleteCategory = async (categoryId, categoryName) => {
-        showConfirm('删除分类', `确定要删除分类「${categoryName}」吗？`, async () => {
+        showConfirm('Delete Category', `Delete category "${categoryName}"?`, async () => {
             try {
                 const response = await fetch(`/api/admin/categories/${categoryId}`, {
                     method: 'DELETE',
@@ -1171,11 +1172,11 @@ function ProductsManage() {
                         'Authorization': `Bearer ${token}`
                     }
                 })
-                if (!response.ok) throw new Error('删除失败')
-                showToast('分类已删除', 'success')
+                if (!response.ok) throw new Error('Delete failed')
+                showToast('Category deleted', 'success')
                 fetchCategories()
             } catch (error) {
-                showToast('删除分类失败', 'error')
+                showToast('Failed to delete category', 'error')
             }
         })
     }
@@ -1184,7 +1185,7 @@ function ProductsManage() {
     const handleUpdateCategory = async () => {
         if (!editingCategory) return
         if (!editingCategory.name.trim()) {
-            showToast('请输入分类名称', 'error')
+            showToast('Enter category name', 'error')
             return
         }
         try {
@@ -1199,16 +1200,16 @@ function ProductsManage() {
                     icon: editingCategory.icon
                 })
             })
-            if (!response.ok) throw new Error('更新失败')
-            showToast('分类已更新', 'success')
+            if (!response.ok) throw new Error('Update failed')
+            showToast('Category updated', 'success')
             setEditingCategory(null)
             fetchCategories()
         } catch (error) {
-            showToast('更新分类失败', 'error')
+            showToast('Failed to update category', 'error')
         }
     }
 
-    // 打开分类管理弹窗
+    // 打开Categories弹窗
     const openCategoryModal = () => {
         fetchCategories()
         setShowCategoryModal(true)
@@ -1270,7 +1271,7 @@ function ProductsManage() {
                     price: t.price?.toString() || ''
                 }))
             ),
-            // 自动检测是否启用规格类型分组（如果有任何规格带 type 则启用）
+            // 自动检测是否EnableVariant类型分组（如果有任何Variant带 type 则Enable）
             enableVariantTypes: (product.variants || []).some(v => v.type && v.type.trim() !== ''),
             status: product.status?.toLowerCase() || 'active',
             deliveryNote: product.deliveryNote || ''
@@ -1281,8 +1282,8 @@ function ProductsManage() {
 
     const handleDelete = (product) => {
         showConfirm(
-            '删除商品',
-            `确定要删除商品「${product.name}」吗？此操作不可撤销。`,
+            'Delete Product',
+            `Delete product "${product.name}"? This cannot be undone.`,
             async () => {
                 try {
                     const response = await fetch(`/api/admin/products/${product.id}`, {
@@ -1292,12 +1293,12 @@ function ProductsManage() {
                         }
                     })
                     if (!response.ok) {
-                        throw new Error('删除失败')
+                        throw new Error('Delete failed')
                     }
-                    showToast('商品已成功删除', 'success')
+                    showToast('Product deleted', 'success')
                     fetchProducts()
                 } catch (error) {
-                    showToast('删除失败: ' + error.message, 'error')
+                    showToast('Delete failed: ' + error.message, 'error')
                 }
             }
         )
@@ -1306,22 +1307,22 @@ function ProductsManage() {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        // 校验：必须有规格价格 或 顶层售价
+        // 校验：必须有Variant价格 或 顶层售价
         const validVariants = formData.variants.filter(v => v.name && v.price)
         const topPrice = parseFloat(formData.price)
         if (validVariants.length === 0 && (!topPrice || topPrice <= 0)) {
-            showToast('请添加商品规格，或在"售价"中填写商品价格', 'error')
+            showToast('Please add product variants, or enter a price in the "Price" field', 'error')
             return
         }
 
-        // 准备商品数据
+        // 准备Products据
         // 提取图片路径数组
         const imagePaths = formData.images.map(img => {
             if (typeof img === 'string') return img
             return img.urls?.medium || img.urls?.original || img
         })
 
-        // 价格：有规格则后端自动取最低；没规格用顶层售价
+        // 价格：有Variant则后端自动取最低；没Variant用顶层售价
         const productData = {
             name: formData.name,
             description: formData.description,
@@ -1365,19 +1366,19 @@ function ProductsManage() {
 
             if (!response.ok) {
                 const error = await response.json()
-                throw new Error(error.error || '操作失败')
+                throw new Error(error.error || 'Operation failed')
             }
 
             if (editingProduct) {
-                showToast('商品更新成功', 'success')
+                showToast('Product updated', 'success')
             } else {
-                showToast('商品添加成功', 'success')
+                showToast('Product added', 'success')
             }
             setShowModal(false)
-            // 刷新页面以显示新商品（临时方案）
+            // Refresh页面以显示新Product（临时方案）
             fetchProducts()
         } catch (error) {
-            showToast('操作失败: ' + error.message, 'error')
+            showToast('Operation failed: ' + error.message, 'error')
         }
     }
 
@@ -1395,11 +1396,11 @@ function ProductsManage() {
         const newPending = []
         for (const file of files) {
             if (!file.type.startsWith('image/')) {
-                showToast(`${file.name} 不是图片文件`, 'warning')
+                showToast(`${file.name} is not an image file`, 'warning')
                 continue
             }
             if (file.size > 5 * 1024 * 1024) {
-                showToast(`${file.name} 超过 5MB`, 'warning')
+                showToast(`${file.name} exceeds 5MB`, 'warning')
                 continue
             }
             // 生成预览
@@ -1414,10 +1415,10 @@ function ProductsManage() {
         e.target.value = '' // 重置 input
     }
 
-    // 上传待上传图片
+    // Upload待Upload图片
     const handleUploadImages = async () => {
         if (pendingImages.length === 0) {
-            showToast('请先选择图片', 'warning')
+            showToast('Please select images first', 'warning')
             return
         }
 
@@ -1436,12 +1437,12 @@ function ProductsManage() {
             })
 
             if (!response.ok) {
-                throw new Error('上传失败')
+                throw new Error('Upload failed')
             }
 
             const result = await response.json()
 
-            // 添加到已上传列表
+            // Add到Uploaded列表
             const newImages = result.images.map(img => ({
                 fileName: img.fileName,
                 urls: img.urls
@@ -1454,20 +1455,20 @@ function ProductsManage() {
 
             setPendingImages([])
             setUploadProgress(100)
-            showToast(`成功上传 ${result.images.length} 张图片`, 'success')
+            showToast(`Successfully uploaded ${result.images.length} images`, 'success')
         } catch (error) {
-            showToast('图片上传失败: ' + error.message, 'error')
+            showToast('Image upload failed: ' + error.message, 'error')
         } finally {
             setIsUploading(false)
         }
     }
 
-    // 删除待上传图片
+    // Delete待Upload图片
     const removePendingImage = (index) => {
         setPendingImages(prev => prev.filter((_, i) => i !== index))
     }
 
-    // 删除已上传图片
+    // DeleteUploaded图片
     const removeUploadedImage = async (index) => {
         const image = formData.images[index]
         try {
@@ -1478,43 +1479,43 @@ function ProductsManage() {
                 ...prev,
                 images: prev.images.filter((_, i) => i !== index)
             }))
-            showToast('图片已删除', 'success')
+            showToast('Image deleted', 'success')
         } catch (error) {
-            showToast('删除失败', 'error')
+            showToast('Delete failed', 'error')
         }
     }
 
     return (
         <div className="manage-page">
             <div className="page-header">
-                <h2>商品管理</h2>
+                <h2>{L('admin.products.title')}</h2>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="btn btn-secondary" onClick={openCategoryModal}>📁 分类管理</button>
-                    <button className="btn btn-primary" onClick={handleAdd}>+ 添加商品</button>
+                    <button className="btn btn-secondary" onClick={openCategoryModal}>{L('admin.products.categories')}</button>
+                    <button className="btn btn-primary" onClick={handleAdd}>{L('admin.products.add')}</button>
                 </div>
             </div>
             <div className="products-table-wrapper">
                 <table className="admin-table">
                     <thead>
                         <tr>
-                            <th>商品名称</th>
-                            <th>价格</th>
-                            <th>库存</th>
-                            <th>已售</th>
-                            <th>权重</th>
-                            <th>状态</th>
-                            <th>操作</th>
+                            <th>{L('admin.products.table.name')}</th>
+                            <th>{L('admin.products.table.price')}</th>
+                            <th>{L('admin.products.table.stock')}</th>
+                            <th>{L('admin.cards.sold')}</th>
+                            <th>{L('admin.products.table.weight')}</th>
+                            <th>{L('admin.common.status')}</th>
+                            <th>{L('admin.common.actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>加载中...</td></tr>
+                            <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>{L('admin.common.loading')}</td></tr>
                         ) : products.length === 0 ? (
-                            <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>暂无商品</td></tr>
+                            <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>{L('inline.no.products.e7dfa4b')}</td></tr>
                         ) : products.map(product => (
                             <tr key={product.id}>
                                 <td>{product.name}</td>
-                                <td>¥{parseFloat(product.price).toFixed(2)}</td>
+                                <td>{formatMoney(product.price)}</td>
                                 <td>{product.stock}</td>
                                 <td>{product.soldCount || 0}</td>
                                 <td>
@@ -1530,20 +1531,20 @@ function ProductsManage() {
                                 </td>
                                 <td>
                                     <span className={`status-badge ${product.status?.toLowerCase()}`}>
-                                        {product.status === 'ACTIVE' ? '上架' : '下架'}
+                                        {product.status === 'ACTIVE' ? L('admin.products.active') : L('admin.products.inactive')}
                                     </span>
                                 </td>
                                 <td className="actions">
-                                    <button className="action-btn edit" onClick={() => handleEdit(product)}>编辑</button>
-                                    <button className="action-btn cards" onClick={() => navigate(`${basePath}/cards?productId=${product.id}`)}>卡密</button>
+                                    <button className="action-btn edit" onClick={() => handleEdit(product)}>{L('admin.common.edit')}</button>
+                                    <button className="action-btn cards" onClick={() => navigate(`${basePath}/cards?productId=${product.id}`)}>{L('admin.products.cards')}</button>
                                     <button
                                         className={`action-btn ${stockAlertIds.includes(product.id) ? 'alert-on' : 'alert-off'}`}
                                         onClick={(e) => { e.stopPropagation(); toggleStockAlert(product.id) }}
-                                        title={stockAlertIds.includes(product.id) ? '关闭库存警报' : '开启库存警报'}
+                                        title={stockAlertIds.includes(product.id) ? 'Disable stock alert' : 'Enable stock alert'}
                                     >
                                         {stockAlertIds.includes(product.id) ? <FiBell /> : <FiBellOff />}
                                     </button>
-                                    <button className="action-btn delete" onClick={() => handleDelete(product)}>删除</button>
+                                    <button className="action-btn delete" onClick={() => handleDelete(product)}>{L('admin.common.delete')}</button>
                                 </td>
                             </tr>
                         ))}
@@ -1551,54 +1552,54 @@ function ProductsManage() {
                 </table>
             </div>
 
-            {/* 添加/编辑商品弹窗 */}
+            {/* Add/Edit Product弹窗 */}
             {showModal && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="modal-header">
-                            <h3>{editingProduct ? '编辑商品' : '添加商品'}</h3>
+                            <h3>{editingProduct ? L('inline.edit.product.f161576') : L('admin.products.add')}</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
                         </div>
                         <form onSubmit={handleSubmit} className="modal-form">
                             <div className="form-group">
-                                <label>商品名称 *</label>
+                                <label>{L('admin.products.table.name')} *</label>
                                 <input
                                     type="text"
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    placeholder="请输入商品名称"
+                                    placeholder={L('admin.products.table.name')}
                                     required
                                 />
                             </div>
                             <div className="form-group">
-                                <label>简短描述 <span style={{ color: '#999', fontWeight: 'normal' }}>(显示在商品卡片和标题下方)</span></label>
+                                <label>Short Description <span style={{ color: '#999', fontWeight: 'normal' }}>(shown on product card and below title)</span></label>
                                 <textarea
                                     name="description"
                                     value={formData.description}
                                     onChange={handleChange}
-                                    placeholder="一句话描述商品特点"
+                                    placeholder="One-line product highlight"
                                     rows={2}
                                 />
                             </div>
                             <div className="form-group">
-                                <label>详细描述 <span style={{ color: '#999', fontWeight: 'normal' }}>(显示在商品详情页底部)</span></label>
+                                <label>Full Description <span style={{ color: '#999', fontWeight: 'normal' }}>(shown at bottom of product detail page)</span></label>
                                 <textarea
                                     name="fullDescription"
                                     value={formData.fullDescription}
                                     onChange={handleChange}
-                                    placeholder="【商品说明】&#10;• 商品内容1&#10;• 商品内容2&#10;&#10;【使用方法】&#10;1. 步骤一&#10;2. 步骤二"
+                                    placeholder="【Product Info】&#10;• Item detail 1&#10;• Item detail 2&#10;&#10;【How to Use】&#10;1. Step one&#10;2. Step two"
                                     rows={6}
                                 />
                             </div>
 
-                            {/* 商品规格 - 放在价格上方 */}
+                            {/* Variants - 放在价格上方 */}
                             <div className="form-group variants-section">
                                 <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <span>
-                                        商品规格
+                                        Variants
                                         <span style={{ color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
-                                            (可选，如：月卡、季卡、年卡)
+                                            (optional, e.g.: Monthly, Quarterly, Annual)
                                         </span>
                                     </span>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 'normal', fontSize: '0.9rem', cursor: 'pointer' }}>
@@ -1610,17 +1611,17 @@ function ProductsManage() {
                                             }}
                                             style={{ width: 16, height: 16 }}
                                         />
-                                        启用规格类型分组
+                                        Enable variant type grouping
                                     </label>
                                 </label>
 
                                 {formData.enableVariantTypes ? (
-                                    /* 带类型分组的规格 */
+                                    /* 带类型分组的Variant */
                                     <>
                                         {(() => {
-                                            // 按类型分组规格
-                                            const types = [...new Set(formData.variants.map(v => v.type || '默认').filter(Boolean))]
-                                            if (types.length === 0) types.push('默认')
+                                            // 按类型分组Variant
+                                            const types = [...new Set(formData.variants.map(v => v.type || 'Default').filter(Boolean))]
+                                            if (types.length === 0) types.push('Default')
 
                                             return types.map((typeName, typeIndex) => (
                                                 <div key={typeIndex} className="variant-type-group" style={{
@@ -1631,16 +1632,16 @@ function ProductsManage() {
                                                     background: 'var(--card-bg)'
                                                 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                                                        <span style={{ fontWeight: 500 }}>类型:</span>
+                                                        <span style={{ fontWeight: 500 }}>Type:</span>
                                                         <input
                                                             type="text"
-                                                            value={typeName === '默认' ? '' : typeName}
-                                                            placeholder="输入类型名称，如：共享、独享"
+                                                            value={typeName === 'Default' ? '' : typeName}
+                                                            placeholder="Enter type name, e.g.: Shared, Dedicated"
                                                             onChange={(e) => {
                                                                 const oldType = typeName
-                                                                const newType = e.target.value || '默认'
+                                                                const newType = e.target.value || 'Default'
                                                                 const newVariants = formData.variants.map(v =>
-                                                                    (v.type || '默认') === oldType ? { ...v, type: newType === '默认' ? '' : newType } : v
+                                                                    (v.type || 'Default') === oldType ? { ...v, type: newType === 'Default' ? '' : newType } : v
                                                                 )
                                                                 setFormData({ ...formData, variants: newVariants })
                                                             }}
@@ -1651,27 +1652,27 @@ function ProductsManage() {
                                                                 type="button"
                                                                 className="remove-variant-btn"
                                                                 onClick={() => {
-                                                                    const newVariants = formData.variants.filter(v => (v.type || '默认') !== typeName)
+                                                                    const newVariants = formData.variants.filter(v => (v.type || 'Default') !== typeName)
                                                                     setFormData({ ...formData, variants: newVariants })
                                                                 }}
-                                                                title="删除此类型"
+                                                                title="Delete this type"
                                                             >
                                                                 ✕
                                                             </button>
                                                         )}
                                                     </div>
 
-                                                    {/* 该类型下的规格列表 */}
+                                                    {/* 该类型下的Variant列表 */}
                                                     {formData.variants
                                                         .map((v, i) => ({ ...v, originalIndex: i }))
-                                                        .filter(v => (v.type || '默认') === typeName)
+                                                        .filter(v => (v.type || 'Default') === typeName)
                                                         .map((variant) => (
                                                             <div key={variant.originalIndex} className="variant-row">
                                                                 <button
                                                                     type="button"
                                                                     className="move-variant-btn"
                                                                     disabled={variant.originalIndex === 0 || (formData.variants[variant.originalIndex - 1]?.type || '') !== (variant.type || '')}
-                                                                    title="上移"
+                                                                    title="Move up"
                                                                     onClick={() => {
                                                                         const newVariants = [...formData.variants]
                                                                         const i = variant.originalIndex
@@ -1683,7 +1684,7 @@ function ProductsManage() {
                                                                 </button>
                                                                 <input
                                                                     type="text"
-                                                                    placeholder="规格名称"
+                                                                    placeholder="Variant name"
                                                                     value={variant.name}
                                                                     onChange={(e) => {
                                                                         const newVariants = [...formData.variants]
@@ -1694,7 +1695,7 @@ function ProductsManage() {
                                                                 />
                                                                 <input
                                                                     type="number"
-                                                                    placeholder="价格"
+                                                                    placeholder="Price"
                                                                     value={variant.price}
                                                                     onChange={(e) => {
                                                                         const newVariants = [...formData.variants]
@@ -1707,7 +1708,7 @@ function ProductsManage() {
                                                                 {stockMode === 'manual' && (
                                                                 <input
                                                                     type="number"
-                                                                    placeholder="库存"
+                                                                    placeholder="Stock"
                                                                     value={variant.stock}
                                                                     onChange={(e) => {
                                                                         const newVariants = [...formData.variants]
@@ -1738,7 +1739,7 @@ function ProductsManage() {
                                                             setFormData({
                                                                 ...formData,
                                                                 variants: [...formData.variants, {
-                                                                    type: typeName === '默认' ? '' : typeName,
+                                                                    type: typeName === 'Default' ? '' : typeName,
                                                                     name: '',
                                                                     price: '',
                                                                     
@@ -1747,7 +1748,7 @@ function ProductsManage() {
                                                             })
                                                         }}
                                                     >
-                                                        + 添加规格
+                                                        + Add Variant
                                                     </button>
                                                 </div>
                                             ))
@@ -1758,8 +1759,8 @@ function ProductsManage() {
                                             className="add-variant-btn"
                                             style={{ background: 'transparent', border: '2px dashed var(--border-color)', color: 'var(--primary-color)' }}
                                             onClick={() => {
-                                                const existingTypes = [...new Set(formData.variants.map(v => v.type || '默认'))]
-                                                const newTypeName = `类型${existingTypes.length + 1}`
+                                                const existingTypes = [...new Set(formData.variants.map(v => v.type || 'Default'))]
+                                                const newTypeName = `Type${existingTypes.length + 1}`
                                                 setFormData({
                                                     ...formData,
                                                     variants: [...formData.variants, {
@@ -1772,11 +1773,11 @@ function ProductsManage() {
                                                 })
                                             }}
                                         >
-                                            + 添加类型
+                                            + Add Type
                                         </button>
                                     </>
                                 ) : (
-                                    /* 无类型分组的简单规格 */
+                                    /*None类型分组的简单Variant */
                                     <>
                                         {formData.variants.map((variant, index) => (
                                             <div key={index} className="variant-row">
@@ -1784,7 +1785,7 @@ function ProductsManage() {
                                                     type="button"
                                                     className="move-variant-btn"
                                                     disabled={index === 0}
-                                                    title="上移"
+                                                    title="Move up"
                                                     onClick={() => {
                                                         const newVariants = [...formData.variants]
                                                         ;[newVariants[index - 1], newVariants[index]] = [newVariants[index], newVariants[index - 1]]
@@ -1795,7 +1796,7 @@ function ProductsManage() {
                                                 </button>
                                                 <input
                                                     type="text"
-                                                    placeholder="规格名称"
+                                                    placeholder="Variant name"
                                                     value={variant.name}
                                                     onChange={(e) => {
                                                         const newVariants = [...formData.variants]
@@ -1806,7 +1807,7 @@ function ProductsManage() {
                                                 />
                                                 <input
                                                     type="number"
-                                                    placeholder="价格"
+                                                    placeholder="Price"
                                                     value={variant.price}
                                                     onChange={(e) => {
                                                         const newVariants = [...formData.variants]
@@ -1819,7 +1820,7 @@ function ProductsManage() {
                                                 {stockMode === 'manual' && (
                                                 <input
                                                     type="number"
-                                                    placeholder="库存"
+                                                    placeholder="Stock"
                                                     value={variant.stock}
                                                     onChange={(e) => {
                                                         const newVariants = [...formData.variants]
@@ -1852,16 +1853,16 @@ function ProductsManage() {
                                                 })
                                             }}
                                         >
-                                            + 添加规格
+                                            + Add Variant
                                         </button>
                                     </>
                                 )}
                             </div>
 
-                            {/* 售价 + 库存（始终显示售价；手动库存模式 + 无规格才显示库存） */}
+                            {/* 售价 + 库存（始终显示售价；手动Stock Mode +NoneVariant才显示库存） */}
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>售价 *</label>
+                                    <label>Price ({getCurrencySymbol()}) *</label>
                                     <input
                                         type="number"
                                         name="price"
@@ -1872,12 +1873,12 @@ function ProductsManage() {
                                         required={!(formData.variants.length > 0 && formData.variants.some(v => v.name))}
                                     />
                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                        添加商品规格后，售价以规格价格为准
+                                        When variants are added, price follows variant pricing
                                     </span>
                                 </div>
                                 {!(formData.variants.length > 0 && formData.variants.some(v => v.name)) && stockMode === 'manual' && (
                                     <div className="form-group">
-                                        <label>库存 *</label>
+                                        <label>Stock *</label>
                                         <input
                                             type="number"
                                             name="stock"
@@ -1891,16 +1892,16 @@ function ProductsManage() {
                                 )}
                             </div>
 
-                            {/* 批发价设置 —— 独立区块，有规格时通过下拉绑定规格名称 */}
+                            {/* Wholesale Pricing —— 独立区块，有Variant时Approve下拉绑定Variant Name */}
                             <div className="form-group wholesale-section">
                                 <label>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: 6 }}>
                                         <polyline points="7 13 12 18 17 13" />
                                         <polyline points="7 6 12 11 17 6" />
                                     </svg>
-                                    批发价设置
+                                    Wholesale Pricing
                                     <span style={{ color: '#999', fontWeight: 'normal', fontSize: '0.85rem', marginLeft: 8 }}>
-                                        达到最低数量时自动应用对应单价
+                                        Auto-applied when minimum quantity is reached
                                     </span>
                                 </label>
                                 <div className="wholesale-editor wholesale-editor--standalone wholesale-editor--open">
@@ -1983,10 +1984,10 @@ function ProductsManage() {
                                                     {allTiers.length > 0 && (
                                                         <div className={`wholesale-editor__header-row ${hasVariants ? 'wholesale-editor__header-row--with-variant' : ''}`}>
                                                             {hasVariants && (
-                                                                <span className="wholesale-editor__col-label">规格</span>
+                                                                <span className="wholesale-editor__col-label">Variant</span>
                                                             )}
-                                                            <span className="wholesale-editor__col-label">最少数量</span>
-                                                            <span className="wholesale-editor__col-label">单价 (¥)</span>
+                                                            <span className="wholesale-editor__col-label">Min Qty</span>
+                                                            <span className="wholesale-editor__col-label">Unit Price ({getCurrencySymbol()})</span>
                                                             <span />
                                                         </div>
                                                     )}
@@ -2010,7 +2011,7 @@ function ProductsManage() {
                                                                 <input
                                                                     type="number"
                                                                     className="wholesale-editor__input"
-                                                                    placeholder="如：10"
+                                                                    placeholder="e.g. 10"
                                                                     min="1"
                                                                     value={tier.minQty}
                                                                     onChange={(e) => updateTier(tier._key, 'minQty', e.target.value)}
@@ -2020,7 +2021,7 @@ function ProductsManage() {
                                                                 <input
                                                                     type="number"
                                                                     className="wholesale-editor__input"
-                                                                    placeholder="如：9.90"
+                                                                    placeholder="e.g. 9.90"
                                                                     min="0"
                                                                     step="0.01"
                                                                     value={tier.price}
@@ -2031,7 +2032,7 @@ function ProductsManage() {
                                                                 type="button"
                                                                 className="wholesale-editor__remove-btn"
                                                                 onClick={() => removeTier(tier._key)}
-                                                                title="删除此档位"
+                                                                title="Delete this tier"
                                                             >
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                                     <polyline points="3 6 5 6 21 6" />
@@ -2049,7 +2050,7 @@ function ProductsManage() {
                                                             <line x1="12" y1="5" x2="12" y2="19" />
                                                             <line x1="5" y1="12" x2="19" y2="12" />
                                                         </svg>
-                                                        添加批发阶梯
+                                                        Add wholesale tier
                                                     </button>
                                                 </>
                                             )
@@ -2059,12 +2060,12 @@ function ProductsManage() {
                             </div>
 
                             <div className="form-group">
-                                <label>商品类别</label>
+                                <label>Category</label>
                                 <CustomSelect
                                     name="categoryId"
                                     value={formData.categoryId}
                                     onChange={handleChange}
-                                    placeholder="请选择类别"
+                                    placeholder="Select category"
                                     options={categories.map(cat => ({
                                         value: cat.id,
                                         label: `${cat.icon} ${cat.name}`
@@ -2072,7 +2073,7 @@ function ProductsManage() {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>商品权重 <span style={{ color: '#999', fontWeight: 'normal' }}>(0-100，越高排名越靠前，默认为0)</span></label>
+                                <label>Product Weight <span style={{ color: '#999', fontWeight: 'normal' }}>(0-100，Higher = higher priority, default 0)</span></label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <input
                                         type="range"
@@ -2095,9 +2096,9 @@ function ProductsManage() {
                                 </div>
                             </div>
                             <div className="form-group">
-                                <label>商品图片 <span className="upload-count">({formData.images.length} 已上传, {pendingImages.length} 待上传)</span></label>
+                                <label>Product Images <span className="upload-count">({formData.images.length} uploaded, {pendingImages.length} pending)</span></label>
                                 <div className="image-upload-area multi">
-                                    {/* 已上传的图片 */}
+                                    {/* Uploaded images */}
                                     {formData.images.map((img, index) => {
                                         // 处理不同格式的图片数据
                                         const imgUrl = typeof img === 'string'
@@ -2107,7 +2108,7 @@ function ProductsManage() {
                                                 : `${img.urls?.original || img}`
                                         return (
                                             <div key={`uploaded-${index}`} className="image-preview uploaded">
-                                                <img src={imgUrl} alt={`已上传 ${index + 1}`} />
+                                                <img src={imgUrl} alt={`Uploaded ${index + 1}`} />
                                                 <button
                                                     type="button"
                                                     className="remove-image-btn"
@@ -2120,7 +2121,7 @@ function ProductsManage() {
                                         )
                                     })}
 
-                                    {/* 待上传的图片 */}
+                                    {/* pending的图片 */}
                                     {pendingImages.map((img, index) => (
                                         <div key={`pending-${index}`} className="image-preview pending">
                                             <img src={img.preview} alt={img.name} />
@@ -2131,11 +2132,11 @@ function ProductsManage() {
                                             >
                                                 ×
                                             </button>
-                                            <span className="image-status pending">待传</span>
+                                            <span className="image-status pending">pending</span>
                                         </div>
                                     ))}
 
-                                    {/* 添加图片按钮 */}
+                                    {/* Add Image按钮 */}
                                     <label className="upload-add-btn">
                                         <input
                                             type="file"
@@ -2146,12 +2147,12 @@ function ProductsManage() {
                                         />
                                         <div className="upload-add-content">
                                             <FiImage className="upload-icon" />
-                                            <span>添加图片</span>
+                                            <span>Add Image</span>
                                         </div>
                                     </label>
                                 </div>
 
-                                {/* 上传按钮和进度 */}
+                                {/* Upload按钮和进度 */}
                                 {pendingImages.length > 0 && (
                                     <div className="upload-actions">
                                         <button
@@ -2160,7 +2161,7 @@ function ProductsManage() {
                                             onClick={handleUploadImages}
                                             disabled={isUploading}
                                         >
-                                            {isUploading ? `上传中...` : `上传 ${pendingImages.length} 张图片`}
+                                            {isUploading ? `Uploading...` : `Upload ${pendingImages.length} image(s)`}
                                         </button>
                                         {isUploading && (
                                             <div className="upload-progress-bar">
@@ -2171,29 +2172,29 @@ function ProductsManage() {
                                 )}
                             </div>
                             <div className="form-group">
-                                <label>发货备注 <span style={{ color: '#999', fontWeight: 'normal' }}>(发货后显示在订单页面，留空则不显示)</span></label>
+                                <label>Delivery Note <span style={{ color: '#999', fontWeight: 'normal' }}>(Shown on order page after shipping. Leave empty to hide.)</span></label>
                                 <textarea
                                     name="deliveryNote"
                                     value={formData.deliveryNote}
                                     onChange={handleChange}
-                                    placeholder="例如：请在浏览器无痕模式下登录，首次使用请修改密码..."
+                                    placeholder="e.g. Please login in incognito mode..."
                                     rows={3}
                                     style={{ resize: 'vertical' }}
                                 />
                             </div>
                             <div className="form-group">
-                                <label>状态</label>
+                                <label>Status</label>
                                 <select name="status" value={formData.status} onChange={handleChange}>
-                                    <option value="active">上架</option>
-                                    <option value="inactive">下架</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
                                 </select>
                             </div>
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                                    取消
+                                    Cancel
                                 </button>
                                 <button type="submit" className="btn btn-primary">
-                                    {editingProduct ? '保存修改' : '添加商品'}
+                                    {editingProduct ? 'Save Changes' : L('admin.products.add')}
                                 </button>
                             </div>
                         </form>
@@ -2201,22 +2202,22 @@ function ProductsManage() {
                 </div>
             )}
 
-            {/* 分类管理弹窗 */}
+            {/* Categories弹窗 */}
             {showCategoryModal && (
                 <div className="modal-overlay" onClick={() => setShowCategoryModal(false)}>
                     <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>📁 分类管理</h3>
+                            <h3>📁 Categories</h3>
                             <button className="modal-close" onClick={() => setShowCategoryModal(false)}>×</button>
                         </div>
                         <div className="modal-body">
-                            {/* 添加新分类 */}
+                            {/* Add New Category */}
                             <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                                <h4 style={{ marginBottom: '12px', fontSize: '14px', color: 'var(--text-secondary)' }}>添加新分类</h4>
+                                <h4 style={{ marginBottom: '12px', fontSize: '14px', color: 'var(--text-secondary)' }}>Add New Category</h4>
                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                                     <input
                                         type="text"
-                                        placeholder="图标 (emoji)"
+                                        placeholder="Icon (emoji)"
                                         value={newCategory.icon}
                                         onChange={e => setNewCategory(prev => ({ ...prev, icon: e.target.value }))}
                                         className="input"
@@ -2224,23 +2225,23 @@ function ProductsManage() {
                                     />
                                     <input
                                         type="text"
-                                        placeholder="分类名称"
+                                        placeholder="Category Name"
                                         value={newCategory.name}
                                         onChange={e => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
                                         className="input"
                                         style={{ flex: 1 }}
                                     />
-                                    <button className="btn btn-primary" onClick={handleAddCategory}>添加</button>
+                                    <button className="btn btn-primary" onClick={handleAddCategory}>Add</button>
                                 </div>
                             </div>
 
                             {/* 分类列表 */}
                             <div>
                                 <h4 style={{ marginBottom: '12px', fontSize: '14px', color: 'var(--text-secondary)' }}>
-                                    现有分类 ({categories.length})
+                                    Existing Categories ({categories.length})
                                 </h4>
                                 {categories.length === 0 ? (
-                                    <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '20px' }}>暂无分类</p>
+                                    <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '20px' }}>No categories</p>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {categories.map(cat => (
@@ -2259,7 +2260,7 @@ function ProductsManage() {
                                                             onChange={e => setEditingCategory(prev => ({ ...prev, icon: e.target.value }))}
                                                             className="input"
                                                             style={{ width: 70, textAlign: 'center', fontSize: 18 }}
-                                                            placeholder="图标"
+                                                            placeholder="Icon"
                                                         />
                                                         <input
                                                             type="text"
@@ -2267,7 +2268,7 @@ function ProductsManage() {
                                                             onChange={e => setEditingCategory(prev => ({ ...prev, name: e.target.value }))}
                                                             className="input"
                                                             style={{ flex: 1 }}
-                                                            placeholder="分类名称"
+                                                            placeholder="Category Name"
                                                         />
                                                     </div>
                                                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -2275,12 +2276,12 @@ function ProductsManage() {
                                                             className="btn btn-secondary"
                                                             onClick={() => setEditingCategory(null)}
                                                             style={{ padding: '6px 14px', fontSize: '0.85rem' }}
-                                                        >取消</button>
+                                                        >{L('admin.common.cancel')}</button>
                                                         <button
                                                             className="btn btn-primary"
                                                             onClick={handleUpdateCategory}
                                                             style={{ padding: '6px 14px', fontSize: '0.85rem' }}
-                                                        >保存</button>
+                                                        >Save</button>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -2298,7 +2299,7 @@ function ProductsManage() {
                                                         <div>
                                                             <div style={{ fontWeight: '500' }}>{cat.name}</div>
                                                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                                {cat.productCount || 0} 个商品
+                                                                {cat.productCount || 0} product(s)
                                                             </div>
                                                         </div>
                                                     </div>
@@ -2307,12 +2308,12 @@ function ProductsManage() {
                                                             className="action-btn edit"
                                                             onClick={() => setEditingCategory({ id: cat.id, name: cat.name, icon: cat.icon || '📦' })}
                                                             style={{ padding: '6px 12px' }}
-                                                        >编辑</button>
+                                                        >Edit</button>
                                                         <button
                                                             className="action-btn delete"
                                                             onClick={() => handleDeleteCategory(cat.id, cat.name)}
                                                             style={{ padding: '6px 12px' }}
-                                                        >删除</button>
+                                                        >Delete</button>
                                                     </div>
                                                 </div>
                                             )
@@ -2330,9 +2331,10 @@ function ProductsManage() {
 
 // 订单管理
 function OrdersManage() {
+    const L = useAdminL()
     const location = useLocation()
     const basePath = location.pathname.replace(/\/orders.*$/, '') || '/admin'
-    // 商户店面下用 /v/:slug 前缀；主站直接用 /order/...
+    // 商户店面下用 /v/:slug 前缀；Main Site直接用 /order/...
     const storefrontPrefix = basePath.startsWith('/v/')
         ? basePath.replace(/\/admin$/, '')
         : ''
@@ -2346,7 +2348,7 @@ function OrdersManage() {
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [statusFilter, setStatusFilter] = useState(urlStatusFilter || 'all')
-    const [shipping, setShipping] = useState(null) // 正在发货的订单ID
+    const [shipping, setShipping] = useState(null) // 正在Ship的订单ID
     const [currentPage, setCurrentPage] = useState(1)
     const [totalOrders, setTotalOrders] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
@@ -2356,7 +2358,7 @@ function OrdersManage() {
     const searchTimer = useRef(null)
     const [searching, setSearching] = useState(false)
 
-    // 搜索防抖：输入后 500ms 才触发查询
+    // Search防抖：输入后 500ms 才触发查询
     useEffect(() => {
         if (searchTimer.current) clearTimeout(searchTimer.current)
         if (searchInput !== debouncedSearch) {
@@ -2368,11 +2370,11 @@ function OrdersManage() {
         return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
     }, [searchInput])
 
-    // 卡密输入弹窗状态
+    // 卡密输入弹窗Status
     const [showCardInputModal, setShowCardInputModal] = useState(false)
     const [cardInputOrder, setCardInputOrder] = useState(null)
     const [cardInputContent, setCardInputContent] = useState('')
-    const [isResendMode, setIsResendMode] = useState(false) // 补发模式
+    const [isResendMode, setIsResendMode] = useState(false) // Resend模式
 
     useEffect(() => {
         setCurrentPage(1)
@@ -2383,7 +2385,7 @@ function OrdersManage() {
     }, [statusFilter, currentPage, userIdFilter, debouncedSearch])
 
     const fetchOrders = async () => {
-        // 初次加载显示loading，搜索时不显示全页loading
+        // 初次加载显示loading，Search时不显示全页loading
         if (!orders.length) setLoading(true)
         try {
             const params = new URLSearchParams({ page: currentPage, pageSize })
@@ -2398,14 +2400,14 @@ function OrdersManage() {
             setTotalOrders(data.total || 0)
             setTotalPages(Math.ceil((data.total || 0) / pageSize))
         } catch (error) {
-            console.error('获取订单失败:', error)
+            console.error('获取订单Failed:', error)
         } finally {
             setLoading(false)
             setSearching(false)
         }
     }
 
-    // 执行发货请求
+    // 执行Ship请求
     const doShip = async (orderId, cardContent = null) => {
         setShipping(orderId)
         try {
@@ -2421,7 +2423,7 @@ function OrdersManage() {
             const data = await res.json()
 
             if (res.ok) {
-                showToast(data.emailSent ? '发货成功，邮件已发送' : '发货成功，邮件发送失败', data.emailSent ? 'success' : 'warning')
+                showToast(data.emailSent ? 'Shipped, email sent' : 'Shipped, email failed', data.emailSent ? 'success' : 'warning')
                 setShowCardInputModal(false)
                 setCardInputOrder(null)
                 setCardInputContent('')
@@ -2432,16 +2434,16 @@ function OrdersManage() {
                 setCardInputOrder(order)
                 setShowCardInputModal(true)
             } else {
-                showToast(data.error || '发货失败', 'error')
+                showToast(data.error || 'ShipFailed', 'error')
             }
         } catch (error) {
-            showToast('发货失败', 'error')
+            showToast('ShipFailed', 'error')
         } finally {
             setShipping(null)
         }
     }
 
-    // 点击发货按钮，直接弹出发货弹窗
+    // 点击Ship按钮，直接弹出Ship弹窗
     const handleShip = (order) => {
         setCardInputOrder(order)
         setCardInputContent('')
@@ -2449,12 +2451,12 @@ function OrdersManage() {
         setShowCardInputModal(true)
     }
 
-    // 提交发货
+    // 提交Ship
     const handleSubmitShip = async () => {
         await doShip(cardInputOrder.id, cardInputContent || null)
     }
 
-    // 点击补发按钮
+    // 点击Resend按钮
     const handleResend = (order) => {
         setCardInputOrder(order)
         setCardInputContent('')
@@ -2462,7 +2464,7 @@ function OrdersManage() {
         setShowCardInputModal(true)
     }
 
-    // 提交补发
+    // 提交Resend
     const handleSubmitResend = async () => {
         setShipping(cardInputOrder.id)
         try {
@@ -2476,17 +2478,17 @@ function OrdersManage() {
             })
             const data = await res.json()
             if (res.ok) {
-                showToast(data.emailSent ? `补发成功（共${data.totalCards}个卡密），邮件已发送` : '补发成功，但邮件发送失败', data.emailSent ? 'success' : 'warning')
+                showToast(data.emailSent ? `Resent (${data.totalCards}keys), email sent` : 'Resent, but email failed', data.emailSent ? 'success' : 'warning')
                 setShowCardInputModal(false)
                 setCardInputOrder(null)
                 setCardInputContent('')
                 setIsResendMode(false)
                 fetchOrders()
             } else {
-                showToast(data.error || '补发失败', 'error')
+                showToast(data.error || 'Resend failed', 'error')
             }
         } catch (error) {
-            showToast('补发失败', 'error')
+            showToast('Resend failed', 'error')
         } finally {
             setShipping(null)
         }
@@ -2497,11 +2499,11 @@ function OrdersManage() {
         return new Date(dateStr).toLocaleString()
     }
 
-    // 退款操作
+    // RefundActions
     const handleRefund = (order) => {
         showConfirm(
-            '退款确认',
-            `确定将订单「${order.orderNo}」标记为退款中吗？确认后会进入待退款状态，点击“已退款”后才会最终释放卡密回库存。`,
+            'RefundConfirm',
+            `Are you sure you want to mark order ${order.orderNo}标记forRefunding吗？Confirm后会进入待RefundStatus，点击“Refunded”后才会最终释放卡密回库存。`,
             async () => {
                 try {
                     const res = await fetch(`/api/admin/orders/${order.id}/refund`, {
@@ -2510,23 +2512,23 @@ function OrdersManage() {
                     })
                     const data = await res.json()
                     if (res.ok) {
-                        showToast(data.message || '订单已标记为退款中', 'success')
+                        showToast(data.message || 'Order marked as refunding', 'success')
                         fetchOrders()
                     } else {
-                        showToast(data.error || '退款失败', 'error')
+                        showToast(data.error || 'RefundFailed', 'error')
                     }
                 } catch (error) {
-                    showToast('退款失败', 'error')
+                    showToast('RefundFailed', 'error')
                 }
             },
-            '确认退款中'
+            'ConfirmRefunding'
         )
     }
 
     const handleCompleteRefund = (order) => {
         showConfirm(
-            '完成退款',
-            `确定将订单「${order.orderNo}」标记为已退款吗？完成后会释放关联卡密回库存。`,
+            'Complete Refund',
+            `Are you sure you want to mark order ${order.orderNo}as refunded? Associated keys will be released.`,
             async () => {
                 try {
                     const res = await fetch(`/api/admin/orders/${order.id}/refund/complete`, {
@@ -2535,24 +2537,24 @@ function OrdersManage() {
                     })
                     const data = await res.json()
                     if (res.ok) {
-                        showToast(data.message || '订单已退款，卡密已释放', 'success')
+                        showToast(data.message || 'Order refunded, keys released', 'success')
                         fetchOrders()
                     } else {
-                        showToast(data.error || '完成退款失败', 'error')
+                        showToast(data.error || 'Complete RefundFailed', 'error')
                     }
                 } catch (error) {
-                    showToast('完成退款失败', 'error')
+                    showToast('Complete RefundFailed', 'error')
                 }
             },
-            '确认已退款'
+            'ConfirmRefunded'
         )
     }
 
-    // 删除订单
+    // Delete Order
     const handleDeleteOrder = (order) => {
         showConfirm(
-            '删除订单',
-            `确定要删除订单「${order.orderNo}」吗？此操作不可撤销，关联的卡密将被释放。`,
+            'Delete Order',
+            `Are you sure you want to delete order ${order.orderNo}? This cannot be undone. Associated keys will be released.`,
             async () => {
                 try {
                     const res = await fetch(`/api/admin/orders/${order.id}`, {
@@ -2561,39 +2563,39 @@ function OrdersManage() {
                     })
                     const data = await res.json()
                     if (res.ok) {
-                        showToast('订单已删除', 'success')
+                        showToast('Order deleted', 'success')
                         fetchOrders()
                     } else {
-                        showToast(data.error || '删除失败', 'error')
+                        showToast(data.error || 'DeleteFailed', 'error')
                     }
                 } catch (error) {
-                    showToast('删除失败', 'error')
+                    showToast('DeleteFailed', 'error')
                 }
             },
-            '确认删除'
+            'ConfirmDelete'
         )
     }
 
     const statusMap = {
-        PENDING: { label: '待支付', class: 'pending' },
-        PAID: { label: '已支付', class: 'paid' },
-        COMPLETED: { label: '已完成', class: 'completed' },
-        CANCELLED: { label: '已取消', class: 'cancelled' },
-        REFUNDING: { label: '退款中', class: 'refunding' },
-        REFUNDED: { label: '已退款', class: 'refunded' }
+        PENDING: { label: 'Pending', class: 'pending' },
+        PAID: { label: 'Paid', class: 'paid' },
+        COMPLETED: { label: 'Completed', class: 'completed' },
+        CANCELLED: { label: 'Cancelled', class: 'cancelled' },
+        REFUNDING: { label: 'Refunding', class: 'refunding' },
+        REFUNDED: { label: 'Refunded', class: 'refunded' }
     }
 
     if (loading) {
-        return <div className="manage-page"><p>加载中...</p></div>
+        return <div className="manage-page"><p>Loading...</p></div>
     }
 
     return (
         <div className="manage-page">
             <div className="page-header">
                 <div className="page-header-left">
-                    <h2>订单管理</h2>
+                    <h2>{L('admin.orders.title')}</h2>
                     <div className="header-stats">
-                        <span className="stat-item">共 {totalOrders} 条订单</span>
+                        <span className="stat-item">{L(`共 ${totalOrders} 条订单`, `${totalOrders} orders total`)}</span>
                     </div>
                 </div>
                 <div className="filters">
@@ -2601,7 +2603,7 @@ function OrdersManage() {
                         <input
                             type="text"
                             className="search-input"
-                            placeholder="搜索订单号 / 邮箱 / 商品名"
+                            placeholder={L('admin.orders.search')}
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                         />
@@ -2617,27 +2619,27 @@ function OrdersManage() {
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                     >
-                        <option value="all">全部状态</option>
-                        <option value="PENDING">待支付</option>
-                        <option value="PAID">待发货</option>
-                        <option value="COMPLETED">已完成</option>
-                        <option value="CANCELLED">已取消</option>
-                        <option value="REFUNDING">退款中</option>
-                        <option value="REFUNDED">已退款</option>
+                        <option value="all">{L('admin.orders.allStatus')}</option>
+                        <option value="PENDING">{L('admin.dashboard.orderStatus.pending')}</option>
+                        <option value="PAID">{L('admin.dashboard.orderStatus.paid')}</option>
+                        <option value="COMPLETED">{L('admin.dashboard.orderStatus.completed')}</option>
+                        <option value="CANCELLED">{L('admin.dashboard.orderStatus.cancelled')}</option>
+                        <option value="REFUNDING">{L('admin.dashboard.orderStatus.refunding')}</option>
+                        <option value="REFUNDED">{L('admin.dashboard.orderStatus.refunded')}</option>
                     </select>
                 </div>
             </div>
             <table className="admin-table">
                 <thead>
                     <tr>
-                        <th>订单号</th>
-                        <th>商品</th>
-                        <th>金额</th>
-                        <th>邮箱</th>
-                        <th>备注</th>
-                        <th>状态</th>
-                        <th>时间</th>
-                        <th>操作</th>
+                        <th>{L('admin.orders.table.orderNo')}</th>
+                        <th>{L('admin.cards.table.product')}</th>
+                        <th>{L('admin.orders.table.amount')}</th>
+                        <th>{L('admin.users.table.email')}</th>
+                        <th>{L('admin.orders.table.remark')}</th>
+                        <th>{L('admin.common.status')}</th>
+                        <th>{L('admin.common.time')}</th>
+                        <th>{L('admin.common.actions')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2645,7 +2647,7 @@ function OrdersManage() {
                         <tr key={order.id || order.orderNo}>
                             <td className="order-no">{order.orderNo}</td>
                             <td>{order.productName}</td>
-                            <td>¥{parseFloat(order.totalAmount).toFixed(2)}</td>
+                            <td>{formatMoney(order.totalAmount)}</td>
                             <td>{order.email}</td>
                             <td className="remark-cell">
                                 {order.remark ? (
@@ -2669,7 +2671,7 @@ function OrdersManage() {
                                         onClick={() => handleShip(order)}
                                         disabled={shipping === order.id}
                                     >
-                                        {shipping === order.id ? '发货中...' : '发货'}
+                                        {shipping === order.id ? 'Shipping...' : 'Ship'}
                                     </button>
                                 )}
                                 {order.status?.toUpperCase() === 'COMPLETED' && (
@@ -2677,7 +2679,7 @@ function OrdersManage() {
                                         className="action-btn ship"
                                         onClick={() => handleResend(order)}
                                     >
-                                        补发
+                                        Resend
                                     </button>
                                 )}
                                 {isSuperAdmin && (order.status?.toUpperCase() === 'PAID' || order.status?.toUpperCase() === 'COMPLETED') && (
@@ -2685,7 +2687,7 @@ function OrdersManage() {
                                         className="action-btn refund"
                                         onClick={() => handleRefund(order)}
                                     >
-                                        退款
+                                        Refund
                                     </button>
                                 )}
                                 {isSuperAdmin && order.status?.toUpperCase() === 'REFUNDING' && (
@@ -2693,16 +2695,16 @@ function OrdersManage() {
                                         className="action-btn refund-complete"
                                         onClick={() => handleCompleteRefund(order)}
                                     >
-                                        已退款
+                                        Refunded
                                     </button>
                                 )}
-                                <button className="action-btn view" onClick={() => window.open(`${storefrontPrefix}/order/${order.orderNo}`, '_blank')}>查看</button>
-                                {isSuperAdmin && <button className="action-btn delete" onClick={() => handleDeleteOrder(order)}>删除</button>}
+                                <button className="action-btn view" onClick={() => window.open(`${storefrontPrefix}/order/${order.orderNo}`, '_blank')}>{L('admin.orders.view')}</button>
+                                {isSuperAdmin && <button className="action-btn delete" onClick={() => handleDeleteOrder(order)}>Delete</button>}
                             </td>
                         </tr>
                     ))}
                     {orders.length === 0 && (
-                        <tr><td colSpan="8" style={{ textAlign: 'center' }}>暂无订单</td></tr>
+                        <tr><td colSpan="8" style={{ textAlign: 'center' }}>No orders</td></tr>
                     )}
                 </tbody>
             </table>
@@ -2713,7 +2715,7 @@ function OrdersManage() {
                         disabled={currentPage <= 1}
                         onClick={() => setCurrentPage(p => p - 1)}
                     >
-                        ← 上一页
+                        ← Prev
                     </button>
                     {(() => {
                         const pages = []
@@ -2740,15 +2742,15 @@ function OrdersManage() {
                         disabled={currentPage >= totalPages}
                         onClick={() => setCurrentPage(p => p + 1)}
                     >
-                        下一页 →
+                        Next →
                     </button>
                     <span style={{ marginLeft: '8px', fontSize: '0.85rem', color: '#94a3b8' }}>
-                        第 {currentPage}/{totalPages} 页
+                        Page {currentPage}/{totalPages} 
                     </span>
                 </div>
             )}
 
-            {/* 发货弹窗 - 优化UI */}
+            {/* Ship弹窗 - 优化UI */}
             {showCardInputModal && cardInputOrder && (
                 <div className="ship-modal-overlay" onClick={() => setShowCardInputModal(false)}>
                     <div className="ship-modal" onClick={e => e.stopPropagation()}>
@@ -2758,8 +2760,8 @@ function OrdersManage() {
                                     <path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6M12 3v12M8 7l4-4 4 4" />
                                 </svg>
                             </div>
-                            <h3>{isResendMode ? '补发卡密' : '手动发货'}</h3>
-                            <p className="ship-modal-subtitle">订单 {cardInputOrder.orderNo}</p>
+                            <h3>{isResendMode ? 'Resend Keys' : 'Manual Ship'}</h3>
+                            <p className="ship-modal-subtitle">Order {cardInputOrder.orderNo}</p>
                             <button className="ship-modal-close" onClick={() => setShowCardInputModal(false)}>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <path d="M18 6L6 18M6 6l12 12" />
@@ -2770,20 +2772,20 @@ function OrdersManage() {
                         <div className="ship-modal-body">
                             <div className="order-info-card">
                                 <div className="order-info-row">
-                                    <span className="order-info-label">商品名称</span>
+                                    <span className="order-info-label">Product Name</span>
                                     <span className="order-info-value">{cardInputOrder.productName}</span>
                                 </div>
                                 <div className="order-info-row">
-                                    <span className="order-info-label">购买数量</span>
-                                    <span className="order-info-value highlight">{cardInputOrder.quantity} 件</span>
+                                    <span className="order-info-label">Quantity</span>
+                                    <span className="order-info-value highlight">{cardInputOrder.quantity} pcs</span>
                                 </div>
                                 <div className="order-info-row">
-                                    <span className="order-info-label">客户邮箱</span>
+                                    <span className="order-info-label">Customer Email</span>
                                     <span className="order-info-value">{cardInputOrder.email}</span>
                                 </div>
                                 {cardInputOrder.remark && (
                                     <div className="order-info-row">
-                                        <span className="order-info-label">订单备注</span>
+                                        <span className="order-info-label">Order Note</span>
                                         <span className="order-info-value remark-value">{cardInputOrder.remark}</span>
                                     </div>
                                 )}
@@ -2792,14 +2794,14 @@ function OrdersManage() {
                             <div className="card-input-section">
                                 <label className="card-input-label">
                                     <span className="card-icon">🎫</span>
-                                    {isResendMode ? '补发卡密内容' : '卡密内容'}
-                                    <span className="card-hint">{isResendMode ? '多个卡密用 --- 分隔' : (cardInputOrder.quantity === 1 ? '支持多行内容' : `用 --- 分隔多个卡密，最多 ${cardInputOrder.quantity} 个`)}</span>
+                                    {isResendMode ? 'Resend Key Content' : 'Card Key Content'}
+                                    <span className="card-hint">{isResendMode ? 'Separate multiple keys with ---' : (cardInputOrder.quantity === 1 ? 'Supports multi-line content' : `Separate with ---, max ${cardInputOrder.quantity}items`)}</span>
                                 </label>
                                 <textarea
                                     className="card-input-textarea"
                                     value={cardInputContent}
                                     onChange={(e) => setCardInputContent(e.target.value)}
-                                    placeholder={cardInputOrder.quantity === 1 ? '请输入卡密内容（支持多行）...' : `请输入卡密内容...\n多个卡密用 --- 分隔，例如：\n卡密1内容\n---\n卡密2内容`}
+                                    placeholder={cardInputOrder.quantity === 1 ? 'Enter card key content (multi-line supported)...' : `Enter card key content...\nSeparate with ---. Example:\nkey1 content\n---\nkey2 content`}
                                     rows={6}
                                     autoFocus
                                 />
@@ -2810,7 +2812,7 @@ function OrdersManage() {
                                     <circle cx="12" cy="12" r="10" />
                                     <path d="M12 16v-4M12 8h.01" />
                                 </svg>
-                                <span>{isResendMode ? '补发后将重新发送邮件通知客户，包含所有卡密' : '发货后将自动发送邮件通知客户，邮件中包含卡密信息'}</span>
+                                <span>{isResendMode ? 'After resend, customer will be notified by email with all keys' : 'After shipping, customer will be notified by email with key info'}</span>
                             </div>
                         </div>
 
@@ -2819,7 +2821,7 @@ function OrdersManage() {
                                 className="ship-btn ship-btn-cancel"
                                 onClick={() => setShowCardInputModal(false)}
                             >
-                                取消
+                                Cancel
                             </button>
                             <button
                                 className="ship-btn ship-btn-confirm"
@@ -2829,14 +2831,14 @@ function OrdersManage() {
                                 {shipping === cardInputOrder.id ? (
                                     <>
                                         <span className="loading-spinner"></span>
-                                        发货中...
+                                        Shipping...
                                     </>
                                 ) : (
                                     <>
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
                                         </svg>
-                                        {isResendMode ? '确认补发' : '确认发货'}
+                                        {isResendMode ? 'ConfirmResend' : 'ConfirmShip'}
                                     </>
                                 )}
                             </button>
@@ -2848,8 +2850,9 @@ function OrdersManage() {
     )
 }
 
-// 工单管理
+// tickets管理
 function TicketsManage() {
+    const L = useAdminL()
     const { showToast } = useToast()
     const { token } = useAuthStore()
     const location = useLocation()
@@ -2872,17 +2875,17 @@ function TicketsManage() {
     const [replying, setReplying] = useState(false)
 
     const statusMap = {
-        OPEN: { label: '待处理', class: 'pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
-        IN_PROGRESS: { label: '处理中', class: 'processing', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
-        PENDING_SUPER_ADMIN: { label: '待超管处理', class: 'super-admin', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.1)' },
-        CLOSED: { label: '已关闭', class: 'completed', color: '#64748b', bg: 'rgba(100, 116, 139, 0.1)' }
+        OPEN: { label: 'Pending', class: 'pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+        IN_PROGRESS: { label: 'In Progress', class: 'processing', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
+        PENDING_SUPER_ADMIN: { label: 'Escalated', class: 'super-admin', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.1)' },
+        CLOSED: { label: 'Closed', class: 'completed', color: '#64748b', bg: 'rgba(100, 116, 139, 0.1)' }
     }
 
     const typeMap = {
-        ORDER_ISSUE: { label: '订单问题', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
-        CARD_ISSUE: { label: '卡密问题', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
-        REFUND: { label: '退款申请', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
-        OTHER: { label: '其他', color: '#64748b', bg: 'rgba(100, 116, 139, 0.1)' }
+        ORDER_ISSUE: { label: 'Order Issue', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
+        CARD_ISSUE: { label: 'Card Key Issue', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
+        REFUND: { label: 'Refund Request', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+        OTHER: { label: 'Other', color: '#64748b', bg: 'rgba(100, 116, 139, 0.1)' }
     }
 
     useEffect(() => {
@@ -2931,7 +2934,7 @@ function TicketsManage() {
                 noReply: allTickets.filter(t => t.status !== 'CLOSED' && t.messages?.[0]?.isAdmin === false).length
             })
         } catch (error) {
-            showToast('获取工单失败', 'error')
+            showToast('Failed to load tickets', 'error')
         } finally {
             setLoading(false)
         }
@@ -2946,13 +2949,13 @@ function TicketsManage() {
             setSelectedTicket(data.ticket)
             setReplyContent('')
         } catch (error) {
-            showToast('获取工单详情失败', 'error')
+            showToast('Failed to load ticket details', 'error')
         }
     }
 
     const handleReply = async () => {
         if (!replyContent.trim()) {
-            showToast('请输入回复内容', 'warning')
+            showToast('Please enter reply content', 'warning')
             return
         }
 
@@ -2968,17 +2971,17 @@ function TicketsManage() {
             })
 
             if (res.ok) {
-                showToast('回复成功，已发送邮件通知用户', 'success')
+                showToast('Reply sent, user notified by email', 'success')
                 setReplyContent('')
                 setReplyImages([])
                 handleViewTicket(selectedTicket)
                 fetchTickets()
             } else {
                 const data = await res.json()
-                showToast(data.error || '回复失败', 'error')
+                showToast(data.error || 'Reply failed', 'error')
             }
         } catch (error) {
-            showToast('回复失败', 'error')
+            showToast('Reply failed', 'error')
         } finally {
             setReplying(false)
         }
@@ -2995,11 +2998,11 @@ function TicketsManage() {
             const d = await r.json()
             if (d.success && d.images?.[0]?.urls?.original) {
                 setReplyImages(imgs => [...imgs, d.images[0].urls.original])
-                showToast('图片上传成功', 'success')
+                showToast('Image uploaded', 'success')
             } else {
-                showToast('上传失败', 'error')
+                showToast('UploadFailed', 'error')
             }
-        } catch { showToast('上传失败', 'error') }
+        } catch { showToast('UploadFailed', 'error') }
         finally { setUploadingImg(false); e.target.value = '' }
     }
 
@@ -3043,12 +3046,12 @@ function TicketsManage() {
             })
 
             if (res.ok) {
-                showToast('状态更新成功', 'success')
+                showToast('Status updated', 'success')
                 handleViewTicket({ id: selectedTicket.id })
                 fetchTickets()
             }
         } catch (error) {
-            showToast('更新状态失败', 'error')
+            showToast('Status update failed', 'error')
         }
     }
 
@@ -3063,7 +3066,7 @@ function TicketsManage() {
         const userId = selectedTicket?.user?.id || selectedTicket?.customer?.id
         const email = selectedTicket?.user?.email || selectedTicket?.customer?.email
         if (!userId && !email) {
-            showToast('未找到用户信息', 'warning')
+            showToast('User info not found', 'warning')
             return
         }
         // CUSTOMER 用 email 查（admin 订单管理也支持按 email 过滤）
@@ -3079,7 +3082,7 @@ function TicketsManage() {
     const handleOpenRelatedOrder = () => {
         const orderNo = selectedTicket?.orderNo
         if (!orderNo) {
-            showToast('未找到关联订单', 'warning')
+            showToast('Associated order not found', 'warning')
             return
         }
         window.open(`${storefrontPrefix}/order/${encodeURIComponent(orderNo)}`, '_blank', 'noopener,noreferrer')
@@ -3114,35 +3117,35 @@ function TicketsManage() {
                     <div className="stat-icon total"><FiMessageCircle /></div>
                     <div className="stat-info">
                         <span className="stat-value">{globalStats.total}</span>
-                        <span className="stat-label">全部工单</span>
+                        <span className="stat-label">{L('admin.tickets.stats.total')}</span>
                     </div>
                 </div>
                 <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'OPEN' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('OPEN')}>
                     <div className="stat-icon pending"><FiAlertCircle /></div>
                     <div className="stat-info">
                         <span className="stat-value">{globalStats.open}</span>
-                        <span className="stat-label">待处理</span>
+                        <span className="stat-label">{L('admin.tickets.stats.pending')}</span>
                     </div>
                 </div>
                 <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'IN_PROGRESS' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('IN_PROGRESS')}>
                     <div className="stat-icon processing"><FiActivity /></div>
                     <div className="stat-info">
                         <span className="stat-value">{globalStats.inProgress}</span>
-                        <span className="stat-label">处理中</span>
+                        <span className="stat-label">{L('admin.tickets.stats.inProgress')}</span>
                     </div>
                 </div>
                 <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'PENDING_SUPER_ADMIN' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('PENDING_SUPER_ADMIN')}>
                     <div className="stat-icon super-admin"><FiShield /></div>
                     <div className="stat-info">
                         <span className="stat-value">{globalStats.pendingSuperAdmin}</span>
-                        <span className="stat-label">待超管处理</span>
+                        <span className="stat-label">{L('admin.tickets.stats.pendingSuperAdmin')}</span>
                     </div>
                 </div>
                 <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'CLOSED' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('CLOSED')}>
                     <div className="stat-icon" style={{ background: 'rgba(100,116,139,0.1)', color: '#64748b' }}><FiCheck /></div>
                     <div className="stat-info">
                         <span className="stat-value">{globalStats.closed}</span>
-                        <span className="stat-label">已关闭</span>
+                        <span className="stat-label">{L('admin.tickets.stats.closed')}</span>
                     </div>
                 </div>
                 <div className={`ticket-stat-card unread-card ${globalStats.unread > 0 ? 'has-unread' : ''} ${unreadFilter ? 'active' : ''}`}
@@ -3152,7 +3155,7 @@ function TicketsManage() {
                         <span className="stat-value">
                             {globalStats.unread > 99 ? '99+' : globalStats.unread}
                         </span>
-                        <span className="stat-label">用户未读</span>
+                        <span className="stat-label">{L('admin.tickets.stats.userUnread')}</span>
                     </div>
                 </div>
                 <div className={`ticket-stat-card no-reply-card ${globalStats.noReply > 0 ? 'has-no-reply' : ''} ${noReplyFilter ? 'active' : ''}`}
@@ -3162,31 +3165,31 @@ function TicketsManage() {
                         <span className="stat-value">
                             {globalStats.noReply > 99 ? '99+' : globalStats.noReply}
                         </span>
-                        <span className="stat-label">待回复</span>
+                        <span className="stat-label">{L('admin.tickets.stats.pendingReply')}</span>
                     </div>
                 </div>
             </div>
 
             <div className="section-header">
-                <h2>工单列表</h2>
+                <h2>{L('admin.tickets.list')}</h2>
                 <div className="header-info">
                     {globalStats.unread > 0 && (
                         <span className="ticket-unread-summary">
-                            {globalStats.unread > 99 ? '99+' : globalStats.unread} 条用户新消息待处理
+                            {globalStats.unread > 99 ? '99+' : globalStats.unread} new user message(s) pending
                         </span>
                     )}
-                    <span className="total-count">共 {totalCount} 条工单</span>
+                    <span className="total-count">Total {totalCount} ticket(s)</span>
                     <select
                         className="filter-select"
                         value={statusFilter}
                         onChange={(e) => handleStatusFilterChange(e.target.value)}
                     >
-                        <option value="all">全部状态</option>
-                        <option value="OPEN">待处理</option>
-                        <option value="IN_PROGRESS">处理中</option>
-                        <option value="PENDING_SUPER_ADMIN">待超管处理</option>
-                        <option value="COMPLETED">已完成</option>
-                        <option value="CLOSED">已关闭</option>
+                        <option value="all">{L('admin.orders.allStatus')}</option>
+                        <option value="OPEN">{L('admin.tickets.stats.pending')}</option>
+                        <option value="IN_PROGRESS">{L('admin.tickets.stats.inProgress')}</option>
+                        <option value="PENDING_SUPER_ADMIN">{L('admin.tickets.stats.pendingSuperAdmin')}</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CLOSED">{L('admin.tickets.stats.closed')}</option>
                     </select>
                 </div>
             </div>
@@ -3194,13 +3197,13 @@ function TicketsManage() {
             {loading ? (
                 <div className="loading-state">
                     <div className="loading-spinner"></div>
-                    <span>加载中...</span>
+                    <span>Loading...</span>
                 </div>
             ) : displayTickets.length === 0 ? (
                 <div className="empty-state">
                     <FiMessageCircle className="empty-icon" />
-                    <h3>暂无工单</h3>
-                    <p>{unreadFilter ? '没有用户未读的工单' : noReplyFilter ? '没有待回复的工单' : `当前没有${statusFilter !== 'all' ? statusMap[statusFilter]?.label : ''}工单`}</p>
+                    <h3>No tickets</h3>
+                    <p>{unreadFilter ? 'No unread tickets' : noReplyFilter ? 'No tickets pending reply' : `No ${statusFilter !== 'all' ? statusMap[statusFilter]?.label : ''}tickets`}</p>
                 </div>
             ) : (
                 <div className="ticket-list">
@@ -3211,7 +3214,7 @@ function TicketsManage() {
                                 <div className="ticket-header-right">
                                     {ticket.adminUnreadCount > 0 && (
                                         <span className="ticket-unread-pill">
-                                            {ticket.adminUnreadCount > 99 ? '99+' : ticket.adminUnreadCount} 条新消息
+                                            {ticket.adminUnreadCount > 99 ? '99+' : ticket.adminUnreadCount} new message(s)
                                         </span>
                                     )}
                                     <span
@@ -3243,7 +3246,7 @@ function TicketsManage() {
                                 >
                                     {statusMap[ticket.status]?.label}
                                 </span>
-                                <button className="action-btn view">查看详情</button>
+                                <button className="action-btn view">View Details</button>
                             </div>
                         </div>
                     ))}
@@ -3262,13 +3265,13 @@ function TicketsManage() {
                         className="page-btn"
                         onClick={() => setPage(p => p - 1)}
                         disabled={page === 1}
-                    >‹ 上一页</button>
-                    <span className="page-info">第 {page} / {totalPages} 页</span>
+                    >‹ Prev</button>
+                    <span className="page-info">Page {page} / {totalPages} </span>
                     <button
                         className="page-btn"
                         onClick={() => setPage(p => p + 1)}
                         disabled={page === totalPages}
-                    >下一页 ›</button>
+                    >Next ›</button>
                     <button
                         className="page-btn"
                         onClick={() => setPage(totalPages)}
@@ -3277,7 +3280,7 @@ function TicketsManage() {
                 </div>
             )}
 
-            {/* 工单详情弹窗 */}
+            {/* Ticket Details弹窗 */}
             {selectedTicket && (
                 <div className="ship-modal-overlay" onClick={() => setSelectedTicket(null)}>
                     <div className="ship-modal ticket-detail-modal" onClick={e => e.stopPropagation()}>
@@ -3285,7 +3288,7 @@ function TicketsManage() {
                             <div className="ship-modal-icon">
                                 <FiMessageCircle />
                             </div>
-                            <h3>工单详情</h3>
+                            <h3>Ticket Details</h3>
                             <p className="ship-modal-subtitle">{selectedTicket.ticketNo}</p>
                             <button className="ship-modal-close" onClick={() => setSelectedTicket(null)}>
                                 <FiX />
@@ -3293,10 +3296,10 @@ function TicketsManage() {
                         </div>
 
                         <div className="ship-modal-body" style={{ maxHeight: '500px', overflow: 'auto' }}>
-                            {/* 工单信息 */}
+                            {/* tickets信息 */}
                             <div className="ticket-info-grid">
                                 <div className="info-item">
-                                    <label>用户邮箱</label>
+                                    <label>User Email</label>
                                     {(selectedTicket.user?.email || selectedTicket.customer?.email) ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <button
@@ -3311,9 +3314,9 @@ function TicketsManage() {
                                                 className="ticket-link-button"
                                                 style={{ fontSize: '0.78rem', padding: '4px 10px' }}
                                                 onClick={() => setShowHistoryModal(true)}
-                                                title="查看历史工单"
+                                                title="View ticket history"
                                             >
-                                                📋 历史工单
+                                                📋 History
                                             </button>
                                         </div>
                                     ) : (
@@ -3321,7 +3324,7 @@ function TicketsManage() {
                                     )}
                                 </div>
                                 <div className="info-item">
-                                    <label>问题类型</label>
+                                    <label>Issue Type</label>
                                     <span
                                         className="type-tag"
                                         style={{
@@ -3333,12 +3336,12 @@ function TicketsManage() {
                                     </span>
                                 </div>
                                 <div className="info-item full-width">
-                                    <label>工单标题</label>
+                                    <label>Ticket Subject</label>
                                     <span>{selectedTicket.subject}</span>
                                 </div>
                                 {selectedTicket.orderNo && (
                                     <div className="info-item">
-                                        <label>关联订单</label>
+                                        <label>Related Order</label>
                                         <button
                                             type="button"
                                             className="ticket-link-button order-link"
@@ -3349,7 +3352,7 @@ function TicketsManage() {
                                     </div>
                                 )}
                                 <div className="info-item">
-                                    <label>当前状态</label>
+                                    <label>Current Status</label>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                         <span
                                             className="type-tag"
@@ -3368,7 +3371,7 @@ function TicketsManage() {
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    if (confirm('确定关闭此工单？关闭后 24 小时内用户仍可重新打开')) {
+                                                    if (confirm('Close this ticket? User can reopen within 24 hours.')) {
                                                         handleUpdateStatus('CLOSED')
                                                     }
                                                 }}
@@ -3391,21 +3394,21 @@ function TicketsManage() {
                                                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)' }}
                                             >
                                                 <FiX size={12} />
-                                                关闭工单
+                                                Close Ticket
                                             </button>
                                         )}
                                     </div>
                                 </div>
                                 {selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'PENDING_SUPER_ADMIN' && (
                                     <div className="info-item">
-                                        <label>超管协助</label>
+                                        <label>Escalate</label>
                                         <button
                                             type="button"
                                             className="ticket-super-admin-button"
                                             onClick={handleSubmitToSuperAdmin}
                                         >
                                             <FiShield />
-                                            提交超管处理
+                                            Escalate to Super Admin
                                         </button>
                                     </div>
                                 )}
@@ -3413,7 +3416,7 @@ function TicketsManage() {
 
                             {/* 消息列表 */}
                             <div className="ticket-messages">
-                                <h4>对话记录</h4>
+                                <h4>Conversation</h4>
                                 <div className="messages-container">
                                     {selectedTicket.messages?.map(msg => (
                                         <div
@@ -3422,7 +3425,7 @@ function TicketsManage() {
                                         >
                                             <div className="message-header">
                                                 <span className="message-sender">
-                                                    {msg.isAdmin ? '客服' : '用户'}
+                                                    {msg.isAdmin ? 'Support' : 'User'}
                                                 </span>
                                                 <span className="message-time">
                                                     {formatTime(msg.createdAt)}
@@ -3437,18 +3440,18 @@ function TicketsManage() {
                             {/* 回复框 */}
                             {selectedTicket.status !== 'CLOSED' && (
                                 <div className="ticket-reply">
-                                    <h4>回复工单</h4>
+                                    <h4>Reply</h4>
                                     <textarea
                                         value={replyContent}
                                         onChange={(e) => setReplyContent(e.target.value)}
-                                        placeholder="输入回复内容..."
+                                        placeholder="Type your reply..."
                                         className="reply-textarea"
                                     />
                                     <div className="reply-actions">
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
                                             <label style={{ cursor: 'pointer', padding: '6px 12px', border: '1px solid var(--border-color)', borderRadius: 6, fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
                                                 <FiImage size={14} />
-                                                {uploadingImg ? '上传中...' : '添加图片'}
+                                                {uploadingImg ? 'Uploading...' : 'Add Image'}
                                                 <input type="file" accept="image/*" onChange={handleTicketImgUpload} style={{ display: 'none' }} />
                                             </label>
                                             {replyImages.map((url, i) => (
@@ -3463,7 +3466,7 @@ function TicketsManage() {
                                             onClick={handleReply}
                                             disabled={replying}
                                         >
-                                            {replying ? '发送中...' : '发送回复'}
+                                            {replying ? 'Sending...' : 'Send Reply'}
                                         </button>
                                     </div>
                                 </div>
@@ -3475,11 +3478,11 @@ function TicketsManage() {
                                 return (
                                     <div style={{ marginTop: 16, padding: '14px 18px', background: 'var(--bg-secondary)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                            {canReopen ? `工单已关闭（${hoursLeft}h 内可重新打开）` : '工单已关闭超过 24 小时'}
+                                            {canReopen ? `Ticket closed (${hoursLeft}h, can reopen)` : 'Ticket closed for over 24 hours'}
                                         </span>
                                         {canReopen && (
                                             <button className="btn btn-secondary" onClick={() => handleUpdateStatus('OPEN')}>
-                                                重新打开
+                                                Reopen
                                             </button>
                                         )}
                                     </div>
@@ -3490,20 +3493,20 @@ function TicketsManage() {
                 </div>
             )}
 
-            {/* 历史工单弹窗 */}
+            {/* 历史tickets弹窗 */}
             {showHistoryModal && (
                 <div className="ship-modal-overlay" onClick={() => setShowHistoryModal(false)}>
                     <div className="ship-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
                         <div className="ship-modal-header">
                             <div className="ship-modal-icon"><FiClock /></div>
-                            <h3>该用户的历史工单</h3>
+                            <h3>User Ticket History</h3>
                             <button className="ship-modal-close" onClick={() => setShowHistoryModal(false)}><FiX /></button>
                         </div>
                         <div className="ship-modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                             {historyLoading ? (
-                                <p style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>加载中...</p>
+                                <p style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading...</p>
                             ) : historyTickets.length === 0 ? (
-                                <p style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>该用户暂无历史工单</p>
+                                <p style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No ticket history for this user</p>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     {historyTickets.map(t => {
@@ -3533,10 +3536,10 @@ function TicketsManage() {
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                                                         <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{t.subject}</span>
-                                                        {isCurrent && <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'var(--primary)', color: '#fff', borderRadius: 10 }}>当前</span>}
+                                                        {isCurrent && <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'var(--primary)', color: '#fff', borderRadius: 10 }}>Current</span>}
                                                     </div>
                                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                        {t.ticketNo} · {lastMsg?.content?.slice(0, 40) || '无消息'}
+                                                        {t.ticketNo} · {lastMsg?.content?.slice(0, 40) || 'No messages'}
                                                     </div>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
@@ -3558,6 +3561,7 @@ function TicketsManage() {
 
 // 卡密管理
 function CardsManage() {
+    const L = useAdminL()
     const { showToast } = useToast()
     const { token, user: currentUser } = useAuthStore()
     const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(currentUser?.role) ||
@@ -3594,7 +3598,7 @@ function CardsManage() {
     const [editingCard, setEditingCard] = useState(null)
     const [editContent, setEditContent] = useState('')
 
-    // 获取商品列表
+    // 获取Product列表
     useEffect(() => {
         if (!token) return
         const fetchProducts = async () => {
@@ -3607,7 +3611,7 @@ function CardsManage() {
                     setProducts(data.products)
                 }
             } catch (error) {
-                console.error('获取商品列表失败:', error)
+                console.error('获取Product列表Failed:', error)
             }
         }
         fetchProducts()
@@ -3649,7 +3653,7 @@ function CardsManage() {
                 }
             }
         } catch (error) {
-            showToast('获取卡密列表失败', 'error')
+            showToast('Failed to load keys', 'error')
         } finally {
             setLoading(false)
         }
@@ -3659,20 +3663,20 @@ function CardsManage() {
         fetchCards()
     }, [selectedProductId, selectedVariantFilter, statusFilter, keyword, page, token])
 
-    // 批量导入卡密
+    // Batch Import Keys
     const handleImport = async () => {
         if (!selectedProductId) {
-            showToast('请先选择商品', 'error')
+            showToast('Please select a product first', 'error')
             return
         }
-        // 检查商品是否有规格，有则必须选择
+        // 检查Product是否有Variant，有则必须选择
         const selectedProduct = products.find(p => p.id === selectedProductId)
         if (selectedProduct?.variants?.length > 0 && !selectedVariantId) {
-            showToast('请选择规格', 'error')
+            showToast('Select variant', 'error')
             return
         }
         if (!importText.trim()) {
-            showToast('请输入卡密内容', 'error')
+            showToast('Enter card key content', 'error')
             return
         }
 
@@ -3680,7 +3684,7 @@ function CardsManage() {
             ? [importText.trim()]
             : importText.split('\n').map(c => c.trim()).filter(c => c)
         if (cardsArray.length === 0) {
-            showToast('没有有效的卡密', 'error')
+            showToast('No valid keys', 'error')
             return
         }
 
@@ -3708,13 +3712,13 @@ function CardsManage() {
                 showToast(data.error, 'error')
             }
         } catch (error) {
-            showToast('导入失败', 'error')
+            showToast('Import failed', 'error')
         }
     }
 
-    // 删除单个卡密
+    // Delete单个卡密
     const handleDelete = async (id) => {
-        if (!confirm('确定删除此卡密？')) return
+        if (!confirm('Delete this key?')) return
 
         try {
 
@@ -3730,20 +3734,20 @@ function CardsManage() {
                 showToast(data.error, 'error')
             }
         } catch (error) {
-            showToast('删除失败', 'error')
+            showToast('DeleteFailed', 'error')
         }
     }
 
-    // 编辑卡密
+    // Edit Key
     const handleEdit = (card) => {
         setEditingCard(card)
         setEditContent(card.content)
     }
 
-    // 保存编辑
+    // SaveEdit
     const handleSaveEdit = async () => {
         if (!editContent.trim()) {
-            showToast('卡密内容不能为空', 'error')
+            showToast('Key content cannot be empty', 'error')
             return
         }
 
@@ -3766,17 +3770,17 @@ function CardsManage() {
                 showToast(data.error, 'error')
             }
         } catch (error) {
-            showToast('保存失败', 'error')
+            showToast('SaveFailed', 'error')
         }
     }
 
-    // 批量删除
+    // 批量Delete
     const handleBatchDelete = async () => {
         if (selectedCards.length === 0) {
-            showToast('请选择要删除的卡密', 'error')
+            showToast('Please select keys to delete', 'error')
             return
         }
-        if (!confirm(`确定删除选中的 ${selectedCards.length} 个卡密？`)) return
+        if (!confirm(`Delete selected  ${selectedCards.length}key(s)？`)) return
 
         try {
 
@@ -3797,18 +3801,18 @@ function CardsManage() {
                 showToast(data.error, 'error')
             }
         } catch (error) {
-            showToast('删除失败', 'error')
+            showToast('DeleteFailed', 'error')
         }
     }
 
-    // 选择/取消选择卡密
+    // 选择/Cancel选择卡密
     const toggleCardSelection = (id) => {
         setSelectedCards(prev =>
             prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
         )
     }
 
-    // 全选/取消全选
+    // 全选/Cancel全选
     const toggleSelectAll = () => {
         const availableCards = cards.filter(c => c.status === 'AVAILABLE')
         if (selectedCards.length === availableCards.length) {
@@ -3820,9 +3824,9 @@ function CardsManage() {
 
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'AVAILABLE': return <span className="badge badge-success">可用</span>
-            case 'SOLD': return <span className="badge badge-warning">已售</span>
-            case 'EXPIRED': return <span className="badge badge-danger">过期</span>
+            case 'AVAILABLE': return <span className="badge badge-success">Available</span>
+            case 'SOLD': return <span className="badge badge-warning">Sold</span>
+            case 'EXPIRED': return <span className="badge badge-danger">Expired</span>
             default: return <span className="badge">{status}</span>
         }
     }
@@ -3833,37 +3837,37 @@ function CardsManage() {
     return (
         <div className="manage-page">
             <div className="page-header">
-                <h2>卡密管理</h2>
+                <h2>{L('admin.cards.title')}</h2>
                 <div className="header-actions">
                     {isSuperAdmin && selectedCards.length > 0 && (
                         <button className="btn btn-danger" onClick={handleBatchDelete}>
-                            删除选中 ({selectedCards.length})
+                            Delete Selected ({selectedCards.length})
                         </button>
                     )}
                     <button
                         className="btn btn-primary"
                         onClick={() => { setShowImportModal(true); setImportText(''); setImportMode('batch') }}
                     >
-                        + 导入卡密
+                        + Import Keys
                     </button>
                 </div>
             </div>
 
             <div className="cards-stats-grid">
                 <div className="cards-stat-card total">
-                    <div className="cards-stat-label">卡密总数</div>
+                    <div className="cards-stat-label">Total Keys</div>
                     <div className="cards-stat-value">{cardStats.total}</div>
                 </div>
                 <div className="cards-stat-card available">
-                    <div className="cards-stat-label">可用剩余</div>
+                    <div className="cards-stat-label">Available</div>
                     <div className="cards-stat-value">{cardStats.available}</div>
                 </div>
                 <div className="cards-stat-card sold">
-                    <div className="cards-stat-label">已使用</div>
+                    <div className="cards-stat-label">Used</div>
                     <div className="cards-stat-value">{cardStats.sold}</div>
                 </div>
                 <div className="cards-stat-card expired">
-                    <div className="cards-stat-label">已过期</div>
+                    <div className="cards-stat-label">Expired</div>
                     <div className="cards-stat-value">{cardStats.expired}</div>
                 </div>
             </div>
@@ -3871,7 +3875,7 @@ function CardsManage() {
             {/* 筛选栏 */}
             <div className="filter-bar">
                 <div className="filter-group">
-                    <label>选择商品</label>
+                    <label>Select Product</label>
                     <select
                         value={selectedProductId}
                         onChange={(e) => {
@@ -3881,44 +3885,44 @@ function CardsManage() {
                             setSelectedCards([])
                         }}
                     >
-                        <option value="">全部商品</option>
+                        <option value="">All Products</option>
                         {products.map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
                     </select>
                 </div>
                 <div className="filter-group">
-                    <label>规格</label>
+                    <label>Variant</label>
                     <select
                         value={selectedVariantFilter}
                         onChange={(e) => { setSelectedVariantFilter(e.target.value); setPage(1); }}
                         disabled={!selectedProductId}
                     >
-                        <option value="">全部规格</option>
-                        <option value="default">默认规格</option>
+                        <option value="">All Variants</option>
+                        <option value="default">Default Variant</option>
                         {productVariants.map(v => (
                             <option key={v.id} value={v.id}>{v.name}</option>
                         ))}
                     </select>
                 </div>
                 <div className="filter-group">
-                    <label>状态</label>
+                    <label>Status</label>
                     <select
                         value={statusFilter}
                         onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
                     >
-                        <option value="">全部状态</option>
-                        <option value="AVAILABLE">可用</option>
-                        <option value="SOLD">已售</option>
-                        <option value="EXPIRED">过期</option>
+                        <option value="">All Status</option>
+                        <option value="AVAILABLE">Available</option>
+                        <option value="SOLD">Sold</option>
+                        <option value="EXPIRED">Expired</option>
                     </select>
                 </div>
                 <div className="filter-group">
-                    <label>搜索</label>
+                    <label>Search</label>
                     <input
                         type="text"
                         className="filter-search-input"
-                        placeholder="卡密内容 / 订单号"
+                        placeholder="Card Key Content / Order No."
                         value={keywordInput}
                         onChange={(e) => {
                             setKeywordInput(e.target.value)
@@ -3931,17 +3935,17 @@ function CardsManage() {
                     />
                 </div>
                 <div className="filter-info">
-                    共 {total} 条记录
+                    Total {total} records
                 </div>
             </div>
 
             {/* 卡密列表 */}
             {loading ? (
-                <div className="loading-state">加载中...</div>
+                <div className="loading-state">Loading...</div>
             ) : cards.length === 0 ? (
                 <div className="placeholder-content">
                     <FiCreditCard />
-                    <p>{selectedProductId ? '该商品暂无卡密' : '选择商品后可管理对应卡密'}</p>
+                    <p>{selectedProductId ? 'No keys for this product' : 'Select a product to manage its keys'}</p>
                 </div>
             ) : (
                 <>
@@ -3956,13 +3960,13 @@ function CardsManage() {
                                             onChange={toggleSelectAll}
                                         />
                                     </th>
-                                    <th>卡密内容</th>
-                                    <th>商品</th>
-                                    <th>规格</th>
-                                    <th>状态</th>
-                                    <th>订单号</th>
-                                    <th>创建时间</th>
-                                    <th>操作</th>
+                                    <th>Card Key Content</th>
+                                    <th>Product</th>
+                                    <th>Variant</th>
+                                    <th>Status</th>
+                                    <th>Order No.</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -3992,14 +3996,14 @@ function CardsManage() {
                                                         className="btn btn-sm btn-secondary"
                                                         onClick={() => handleEdit(card)}
                                                     >
-                                                        编辑
+                                                        Edit
                                                     </button>
                                                     {isSuperAdmin && (
                                                         <button
                                                             className="btn btn-sm btn-danger"
                                                             onClick={() => handleDelete(card.id)}
                                                         >
-                                                            删除
+                                                            Delete
                                                         </button>
                                                     )}
                                                 </div>
@@ -4018,14 +4022,14 @@ function CardsManage() {
                                 disabled={page === 1}
                                 onClick={() => setPage(p => p - 1)}
                             >
-                                上一页
+                                Prev
                             </button>
-                            <span>第 {page} / {totalPages} 页</span>
+                            <span>Page {page} / {totalPages} </span>
                             <button
                                 disabled={page === totalPages}
                                 onClick={() => setPage(p => p + 1)}
                             >
-                                下一页
+                                Next
                             </button>
                         </div>
                     )}
@@ -4037,7 +4041,7 @@ function CardsManage() {
                 <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>{importMode === 'single' ? '添加卡密' : '批量导入卡密'}</h3>
+                            <h3>{importMode === 'single' ? 'Add Key' : 'Batch Import Keys'}</h3>
                             <button className="modal-close" onClick={() => setShowImportModal(false)}>×</button>
                         </div>
                         <div className="modal-body">
@@ -4047,17 +4051,17 @@ function CardsManage() {
                                     className={`mode-btn ${importMode === 'single' ? 'active' : ''}`}
                                     onClick={() => { setImportMode('single'); setImportText('') }}
                                 >
-                                    单个输入
+                                    Single
                                 </button>
                                 <button
                                     className={`mode-btn ${importMode === 'batch' ? 'active' : ''}`}
                                     onClick={() => { setImportMode('batch'); setImportText('') }}
                                 >
-                                    批量输入
+                                    Batch
                                 </button>
                             </div>
                             <div className="form-group">
-                                <label>目标商品</label>
+                                <label>Target Product</label>
                                 <select
                                     value={selectedProductId}
                                     onChange={(e) => {
@@ -4065,24 +4069,24 @@ function CardsManage() {
                                         setSelectedVariantId('')
                                     }}
                                 >
-                                    <option value="">请选择商品</option>
+                                    <option value="">Select product</option>
                                     {products.map(p => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
                             </div>
-                            {/* 规格选择 - 当商品有规格时必须选择 */}
+                            {/* Variant选择 - 当Product有Variant时必须选择 */}
                             {selectedProductId && products.find(p => p.id === selectedProductId)?.variants?.length > 0 && (
                                 <div className="form-group">
-                                    <label>目标规格 <span className="required">*</span></label>
+                                    <label>Target Variant <span className="required">*</span></label>
                                     <select
                                         value={selectedVariantId}
                                         onChange={(e) => setSelectedVariantId(e.target.value)}
                                     >
-                                        <option value="">请选择规格</option>
-                                        <option value="default">默认 (¥{products.find(p => p.id === selectedProductId)?.price})</option>
+                                        <option value="">Select variant</option>
+                                        <option value="default">Default ({formatMoney(products.find(p => p.id === selectedProductId)?.price)})</option>
                                         {products.find(p => p.id === selectedProductId)?.variants?.map(v => (
-                                            <option key={v.id} value={v.id}>{v.name} (¥{v.price})</option>
+                                            <option key={v.id} value={v.id}>{v.name} ({formatMoney(v.price)})</option>
                                         ))}
                                     </select>
                                 </div>
@@ -4090,9 +4094,9 @@ function CardsManage() {
                             <div className="form-group">
                                 <>
                                     <label>
-                                        卡密内容{' '}
+                                        Card Key Content{' '}
                                         <span className="hint">
-                                            {importMode === 'single' ? '(换行不影响，整体为一个卡密)' : '(每行一个卡密)'}
+                                            {importMode === 'single' ? '(line breaks are part of one key)' : '(One key per line)'}
                                         </span>
                                     </label>
                                     <textarea
@@ -4100,49 +4104,49 @@ function CardsManage() {
                                         value={importText}
                                         onChange={(e) => setImportText(e.target.value)}
                                         placeholder={importMode === 'single'
-                                            ? '请输入卡密内容，支持多行...'
-                                            : '请输入卡密，每行一个\n例如：\nABC123-DEF456\nXYZ789-GHI012'
+                                            ? 'Enter card key content (multi-line)..'
+                                            : 'Enter keys, one per line\ne.g.\nABC123-DEF456\nXYZ789-GHI012'
                                         }
                                     />
                                 </>
                             </div>
                             <div className="import-preview">
                                 {importMode === 'single'
-                                    ? (importText.trim() ? '将导入：1 个卡密' : '将导入：0 个卡密')
-                                    : `预计导入：${importText.split('\n').filter(c => c.trim()).length} 个卡密`
+                                    ? (importText.trim() ? 'Will import: 1 key' : 'Will import: 0 keys')
+                                    : `Will import: ${importText.split('\n').filter(c => c.trim()).length}key(s)`
                                 }
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowImportModal(false)}>取消</button>
-                            <button className="btn btn-primary" onClick={handleImport}>确认导入</button>
+                            <button className="btn btn-secondary" onClick={() => setShowImportModal(false)}>{L('admin.common.cancel')}</button>
+                            <button className="btn btn-primary" onClick={handleImport}>Confirm Import</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* 编辑弹窗 */}
+            {/* Edit弹窗 */}
             {editingCard && (
                 <div className="modal-overlay" onClick={() => setEditingCard(null)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>编辑卡密</h3>
+                            <h3>Edit Key</h3>
                             <button className="modal-close" onClick={() => setEditingCard(null)}>×</button>
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>卡密内容</label>
+                                <label>Card Key Content</label>
                                 <textarea
                                     value={editContent}
                                     onChange={(e) => setEditContent(e.target.value)}
                                     rows={5}
-                                    placeholder="请输入卡密内容"
+                                    placeholder="Enter card key content"
                                 />
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setEditingCard(null)}>取消</button>
-                            <button className="btn btn-primary" onClick={handleSaveEdit}>保存</button>
+                            <button className="btn btn-secondary" onClick={() => setEditingCard(null)}>{L('admin.common.cancel')}</button>
+                            <button className="btn btn-primary" onClick={handleSaveEdit}>Save</button>
                         </div>
                     </div>
                 </div>
@@ -4151,9 +4155,10 @@ function CardsManage() {
     )
 }
 
-// 用户管理
+// Customers
 function UsersManage() {
     const location = useLocation()
+    const L = useAdminL()
     const basePath = location.pathname.replace(/\/users.*$/, '') || '/admin'
     const [agentEnabled, setAgentEnabled] = useState(true) // 默认显示，待配置加载
     const navigate = useNavigate()
@@ -4173,7 +4178,7 @@ function UsersManage() {
     const [totalPages, setTotalPages] = useState(1)
     const pageSize = 20
 
-    // 拉取代理开关状态
+    // 拉取Agent开关Status
     useEffect(() => {
         if (!token) return
         fetch('/api/admin/settings', { headers: { Authorization: `Bearer ${token}` } })
@@ -4211,7 +4216,7 @@ function UsersManage() {
             setAdminCount((data.users || []).filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN').length)
             setTotalPages(Math.ceil((data.total || 0) / pageSize))
         } catch (error) {
-            showToast('获取用户列表失败', 'error')
+            showToast('Failed to load users', 'error')
         } finally {
             setInitialLoading(false)
             setSearching(false)
@@ -4223,13 +4228,13 @@ function UsersManage() {
         doFetch(1, '', 'all', true)
     }, [token])
 
-    // 翻页 / 角色筛选
+    // 翻页 / Role筛选
     useEffect(() => {
         if (initialLoading) return
         doFetch(currentPage, searchTermRef.current, roleFilter)
     }, [currentPage, roleFilter])
 
-    // 搜索防抖
+    // Search防抖
     useEffect(() => {
         clearTimeout(searchTimerRef.current)
         searchTimerRef.current = setTimeout(() => {
@@ -4251,21 +4256,21 @@ function UsersManage() {
                 body: JSON.stringify({ role: newRole })
             })
             if (res.ok) {
-                showToast('角色更新成功', 'success')
+                showToast('Role updated', 'success')
                 doFetch(currentPageRef.current, searchTermRef.current, roleFilterRef.current)
             } else {
                 const data = await res.json()
-                showToast(data.error || '角色更新失败', 'error')
+                showToast(data.error || 'Role update failed', 'error')
             }
         } catch {
-            showToast('操作失败', 'error')
+            showToast('Operation failed', 'error')
         }
     }
 
     const handleCreateAdmin = async (e) => {
         e.preventDefault()
         if (!newAdmin.email || !newAdmin.password) {
-            showToast('请填写邮箱和密码', 'error')
+            showToast('Please enter email and password', 'error')
             return
         }
         setCreating(true)
@@ -4277,22 +4282,22 @@ function UsersManage() {
             })
             const data = await res.json()
             if (res.ok) {
-                showToast('子管理员创建成功', 'success')
+                showToast('Sub-admin created', 'success')
                 setShowCreateAdmin(false)
                 setNewAdmin({ email: '', password: '', username: '', role: 'ADMIN' })
                 doFetch(currentPageRef.current, searchTermRef.current, roleFilterRef.current)
             } else {
-                showToast(data.error || '创建失败', 'error')
+                showToast(data.error || 'Creation failed', 'error')
             }
         } catch {
-            showToast('创建失败', 'error')
+            showToast('Creation failed', 'error')
         } finally {
             setCreating(false)
         }
     }
 
     const handleDeleteAdmin = (userId, username) => {
-        showConfirm('移除管理员', `确定要将「${username}」从管理员中移除吗？该账号将降级为普通用户。`, async () => {
+        showConfirm('Remove Admin', `Are you sure you want to remove ${username}from admin? The account will be downgraded to regular user.`, async () => {
             try {
                 const res = await fetch(`/api/admin/admins/${userId}`, {
                     method: 'DELETE',
@@ -4300,25 +4305,25 @@ function UsersManage() {
                 })
                 const data = await res.json()
                 if (res.ok) {
-                    showToast('管理员已移除', 'success')
+                    showToast('Admin removed', 'success')
                     doFetch(currentPageRef.current, searchTermRef.current, roleFilterRef.current)
                 } else {
-                    showToast(data.error || '操作失败', 'error')
+                    showToast(data.error || 'Operation failed', 'error')
                 }
             } catch {
-                showToast('操作失败', 'error')
+                showToast('Operation failed', 'error')
             }
         })
     }
 
     const getRoleLabel = (role) => {
         switch (role) {
-            case 'SUPER_ADMIN': return '超级管理员'
-            case 'TENANT_ADMIN': return '商城所有者'
-            case 'ADMIN': return '管理员'
-            case 'AGENT': return '代理商'
-            case 'CUSTOMER': return '顾客'
-            default: return '普通用户'
+            case 'SUPER_ADMIN': return 'Super Admin'
+            case 'TENANT_ADMIN': return 'Store Owner'
+            case 'ADMIN': return 'Admin'
+            case 'AGENT': return 'Agent'
+            case 'CUSTOMER': return 'Customer'
+            default: return 'User'
         }
     }
 
@@ -4344,7 +4349,7 @@ function UsersManage() {
                     </div>
                     <div>
                         <div className="users-header-card-value">{totalUsers}</div>
-                        <div className="users-header-card-label">总用户数</div>
+                        <div className="users-header-card-label">Total Users</div>
                     </div>
                 </div>
                 <div className="users-header-card">
@@ -4353,7 +4358,7 @@ function UsersManage() {
                     </div>
                     <div>
                         <div className="users-header-card-value">{adminCount}</div>
-                        <div className="users-header-card-label">管理员</div>
+                        <div className="users-header-card-label">Admins</div>
                     </div>
                 </div>
                 <div className="users-header-card">
@@ -4362,7 +4367,7 @@ function UsersManage() {
                     </div>
                     <div>
                         <div className="users-header-card-value">{totalUsers - adminCount}</div>
-                        <div className="users-header-card-label">普通用户</div>
+                        <div className="users-header-card-label">Users</div>
                     </div>
                 </div>
                 {isSuperAdmin && (
@@ -4371,48 +4376,48 @@ function UsersManage() {
                             <FiShield size={20} />
                         </div>
                         <div>
-                            <div className="users-header-card-value" style={{ fontSize: '0.95rem' }}>+ 新增</div>
-                            <div className="users-header-card-label">子管理员</div>
+                            <div className="users-header-card-value" style={{ fontSize: '0.95rem' }}>+ Add</div>
+                            <div className="users-header-card-label">Sub-Admins</div>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* 新增子管理员弹窗 */}
+            {/* Add Sub-Admin弹窗 */}
             {showCreateAdmin && (
                 <div className="confirm-overlay" onClick={() => setShowCreateAdmin(false)}>
                     <div className="confirm-dialog" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-                        <h3 className="confirm-title" style={{ marginTop: 0 }}>新增子管理员</h3>
+                        <h3 className="confirm-title" style={{ marginTop: 0 }}>Add Sub-Admin</h3>
                         <form onSubmit={handleCreateAdmin}>
                             <div className="form-group">
-                                <label>邮箱 *</label>
+                                <label>Email *</label>
                                 <input type="email" className="form-input" required value={newAdmin.email} onChange={e => setNewAdmin(p => ({ ...p, email: e.target.value }))} placeholder="admin@example.com" />
                             </div>
                             <div className="form-group">
-                                <label>密码 *</label>
-                                <input type="password" className="form-input" required minLength={6} value={newAdmin.password} onChange={e => setNewAdmin(p => ({ ...p, password: e.target.value }))} placeholder="至少6位" />
+                                <label>Password *</label>
+                                <input type="password" className="form-input" required minLength={6} value={newAdmin.password} onChange={e => setNewAdmin(p => ({ ...p, password: e.target.value }))} placeholder="Min 6 chars" />
                             </div>
                             <div className="form-group">
-                                <label>用户名</label>
-                                <input type="text" className="form-input" value={newAdmin.username} onChange={e => setNewAdmin(p => ({ ...p, username: e.target.value }))} placeholder="可选" />
+                                <label>Username</label>
+                                <input type="text" className="form-input" value={newAdmin.username} onChange={e => setNewAdmin(p => ({ ...p, username: e.target.value }))} placeholder="Optional" />
                             </div>
                             <div className="confirm-actions">
-                                <button type="button" className="btn btn-cancel" onClick={() => setShowCreateAdmin(false)}>取消</button>
-                                <button type="submit" className="btn btn-primary" disabled={creating}>{creating ? '创建中...' : '创建'}</button>
+                                <button type="button" className="btn btn-cancel" onClick={() => setShowCreateAdmin(false)}>{L('admin.common.cancel')}</button>
+                                <button type="submit" className="btn btn-primary" disabled={creating}>{creating ? 'Creating...' : 'Create'}</button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* 搜索栏 */}
+            {/* Search栏 */}
             <div className="users-search-bar">
                 <div className="users-search-input-wrap">
                     <FiSearch className="users-search-icon" size={16} />
                     <input
                         type="text"
                         className="users-search-input"
-                        placeholder="搜索邮箱或用户名..."
+                        placeholder="Search email or username..."
                         value={searchInput}
                         onChange={(e) => setSearchInput(e.target.value)}
                     />
@@ -4422,7 +4427,7 @@ function UsersManage() {
                     )}
                 </div>
                 <div className="users-role-tabs">
-                    {[['all', '全部'], ['CUSTOMER', '顾客'], ['ADMIN', '管理员'], ['TENANT_ADMIN', '所有者']].map(([val, label]) => (
+                    {[['all', 'All'], ['CUSTOMER', 'Customer'], ['ADMIN', 'Admin'], ['TENANT_ADMIN', 'Owner']].map(([val, label]) => (
                         <button
                             key={val}
                             className={`users-role-tab${roleFilter === val ? ' active' : ''}`}
@@ -4433,30 +4438,30 @@ function UsersManage() {
                     ))}
                 </div>
                 <div className="users-result-count">
-                    {searchInput ? `找到 ${totalUsers} 个结果` : `共 ${totalUsers} 位用户`}
+                    {searchInput ? `Found ${totalUsers}results` : `Total ${totalUsers} users`}
                 </div>
             </div>
 
-            {/* 用户列表 */}
+            {/* User列表 */}
             <div className={`users-table-wrapper${searching ? ' users-table-searching' : ''}`}>
                 {users.length === 0 ? (
                     <div className="users-empty">
                         <FiUsers size={40} />
-                        <p>{searchInput ? `未找到与「${searchInput}」匹配的用户` : '暂无用户'}</p>
+                        <p>{searchInput ? `No results for ${searchInput}matching users` : 'No customers'}</p>
                         {searchInput && (
-                            <button className="btn btn-secondary btn-sm" onClick={() => setSearchInput('')}>清除搜索</button>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setSearchInput('')}>Clear Search</button>
                         )}
                     </div>
                 ) : (
                     <table className="admin-table users-table">
                         <thead>
                             <tr>
-                                <th>用户</th>
-                                <th>角色</th>
-                                {agentEnabled && <th>来源</th>}
-                                <th>订单数</th>
-                                <th>注册时间</th>
-                                <th>操作</th>
+                                <th>User</th>
+                                <th>Role</th>
+                                {agentEnabled && <th>Source</th>}
+                                <th>Orders</th>
+                                <th>Registered</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -4468,7 +4473,7 @@ function UsersManage() {
                                                 {(user.username || user.email || 'U').charAt(0).toUpperCase()}
                                             </div>
                                             <div className="user-info-cell">
-                                                <span className="user-name-cell">{user.username || '未设置'}</span>
+                                                <span className="user-name-cell">{user.username || 'Not set'}</span>
                                                 <span className="user-email-cell">{user.email}</span>
                                             </div>
                                         </div>
@@ -4480,8 +4485,8 @@ function UsersManage() {
                                                 value={user.role}
                                                 onChange={(e) => handleChangeRole(user.id, e.target.value)}
                                             >
-                                                <option value="USER">普通用户</option>
-                                                <option value="ADMIN">管理员</option>
+                                                <option value="USER">Users</option>
+                                                <option value="ADMIN">Admins</option>
                                                 </select>
                                         ) : (
                                             <span className={`role-badge ${(user.role || '').toLowerCase()}`}>
@@ -4496,16 +4501,16 @@ function UsersManage() {
                                                     {user.referralAgent.shopName}
                                                 </span>
                                             ) : (
-                                                <span style={{ fontSize: '0.78rem', color: '#D1D5DB' }}>主站</span>
+                                                <span style={{ fontSize: '0.78rem', color: '#D1D5DB' }}>Main Site</span>
                                             )}
                                         </td>
                                     )}
                                     <td>{user._count?.orders || 0}</td>
                                     <td className="time">{new Date(user.createdAt).toLocaleDateString('zh-CN')}</td>
                                     <td className="actions">
-                                        <button className="action-btn edit" onClick={() => navigate(`${basePath}/orders?userId=${user.id}`)}>查看订单</button>
+                                        <button className="action-btn edit" onClick={() => navigate(`${basePath}/orders?userId=${user.id}`)}>View Orders</button>
                                         {isSuperAdmin && user.role === 'ADMIN' && (
-                                            <button className="action-btn delete" onClick={() => handleDeleteAdmin(user.id, user.username || user.email)}>移除管理</button>
+                                            <button className="action-btn delete" onClick={() => handleDeleteAdmin(user.id, user.username || user.email)}>Remove Admin</button>
                                         )}
                                     </td>
                                 </tr>
@@ -4518,7 +4523,7 @@ function UsersManage() {
             {/* 分页 */}
             {totalPages > 1 && (
                 <div className="pagination">
-                    <button disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>← 上一页</button>
+                    <button disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>← Prev</button>
                     {(() => {
                         const pages = []
                         const start = Math.max(1, currentPage - 2)
@@ -4536,8 +4541,8 @@ function UsersManage() {
                         }
                         return pages
                     })()}
-                    <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>下一页 →</button>
-                    <span style={{ marginLeft: '8px', fontSize: '0.85rem', color: '#94a3b8' }}>第 {currentPage}/{totalPages} 页</span>
+                    <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next →</button>
+                    <span style={{ marginLeft: '8px', fontSize: '0.85rem', color: '#94a3b8' }}>Page {currentPage}/{totalPages} </span>
                 </div>
             )}
         </div>
@@ -4546,7 +4551,7 @@ function UsersManage() {
 
 // 系统设置
 // 系统设置
-// 数据库备份设置子组件
+// Database Backup设置子组件
 function BackupSettings({ token, settings, handleChange, showToast }) {
     const [backupStatus, setBackupStatus] = useState(null)
     const [running, setRunning] = useState(false)
@@ -4565,7 +4570,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                 setBackupStatus(data)
             }
         } catch (e) {
-            console.error('获取备份状态失败:', e)
+            console.error('获取备份StatusFailed:', e)
         }
     }
 
@@ -4578,13 +4583,13 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
             })
             const data = await res.json()
             if (data.success) {
-                showToast(`备份完成: ${data.filename} (${data.sizeMB} MB)`, 'success')
+                showToast(`Backup complete: ${data.filename} (${data.sizeMB} MB)`, 'success')
                 loadBackupStatus()
             } else {
-                showToast(`备份失败: ${data.error}`, 'error')
+                showToast(`Backup failed: ${data.error}`, 'error')
             }
         } catch (e) {
-            showToast('备份请求失败', 'error')
+            showToast('Backup request failed', 'error')
         } finally {
             setRunning(false)
         }
@@ -4597,11 +4602,11 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             if (res.ok) {
-                showToast('备份计划已更新', 'success')
+                showToast('Backup plan updated', 'success')
                 loadBackupStatus()
             }
         } catch (e) {
-            showToast('更新备份计划失败', 'error')
+            showToast('Update backup plan failed', 'error')
         }
     }
 
@@ -4619,7 +4624,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
             })
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}))
-                showToast(data.error || '下载失败', 'error')
+                showToast(data.error || 'DownloadFailed', 'error')
                 return
             }
             const blob = await res.blob()
@@ -4631,32 +4636,32 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
             a.click()
             a.remove()
             window.URL.revokeObjectURL(url)
-            showToast('备份文件下载已开始', 'success')
+            showToast('Backup download started', 'success')
         } catch (e) {
-            showToast('下载请求失败', 'error')
+            showToast('Download request failed', 'error')
         }
     }
 
     return (
         <div className="settings-section">
-            <h3>数据库备份</h3>
+            <h3>Database Backup</h3>
 
 
 
-            {/* 配置与操作区 - 双栏布局 */}
+            {/* 配置与Actions区 - 双栏布局 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                {/* 左栏：备份配置 */}
+                {/* 左栏：Backup Config */}
                 <div style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
                     <h4 style={{ margin: '0 0 24px', fontSize: '1rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{ width: '34px', height: '34px', background: 'linear-gradient(135deg, #059669, #10b981)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>⚙️</span>
-                        备份配置
+                        Backup Config
                     </h4>
 
-                    {/* 启用开关 */}
+                    {/* Enable开关 */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', background: settings.backupEnabled ? 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04))' : 'rgba(248,250,252,0.8)', borderRadius: '14px', border: `1px solid ${settings.backupEnabled ? 'rgba(16,185,129,0.25)' : '#e2e8f0'}`, marginBottom: '16px', transition: 'all 0.2s' }}>
                         <div>
-                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>💾 启用自动备份</div>
-                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px' }}>定时自动备份 MySQL 数据库</div>
+                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>💾 Enable Auto Backup</div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px' }}>Scheduled automatic MySQL database backup</div>
                         </div>
                         <label className="toggle-switch">
                             <input type="checkbox" checked={settings.backupEnabled} onChange={(e) => handleChange('backupEnabled', e.target.checked)} />
@@ -4668,45 +4673,45 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                             {/* 频率 */}
                             <div style={{ padding: '14px 18px', background: 'rgba(248,250,252,0.8)', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>🕐 备份频率</div>
+                                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>🕐 Backup Frequency</div>
                                 <select
                                     value={settings.backupFrequency}
                                     onChange={(e) => handleChange('backupFrequency', parseInt(e.target.value))}
                                     style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white', fontSize: '0.88rem', color: '#334155', outline: 'none', cursor: 'pointer', appearance: 'auto' }}
                                 >
-                                    <option value={1}>每天 1 次（凌晨3点）</option>
-                                    <option value={2}>每天 2 次（每12小时）</option>
-                                    <option value={4}>每天 4 次（每6小时）</option>
-                                    <option value={6}>每天 6 次（每4小时）</option>
-                                    <option value={12}>每天 12 次（每2小时）</option>
-                                    <option value={24}>每天 24 次（每小时）</option>
+                                    <option value={1}>Once daily (3 AM)</option>
+                                    <option value={2}>Twice daily (every 12h)</option>
+                                    <option value={4}>4 times daily (every 6h)</option>
+                                    <option value={6}>6 times daily (every 4h)</option>
+                                    <option value={12}>12 times daily (every 2h)</option>
+                                    <option value={24}>24 times daily (hourly)</option>
                                 </select>
                             </div>
 
                             {/* 保留天数 */}
                             <div style={{ padding: '14px 18px', background: 'rgba(248,250,252,0.8)', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>📅 备份保留天数</div>
+                                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>📅 Retention Days</div>
                                 <select
                                     value={settings.backupRetentionDays}
                                     onChange={(e) => handleChange('backupRetentionDays', parseInt(e.target.value))}
                                     style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white', fontSize: '0.88rem', color: '#334155', outline: 'none', cursor: 'pointer', appearance: 'auto' }}
                                 >
-                                    <option value={3}>3 天</option>
-                                    <option value={7}>7 天</option>
-                                    <option value={14}>14 天</option>
-                                    <option value={30}>30 天</option>
-                                    <option value={60}>60 天</option>
-                                    <option value={90}>90 天</option>
+                                    <option value={3}>3 days</option>
+                                    <option value={7}>7 days</option>
+                                    <option value={14}>14 days</option>
+                                    <option value={30}>30 days</option>
+                                    <option value={60}>60 days</option>
+                                    <option value={90}>90 days</option>
                                 </select>
-                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '6px' }}>超过保留天数的备份将自动清理</div>
+                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '6px' }}>Backups older than retention period will be auto-deleted</div>
                             </div>
 
-                            {/* 邮件推送 */}
+                            {/* Email Notification */}
                             <div style={{ padding: '14px 18px', background: settings.backupEmailEnabled ? 'linear-gradient(135deg, rgba(59,130,246,0.06), rgba(37,99,235,0.03))' : 'rgba(248,250,252,0.8)', borderRadius: '14px', border: `1px solid ${settings.backupEmailEnabled ? 'rgba(59,130,246,0.2)' : '#e2e8f0'}`, transition: 'all 0.2s' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
-                                        <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>📧 邮件推送</div>
-                                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>备份完成后发送通知（附带SQL文件）</div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>📧 Email Notification</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>Send notification after backup (with SQL file)</div>
                                     </div>
                                     <label className="toggle-switch">
                                         <input type="checkbox" checked={settings.backupEmailEnabled} onChange={(e) => handleChange('backupEmailEnabled', e.target.checked)} />
@@ -4716,7 +4721,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
 
                                 {settings.backupEmailEnabled && (
                                     <div style={{ marginTop: '12px' }}>
-                                        <div style={{ fontWeight: 500, fontSize: '0.78rem', color: '#64748b', marginBottom: '6px' }}>接收邮箱</div>
+                                        <div style={{ fontWeight: 500, fontSize: '0.78rem', color: '#64748b', marginBottom: '6px' }}>Recipient Email</div>
                                         <input
                                             type="email"
                                             value={settings.backupEmail}
@@ -4724,7 +4729,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                                             placeholder="admin@example.com"
                                             style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white', fontSize: '0.88rem', color: '#334155', outline: 'none', boxSizing: 'border-box' }}
                                         />
-                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '5px' }}>≤25MB 以附件发送，超过则仅通知</div>
+                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '5px' }}>≤25MB sent as attachment; larger files notify only</div>
                                     </div>
                                 )}
                             </div>
@@ -4734,17 +4739,17 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                                 onClick={handleRestartSchedule}
                                 style={{ marginTop: '4px', width: '100%', padding: '13px', borderRadius: '12px', fontSize: '0.9rem', background: 'linear-gradient(135deg, #059669, #10b981)', border: 'none', cursor: 'pointer', color: 'white', fontWeight: 600, boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s', letterSpacing: '0.3px' }}
                             >
-                                🔄 保存并应用备份计划
+                                🔄 Save & Apply Backup Plan
                             </button>
                         </div>
                     )}
                 </div>
 
-                {/* 右栏：备份状态与文件 */}
+                {/* 右栏：备份Status与文件 */}
                 <div style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
                     <h4 style={{ margin: '0 0 20px', fontSize: '1rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>📋</span>
-                        备份记录
+                        Backup History
                     </h4>
 
                     {backupStatus ? (
@@ -4754,7 +4759,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                                 <div style={{ background: backupStatus.lastBackup.status === 'success' ? 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.05))' : 'linear-gradient(135deg, rgba(239,68,68,0.08), rgba(220,38,38,0.05))', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px', border: `1px solid ${backupStatus.lastBackup.status === 'success' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ fontSize: '0.8rem', fontWeight: 600, color: backupStatus.lastBackup.status === 'success' ? '#059669' : '#dc2626' }}>
-                                            {backupStatus.lastBackup.status === 'success' ? '✅ 最近一次备份成功' : '❌ 最近一次备份失败'}
+                                            {backupStatus.lastBackup.status === 'success' ? '✅ Last backup successful' : '❌ Last backup failed'}
                                         </span>
                                         <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
                                             {new Date(backupStatus.lastBackup.time).toLocaleString('zh-CN')}
@@ -4777,7 +4782,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                             {backupStatus.backups?.length > 0 ? (
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-                                        历史备份文件
+                                        Backup Files
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         {backupStatus.backups.slice(0, 6).map((b, i) => (
@@ -4801,7 +4806,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                                                 </div>
                                                 <span
                                                     onClick={() => handleDownloadBackup(b.filename)}
-                                                    title="点击下载备份文件"
+                                                    title="Click to download backup"
                                                     style={{
                                                         padding: '4px 10px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 600,
                                                         background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(37,99,235,0.1))',
@@ -4821,14 +4826,14 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                             ) : (
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: '#94a3b8' }}>
                                     <div style={{ fontSize: '3rem', marginBottom: '12px', opacity: 0.5 }}>📂</div>
-                                    <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>暂无备份文件</div>
-                                    <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>启用自动备份或手动执行一次备份</div>
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>No backup files</div>
+                                    <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>Enable auto-backup or run a manual backup</div>
                                 </div>
                             )}
                         </div>
                     ) : (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
-                            加载中...
+                            Loading...
                         </div>
                     )}
 
@@ -4846,7 +4851,7 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
                             opacity: running ? 0.7 : 1
                         }}
                     >
-                        {running ? '⏳ 正在备份数据库...' : '🚀 立即执行备份'}
+                        {running ? '⏳ Backing up database...' : '🚀 Run Backup Now'}
                     </button>
                 </div>
             </div>
@@ -4854,9 +4859,10 @@ function BackupSettings({ token, settings, handleChange, showToast }) {
     )
 }
 
-// ==================== 代理管理 ====================
+// ==================== Agents ====================
 function AgentsManage() {
     const { token } = useAuthStore()
+    const L = useAdminL()
     const { showToast, showConfirm } = useToast()
     const [agents, setAgents] = useState([])
     const [withdrawals, setWithdrawals] = useState([])
@@ -4877,7 +4883,7 @@ function AgentsManage() {
             const res = await fetch('/api/admin/agents', { headers: { 'Authorization': `Bearer ${token}` } })
             const data = await res.json()
             setAgents(data.agents || [])
-        } catch { showToast('加载失败', 'error') }
+        } catch { showToast('Load failed', 'error') }
         setLoading(false)
     }
 
@@ -4887,7 +4893,7 @@ function AgentsManage() {
             const res = await fetch('/api/admin/withdrawals', { headers: { 'Authorization': `Bearer ${token}` } })
             const data = await res.json()
             setWithdrawals(data.withdrawals || [])
-        } catch { showToast('加载失败', 'error') }
+        } catch { showToast('Load failed', 'error') }
         setLoading(false)
     }
 
@@ -4903,23 +4909,23 @@ function AgentsManage() {
     }
 
     const updateAgentStatus = async (id, status) => {
-        const label = { ACTIVE: '通过', SUSPENDED: '暂停', REJECTED: '拒绝' }[status]
-        showConfirm('确认操作', `确定要${label}该代理吗？`, async () => {
+        const label = { ACTIVE: 'Approve', SUSPENDED: 'Suspend', REJECTED: 'Reject' }[status]
+        showConfirm('Confirm Action', `确定要${label}该Agent吗？`, async () => {
             try {
                 await fetch(`/api/admin/agents/${id}/status`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
                 })
-                showToast(`代理已${label}`, 'success')
+                showToast(`Agent已${label}`, 'success')
                 fetchAgents()
-            } catch { showToast('操作失败', 'error') }
+            } catch { showToast('Operation failed', 'error') }
         })
     }
 
     const processWithdrawal = async (id, status) => {
-        const label = status === 'APPROVED' ? '通过' : '拒绝'
-        showConfirm('确认操作', `确定要${label}该提现申请吗？`, async () => {
+        const label = status === 'APPROVED' ? 'Approve' : 'Reject'
+        showConfirm('Confirm Action', `确定要${label}该提现申请吗？`, async () => {
             try {
                 await fetch(`/api/admin/withdrawals/${id}`, {
                     method: 'PUT',
@@ -4928,7 +4934,7 @@ function AgentsManage() {
                 })
                 showToast(`提现已${label}`, 'success')
                 fetchWithdrawals()
-            } catch { showToast('操作失败', 'error') }
+            } catch { showToast('Operation failed', 'error') }
         })
     }
 
@@ -4939,31 +4945,31 @@ function AgentsManage() {
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agentSkinPool: JSON.stringify(skinPool) })
             })
-            showToast('皮肤库池已保存', 'success')
-        } catch { showToast('保存失败', 'error') }
+            showToast('Skin pool saved', 'success')
+        } catch { showToast('SaveFailed', 'error') }
     }
 
     const allSkins = [
-        { id: 'zen', name: 'Zen 极简', desc: '极简风格，适合单品展示' },
-        { id: 'fresh', name: 'Fresh 清新', desc: '侧边栏布局，适合多品类' },
-        { id: 'classic', name: '经典风格', desc: '传统导航栏，功能齐全' }
+        { id: 'zen', name: 'Zen Minimal', desc: 'Minimal style, ideal for single products' },
+        { id: 'fresh', name: 'Fresh Clean', desc: 'Sidebar layout, ideal for multiple categories' },
+        { id: 'classic', name: 'Classic', desc: 'Traditional navbar, full-featured' }
     ]
 
-    const statusLabel = { PENDING: '待审核', ACTIVE: '已激活', SUSPENDED: '已暂停', REJECTED: '已拒绝' }
+    const statusLabel = { PENDING: 'Pending Review', ACTIVE: 'Active', SUSPENDED: 'Suspended', REJECTED: 'Rejected' }
     const statusColor = { PENDING: '#F59E0B', ACTIVE: '#10B981', SUSPENDED: '#EF4444', REJECTED: '#6B7280' }
-    const wStatusLabel = { PENDING: '待处理', APPROVED: '已通过', REJECTED: '已拒绝' }
+    const wStatusLabel = { PENDING: 'Pending', APPROVED: 'Approved', REJECTED: 'Rejected' }
     const wStatusColor = { PENDING: '#F59E0B', APPROVED: '#10B981', REJECTED: '#EF4444' }
 
     return (
         <div className="admin-page">
             <div className="page-header">
-                <h2>代理管理</h2>
+                <h2>Agents</h2>
             </div>
 
             <div className="settings-tabs" style={{ marginBottom: 20 }}>
-                <button className={`tab-btn ${tab === 'agents' ? 'active' : ''}`} onClick={() => setTab('agents')}>代理列表</button>
-                <button className={`tab-btn ${tab === 'withdrawals' ? 'active' : ''}`} onClick={() => setTab('withdrawals')}>提现审核</button>
-                <button className={`tab-btn ${tab === 'skinPool' ? 'active' : ''}`} onClick={() => setTab('skinPool')}>皮肤库池</button>
+                <button className={`tab-btn ${tab === 'agents' ? 'active' : ''}`} onClick={() => setTab('agents')}>Agent List</button>
+                <button className={`tab-btn ${tab === 'withdrawals' ? 'active' : ''}`} onClick={() => setTab('withdrawals')}>Withdrawals</button>
+                <button className={`tab-btn ${tab === 'skinPool' ? 'active' : ''}`} onClick={() => setTab('skinPool')}>Skin Pool</button>
             </div>
 
             {tab === 'agents' && (
@@ -4971,23 +4977,23 @@ function AgentsManage() {
                     <table className="data-table">
                         <thead>
                             <tr>
-                                <th>店铺名称</th>
-                                <th>分站路径</th>
-                                <th>用户</th>
-                                <th>商品数</th>
-                                <th>订单数</th>
-                                <th>余额</th>
-                                <th>累计收益</th>
-                                <th>状态</th>
-                                <th>申请时间</th>
-                                <th>操作</th>
+                                <th>Shop Name</th>
+                                <th>Shop Path</th>
+                                <th>User</th>
+                                <th>Products</th>
+                                <th>Orders</th>
+                                <th>Balance</th>
+                                <th>Total Earnings</th>
+                                <th>Status</th>
+                                <th>Applied</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40 }}>加载中...</td></tr>
+                                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40 }}>Loading...</td></tr>
                             ) : agents.length === 0 ? (
-                                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>暂无代理</td></tr>
+                                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No agents</td></tr>
                             ) : agents.map(a => (
                                 <Fragment key={a.id}>
                                 <tr onClick={() => setExpandedAgent(expandedAgent === a.id ? null : a.id)} style={{ cursor: 'pointer' }}>
@@ -4996,8 +5002,8 @@ function AgentsManage() {
                                     <td>{a.user?.username || a.user?.email}</td>
                                     <td>{a.productCount}</td>
                                     <td>{a.orderCount}</td>
-                                    <td>¥{a.balance.toFixed(2)}</td>
-                                    <td>¥{a.totalEarnings.toFixed(2)}</td>
+                                    <td>{formatMoney(a.balance)}</td>
+                                    <td>{formatMoney(a.totalEarnings)}</td>
                                     <td>
                                         <span style={{
                                             padding: '2px 8px', borderRadius: 4, fontSize: '0.78rem', fontWeight: 600,
@@ -5013,15 +5019,15 @@ function AgentsManage() {
                                         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                                             {a.status === 'PENDING' && (
                                                 <>
-                                                    <button className="btn-sm btn-primary" onClick={() => updateAgentStatus(a.id, 'ACTIVE')}>通过</button>
-                                                    <button className="btn-sm btn-danger" onClick={() => updateAgentStatus(a.id, 'REJECTED')}>拒绝</button>
+                                                    <button className="btn-sm btn-primary" onClick={() => updateAgentStatus(a.id, 'ACTIVE')}>Approve</button>
+                                                    <button className="btn-sm btn-danger" onClick={() => updateAgentStatus(a.id, 'REJECTED')}>Reject</button>
                                                 </>
                                             )}
                                             {a.status === 'ACTIVE' && (
-                                                <button className="btn-sm btn-warning" onClick={() => updateAgentStatus(a.id, 'SUSPENDED')}>暂停</button>
+                                                <button className="btn-sm btn-warning" onClick={() => updateAgentStatus(a.id, 'SUSPENDED')}>Suspend</button>
                                             )}
                                             {a.status === 'SUSPENDED' && (
-                                                <button className="btn-sm btn-primary" onClick={() => updateAgentStatus(a.id, 'ACTIVE')}>恢复</button>
+                                                <button className="btn-sm btn-primary" onClick={() => updateAgentStatus(a.id, 'ACTIVE')}>Reactivate</button>
                                             )}
                                         </div>
                                     </td>
@@ -5031,15 +5037,15 @@ function AgentsManage() {
                                         <td colSpan={10} style={{ background: 'var(--bg-secondary)', padding: '16px 20px' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>通知邮箱</div>
-                                                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{a.contactEmail || '未填写'}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>Notification Email</div>
+                                                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{a.contactEmail || 'Not provided'}</div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>联系方式</div>
-                                                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{a.contactInfo || '未填写'}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>Contact</div>
+                                                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{a.contactInfo || 'Not provided'}</div>
                                                 </div>
                                                 <div style={{ gridColumn: '1 / -1' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>申请描述</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 2 }}>Application Note</div>
                                                     <div style={{ fontSize: '0.86rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{a.applyDescription || '无'}</div>
                                                 </div>
                                             </div>
@@ -5058,25 +5064,25 @@ function AgentsManage() {
                     <table className="data-table">
                         <thead>
                             <tr>
-                                <th>代理</th>
-                                <th>金额</th>
-                                <th>方式</th>
-                                <th>收款账号</th>
-                                <th>状态</th>
-                                <th>申请时间</th>
-                                <th>操作</th>
+                                <th>Agent</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Account</th>
+                                <th>Status</th>
+                                <th>Applied</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40 }}>加载中...</td></tr>
+                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40 }}>Loading...</td></tr>
                             ) : withdrawals.length === 0 ? (
-                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>暂无提现申请</td></tr>
+                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No withdrawal requests</td></tr>
                             ) : withdrawals.map(w => (
                                 <tr key={w.id}>
                                     <td style={{ fontWeight: 600 }}>{w.agentName}</td>
-                                    <td style={{ fontWeight: 700, color: '#EF4444' }}>¥{w.amount.toFixed(2)}</td>
-                                    <td>{w.method === 'alipay' ? '支付宝' : w.method === 'wechat' ? '微信' : '银行卡'}</td>
+                                    <td style={{ fontWeight: 700, color: '#EF4444' }}>{formatMoney(w.amount)}</td>
+                                    <td>{w.method === 'alipay' ? 'Alipay' : w.method === 'wechat' ? 'WeChat' : 'Bank Card'}</td>
                                     <td style={{ fontSize: '0.82rem' }}>{w.account}</td>
                                     <td>
                                         <span style={{
@@ -5092,8 +5098,8 @@ function AgentsManage() {
                                     <td>
                                         {w.status === 'PENDING' && (
                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                <button className="btn-sm btn-primary" onClick={() => processWithdrawal(w.id, 'APPROVED')}>通过</button>
-                                                <button className="btn-sm btn-danger" onClick={() => processWithdrawal(w.id, 'REJECTED')}>拒绝</button>
+                                                <button className="btn-sm btn-primary" onClick={() => processWithdrawal(w.id, 'APPROVED')}>Approve</button>
+                                                <button className="btn-sm btn-danger" onClick={() => processWithdrawal(w.id, 'REJECTED')}>Reject</button>
                                             </div>
                                         )}
                                     </td>
@@ -5107,7 +5113,7 @@ function AgentsManage() {
             {tab === 'skinPool' && (
                 <div className="settings-section">
                     <p style={{ marginBottom: 16, color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                        勾选允许代理商使用的皮肤，代理商可从已勾选的皮肤中自由选择
+                        Select skins available for agents
                     </p>
                     {allSkins.map(skin => (
                         <label key={skin.id} style={{
@@ -5121,7 +5127,7 @@ function AgentsManage() {
                                 checked={skinPool.includes(skin.id)}
                                 onChange={() => {
                                     if (skinPool.includes(skin.id)) {
-                                        if (skinPool.length <= 1) return showToast('至少保留一个皮肤', 'error')
+                                        if (skinPool.length <= 1) return showToast('At least one skin must be selected', 'error')
                                         setSkinPool(skinPool.filter(s => s !== skin.id))
                                     } else {
                                         setSkinPool([...skinPool, skin.id])
@@ -5141,7 +5147,7 @@ function AgentsManage() {
                         cursor: 'pointer', width: 'auto', display: 'inline-block'
                     }} onMouseEnter={e => e.target.style.background = '#dc2626'}
                        onMouseLeave={e => e.target.style.background = '#ef4444'}>
-                        保存皮肤库池
+                        SaveSkin Pool
                     </button>
                 </div>
             )}
@@ -5180,7 +5186,7 @@ function SslApplyButton({ domain, token }) {
                 body: JSON.stringify({ domain })
             })
             const data = await res.json()
-            if (!res.ok || !data.success) { setLogs([data.error || '申请失败']); setStep('error'); return }
+            if (!res.ok || !data.success) { setLogs([data.error || 'Application failed']); setStep('error'); return }
             setRecords(data.records || []); setStep('step1-done')
         } catch (e) { setLogs([e.message]); setStep('error') }
     }
@@ -5211,7 +5217,7 @@ function SslApplyButton({ domain, token }) {
                     }
                 }
             }
-        }).catch(e => { setLogs(prev => [...prev, '连接错误：' + e.message]); setStep('error') })
+        }).catch(e => { setLogs(prev => [...prev, 'Connection error：' + e.message]); setStep('error') })
     }
 
     useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs])
@@ -5227,7 +5233,7 @@ function SslApplyButton({ domain, token }) {
                 color: hasCert ? '#10B981' : '#4F46E5',
                 fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap'
             }}>
-                {hasCert ? '🔒 续签证书' : '🔐 申请泛域名证书'}
+                {hasCert ? '🔒 Renew Certificate' : '🔐 Apply for Wildcard Certificate'}
             </button>
 
             {open && (
@@ -5243,10 +5249,10 @@ function SslApplyButton({ domain, token }) {
                         {/* 标题 */}
                         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div>
-                                <div style={{ fontWeight: 700, fontSize: '1rem' }}>🔐 申请泛域名 SSL 证书</div>
+                                <div style={{ fontWeight: 700, fontSize: '1rem' }}>🔐 Apply for Wildcard SSL Certificate</div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                                    域名：<code style={{ color: '#4F46E5' }}>*.{domain}</code>
-                                    {certStatus?.expireDate && <span style={{ marginLeft: 8, color: '#10B981' }}>· 现有证书到期：{certStatus.expireDate}</span>}
+                                    Domain: <code style={{ color: '#4F46E5' }}>*.{domain}</code>
+                                    {certStatus?.expireDate && <span style={{ marginLeft: 8, color: '#10B981' }}>· Current cert expires: {certStatus.expireDate}</span>}
                                 </div>
                             </div>
                             <button onClick={handleClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
@@ -5258,15 +5264,15 @@ function SslApplyButton({ domain, token }) {
                                 <div>
                                     {!certStatus?.acmeInstalled && (
                                         <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#D97706', fontSize: '0.82rem' }}>
-                                            ⚠️ 服务器未检测到 acme.sh，将在申请时自动安装。
+                                            ⚠️ acme.sh not detected, will be auto-installed.
                                         </div>
                                     )}
                                     <div style={{ fontSize: '0.88rem', lineHeight: 1.8, color: 'var(--text-secondary)' }}>
-                                        <p>本向导将使用 <strong>Let's Encrypt</strong> 为 <code>*.{domain}</code> 申请免费 SSL 证书：</p>
+                                        <p>This wizard will use <strong>Let's Encrypt</strong> for <code>*.{domain}</code> to apply for a free SSL certificate:</p>
                                         <ol style={{ paddingLeft: 20, marginTop: 8 }}>
                                             <li>点击"开始申请"，系统生成 <strong>DNS TXT 验证记录</strong></li>
-                                            <li>在 DNS 面板（如 Cloudflare）添加该 TXT 记录</li>
-                                            <li>等待 DNS 生效（约 5 分钟），点击"验证并颁发"</li>
+                                            <li>在 DNS 面板（如 Cloudflare）Add该 TXT 记录</li>
+                                            <li>等待 DNS 生效（约 5 min），点击"验证并颁发"</li>
                                             <li>证书自动安装到 <code>/etc/nginx/ssl/fullchain.pem</code></li>
                                         </ol>
                                         <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'rgba(79,70,229,0.08)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -5274,7 +5280,7 @@ function SslApplyButton({ domain, token }) {
                                         </div>
                                     </div>
                                     <button onClick={handleStep1} style={{ marginTop: 20, width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
-                                        🚀 开始申请
+                                        🚀 Start
                                     </button>
                                 </div>
                             )}
@@ -5282,14 +5288,14 @@ function SslApplyButton({ domain, token }) {
                             {step === 'step1-loading' && (
                                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
                                     <div style={{ fontSize: '2rem', marginBottom: 12 }}>⏳</div>
-                                    <div>正在生成 DNS 验证记录...</div>
+                                    <div>Generating DNS verification records...</div>
                                 </div>
                             )}
 
                             {step === 'step1-done' && records.length > 0 && (
                                 <div>
                                     <div style={{ padding: '12px 16px', borderRadius: 10, marginBottom: 20, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10B981', fontSize: '0.85rem', fontWeight: 600 }}>
-                                        ✅ 第一步完成！请在 DNS 面板添加以下 TXT 记录，然后点击下方按钮继续
+                                        ✅ 第一步完成！请在 DNS 面板Add以下 TXT 记录，然后点击下方按钮继续
                                     </div>
                                     {records.map((r, i) => (
                                         <div key={i} style={{ borderRadius: 10, border: '1px solid var(--border-color)', overflow: 'hidden', marginBottom: 12 }}>
@@ -5300,16 +5306,16 @@ function SslApplyButton({ domain, token }) {
                                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>TXT 值</div>
                                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                                     <code style={{ flex: 1, display: 'block', padding: '6px 10px', borderRadius: 6, background: 'var(--bg-secondary)', fontSize: '0.82rem', wordBreak: 'break-all' }}>{r.value}</code>
-                                                    <button onClick={() => navigator.clipboard.writeText(r.value)} style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)' }}>复制</button>
+                                                    <button onClick={() => navigator.clipboard.writeText(r.value)} style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)' }}>Copy</button>
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
                                     <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#D97706', fontSize: '0.8rem' }}>
-                                        ⏱️ 添加完 DNS 记录后请等待 5~10 分钟让其生效，再点击下方按钮
+                                        ⏱️ Add完 DNS 记录后请等待 5~10 min让其生效，再点击下方按钮
                                     </div>
                                     <button onClick={handleStep2} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
-                                        ✅ 我已添加 TXT 记录，开始验证并颁发证书
+                                        ✅ 我已Add TXT 记录，开始验证并颁发证书
                                     </button>
                                 </div>
                             )}
@@ -5318,18 +5324,18 @@ function SslApplyButton({ domain, token }) {
                                 <div>
                                     <div style={{ background: '#0f0f0f', borderRadius: 10, padding: 16, fontFamily: 'monospace', fontSize: '0.78rem', lineHeight: 1.6, color: '#d4d4d4', minHeight: 200, maxHeight: 360, overflowY: 'auto' }}>
                                         {logs.map((log, i) => (
-                                            <div key={i} style={{ color: log.startsWith('✅') || log.startsWith('🎉') ? '#4ade80' : log.includes('失败') || log.includes('error') ? '#f87171' : '#d4d4d4' }}>{log}</div>
+                                            <div key={i} style={{ color: log.startsWith('✅') || log.startsWith('🎉') ? '#4ade80' : log.includes('Failed') || log.includes('error') ? '#f87171' : '#d4d4d4' }}>{log}</div>
                                         ))}
-                                        {step === 'step2-loading' && <div style={{ color: '#60a5fa' }}>▋ 处理中...</div>}
+                                        {step === 'step2-loading' && <div style={{ color: '#60a5fa' }}>▋ Processing...</div>}
                                         <div ref={logsEndRef} />
                                     </div>
                                     {step === 'step2-done' && (
                                         <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#10B981', fontSize: '0.88rem', fontWeight: 600, textAlign: 'center' }}>
-                                            🎉 泛域名证书申请成功！nginx 已自动重载。
+                                            🎉 泛域名证书申请Success！nginx 已自动重载。
                                         </div>
                                     )}
                                     {step === 'error' && (
-                                        <button onClick={() => { setStep('idle'); setLogs([]) }} style={{ marginTop: 12, width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>↩ 重新开始</button>
+                                        <button onClick={() => { setStep('idle'); setLogs([]) }} style={{ marginTop: 12, width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>↩ Start Over</button>
                                     )}
                                 </div>
                             )}
@@ -5344,6 +5350,7 @@ function SslApplyButton({ domain, token }) {
 // ==================== 租户商城管理 ====================
 function TenantsManage() {
     const token = useAuthStore(state => state.token)
+    const L = useAdminL()
     const [tenants, setTenants] = useState([])
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
@@ -5374,18 +5381,18 @@ function TenantsManage() {
         })
         const d = await r.json(); setActionLoading(false)
         if (d.message) { showToast(d.message, 'success'); fetchTenants(); setSelected(null) }
-        else showToast(d.error || '操作失败', 'error')
+        else showToast(d.error || 'Operation failed', 'error')
     }
 
-    const statusLabel = { PENDING: '待配置', REVIEWING: '审核中', ACTIVE: '运营中', SUSPENDED: '已暂停', REJECTED: '已拒绝' }
+    const statusLabel = { PENDING: '待配置', REVIEWING: '审核中', ACTIVE: '运营中', SUSPENDED: 'Suspended', REJECTED: 'Rejected' }
     const statusColor = { PENDING: '#F59E0B', REVIEWING: '#60A5FA', ACTIVE: '#10B981', SUSPENDED: '#EF4444', REJECTED: '#EF4444' }
 
     return (
         <div className="admin-section">
             <div className="section-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-                <h2>🏪 租户商城管理</h2>
+                <h2>🏪 Tenant Management</h2>
                 <div style={{ display:'flex', gap:8 }}>
-                    {[['','全部'],['REVIEWING','审核中'],['ACTIVE','运营中'],['PENDING','待配置'],['SUSPENDED','已暂停']].map(([v,l]) => (
+                    {[['','All'],['REVIEWING','审核中'],['ACTIVE','运营中'],['PENDING','待配置'],['SUSPENDED','Suspended']].map(([v,l]) => (
                         <button key={v} onClick={()=>{setStatus(v);setPage(1)}}
                             className={`tab-btn ${status===v?'active':''}`}>{l}</button>
                     ))}
@@ -5399,14 +5406,14 @@ function TenantsManage() {
                         <div style={{fontSize:'1.1rem',fontWeight:700,marginBottom:20}}>🏪 {selected.shopName}</div>
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px 20px',marginBottom:20}}>
                             {[
-                                ['店铺名称', selected.shopName],
-                                ['访问路径', `/t/${selected.shopSlug}`],
-                                ['用户邮箱', selected.user?.email],
-                                ['绑定域名', selected.domains?.[0]?.domain || '未绑定'],
-                                ['DNS验证', selected.domains?.[0]?.dnsVerified ? '✅ 已验证' : '❌ 未验证'],
-                                ['商品/订单', `${selected._count?.products||0} / ${selected._count?.orders||0}`],
-                                ['申请时间', new Date(selected.createdAt).toLocaleString()],
-                                ['当前状态', statusLabel[selected.status]]
+                                ['Shop Name', selected.shopName],
+                                ['Path', `/t/${selected.shopSlug}`],
+                                ['User Email', selected.user?.email],
+                                ['Domain', selected.domains?.[0]?.domain || 'Not bound'],
+                                ['DNS Verified', selected.domains?.[0]?.dnsVerified ? '✅ Verified' : '❌ Not verified'],
+                                ['Product/订单', `${selected._count?.products||0} / ${selected._count?.orders||0}`],
+                                ['Applied', new Date(selected.createdAt).toLocaleString()],
+                                ['Current Status', statusLabel[selected.status]]
                             ].map(([k,v]) => (
                                 <div key={k}>
                                     <div style={{fontSize:'0.72rem',color:'var(--text-muted)',marginBottom:2}}>{k}</div>
@@ -5418,28 +5425,28 @@ function TenantsManage() {
                             {selected.status === 'REVIEWING' && (<>
                                 <button className="btn btn-success" disabled={actionLoading}
                                     onClick={()=>showConfirm('批准商城',`确定批准 ${selected.shopName}？商城将即刻上线。`,()=>doAction(selected.id,'approve'))}>
-                                    ✅ 批准开通
+                                    ✅ Approve
                                 </button>
                                 <input style={{flex:1,padding:'8px 12px',borderRadius:8,border:'1px solid var(--border-color)',background:'var(--bg-primary)',color:'var(--text-primary)',fontSize:'0.84rem'}}
-                                    value={rejectReason} onChange={e=>setRejectReason(e.target.value)} placeholder="拒绝原因（可选）" />
+                                    value={rejectReason} onChange={e=>setRejectReason(e.target.value)} placeholder="Reject原因（Optional）" />
                                 <button className="btn btn-danger" disabled={actionLoading}
                                     onClick={()=>doAction(selected.id,'reject',{reason:rejectReason})}>
-                                    ❌ 拒绝
+                                    ❌ Reject
                                 </button>
                             </>)}
                             {selected.status === 'ACTIVE' && (
                                 <button className="btn btn-warning" disabled={actionLoading}
-                                    onClick={()=>showConfirm('暂停商城',`确定暂停 ${selected.shopName}？`,()=>doAction(selected.id,'suspend'))}>
-                                    ⏸ 暂停运营
+                                    onClick={()=>showConfirm('Suspend商城',`确定Suspend ${selected.shopName}？`,()=>doAction(selected.id,'suspend'))}>
+                                    ⏸ Suspend
                                 </button>
                             )}
                             {selected.status === 'SUSPENDED' && (
                                 <button className="btn btn-success" disabled={actionLoading}
                                     onClick={()=>doAction(selected.id,'reactivate')}>
-                                    ▶ 恢复运营
+                                    ▶ Reactivate
                                 </button>
                             )}
-                            <button className="btn" onClick={()=>setSelected(null)} style={{marginLeft:'auto'}}>关闭</button>
+                            <button className="btn" onClick={()=>setSelected(null)} style={{marginLeft:'auto'}}>Close</button>
                         </div>
                     </div>
                 </div>
@@ -5451,12 +5458,12 @@ function TenantsManage() {
                 ) : (
                     <table className="admin-table">
                         <thead><tr>
-                            <th>店铺名称</th><th>用户</th><th>绑定域名</th>
-                            <th>DNS</th><th>商品/订单</th><th>状态</th><th>申请时间</th><th>操作</th>
+                            <th>Shop Name</th><th>User</th><th>Domain</th>
+                            <th>DNS</th><th>Product/订单</th><th>Status</th><th>Applied</th><th>Actions</th>
                         </tr></thead>
                         <tbody>
                             {tenants.length === 0 ? (
-                                <tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>暂无租户</td></tr>
+                                <tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>No tenants</td></tr>
                             ) : tenants.map(t => (
                                 <tr key={t.id}>
                                     <td>
@@ -5464,7 +5471,7 @@ function TenantsManage() {
                                         <div style={{fontSize:'0.75rem',color:'var(--text-muted)'}}>/t/{t.shopSlug}</div>
                                     </td>
                                     <td style={{fontSize:'0.82rem'}}>{t.user?.email}</td>
-                                    <td style={{fontSize:'0.82rem'}}>{t.domains?.[0]?.domain || <span style={{color:'var(--text-muted)'}}>未绑定</span>}</td>
+                                    <td style={{fontSize:'0.82rem'}}>{t.domains?.[0]?.domain || <span style={{color:'var(--text-muted)'}}>Not bound</span>}</td>
                                     <td>{t.domains?.[0]?.dnsVerified ? <span style={{color:'#10B981'}}>✅</span> : <span style={{color:'var(--text-muted)'}}>—</span>}</td>
                                     <td style={{fontSize:'0.82rem'}}>{t._count?.products||0} / {t._count?.orders||0}</td>
                                     <td>
@@ -5488,9 +5495,9 @@ function TenantsManage() {
 
             {total > 20 && (
                 <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:16}}>
-                    <button className="btn" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}>上一页</button>
+                    <button className="btn" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}>Prev</button>
                     <span style={{padding:'8px 14px',color:'var(--text-muted)',fontSize:'0.84rem'}}>{page} / {Math.ceil(total/20)}</span>
-                    <button className="btn" onClick={()=>setPage(p=>p+1)} disabled={page>=Math.ceil(total/20)}>下一页</button>
+                    <button className="btn" onClick={()=>setPage(p=>p+1)} disabled={page>=Math.ceil(total/20)}>Next</button>
                 </div>
             )}
         </div>
@@ -5508,7 +5515,7 @@ function SettingsPage() {
     const [settings, setSettings] = useState({
         // 基本设置
         siteName: 'HaoDongXi',
-        siteDescription: '虚拟物品自动发卡平台',
+        siteDescription: 'Virtual goods auto-delivery platform',
         frontend_skin: 'classic',
         siteLogo: '',
         siteFavicon: '',
@@ -5531,14 +5538,14 @@ function SettingsPage() {
         // 订单设置
         orderTimeout: 30,
         autoCancel: true,
-        stockMode: 'auto', // 'auto' = 库存=卡密数量, 'manual' = 手动设置库存
+        stockMode: 'auto', // 'auto' = 库存=卡密数量, 'manual' = Manual Stock
         // 邮件设置
         smtpHost: '',
         smtpPort: 465,
         smtpUser: '',
         smtpPass: '',
         emailNotify: true,
-        // 管理员通知设置
+        // Admins通知设置
         adminNotifyEmail: '',
         notifyOrderPaid: true,
         notifyPendingShip: true,
@@ -5560,13 +5567,13 @@ function SettingsPage() {
         securityOrderQueryLimitWindowMinutes: 10,
         securityTicketCreateLimitMax: 3,
         securityTicketCreateLimitWindowMinutes: 10,
-        // 数据库备份设置
+        // Database Backup设置
         backupEnabled: false,
         backupFrequency: 1,
         backupRetentionDays: 7,
         backupEmailEnabled: false,
         backupEmail: '',
-        // 管理员权限设置
+        // Admins权限设置
         adminPermissionViewStatsGrid: true,
         adminPermissionViewTodayStats: true,
         adminEmailNotificationConfigs: []
@@ -5575,7 +5582,7 @@ function SettingsPage() {
     const [activeTab, setActiveTab] = useState('basic')
     const [saving, setSaving] = useState(false)
     const [loading, setLoading] = useState(true)
-    // 套餐邮件额度：>0 / -1 表示允许，0 表示禁用
+    // 套餐邮件额度：>0 / -1 表示允许，0 表示Disable
     const [emailQuota, setEmailQuota] = useState(-1)
     const emailDisabled = emailQuota === 0
     const [emailUsed, setEmailUsed] = useState(0)
@@ -5614,7 +5621,7 @@ function SettingsPage() {
                     }
                 }
             } catch (error) {
-                console.error('加载设置失败:', error)
+                console.error('加载设置Failed:', error)
             } finally {
                 setLoading(false)
             }
@@ -5654,7 +5661,7 @@ function SettingsPage() {
     const handleSave = async () => {
         setSaving(true)
         try {
-            // 将设置值转换为字符串
+            // 将设置值转换for字符串
             const settingsToSave = Object.fromEntries(
                 Object.entries(settings).map(([key, value]) => [
                     key,
@@ -5662,7 +5669,7 @@ function SettingsPage() {
                 ])
             )
 
-            // 保存设置到后端
+            // Save Settings到后端
             const res = await fetch('/api/admin/settings', {
                 method: 'PUT',
                 headers: {
@@ -5673,16 +5680,16 @@ function SettingsPage() {
             })
 
             if (!res.ok) {
-                throw new Error('保存失败')
+                throw new Error('SaveFailed')
             }
 
-            showToast('设置保存成功！', 'success')
+            showToast('设置SaveSuccess！', 'success')
             // 重新拉取皮肤，立即生效
             fetchSkin()
 
         } catch (err) {
             console.error(err)
-            showToast('保存设置失败', 'error')
+            showToast('Save SettingsFailed', 'error')
         } finally {
             setSaving(false)
         }
@@ -5700,21 +5707,21 @@ function SettingsPage() {
             })
             const data = await res.json()
             if (!res.ok) {
-                throw new Error(data.error || '库存重建失败')
+                throw new Error(data.error || '库存重建Failed')
             }
-            showToast(`库存重建完成：商品 ${data.updatedProducts} 条，规格 ${data.updatedVariants} 条`, 'success')
+            showToast(`Stock rebuilt: Products ${data.updatedProducts} 条，Variant ${data.updatedVariants} 条`, 'success')
         } catch (error) {
-            showToast(error.message || '库存重建失败', 'error')
+            showToast(error.message || '库存重建Failed', 'error')
         }
     }
 
     const adminNotifyEventOptions = [
-        { key: 'notifyOrderPaid', label: '支付成功' },
-        { key: 'notifyPendingShip', label: '待发货' },
-        { key: 'notifyNewTicket', label: '工单提醒' },
-        { key: 'notifyNewUser', label: '新用户' },
+        { key: 'notifyOrderPaid', label: '支付Success' },
+        { key: 'notifyPendingShip', label: '待Ship' },
+        { key: 'notifyNewTicket', label: 'tickets提醒' },
+        { key: 'notifyNewUser', label: '新User' },
         { key: 'notifyLowStock', label: '库存预警' },
-        { key: 'notifyOrderCancelled', label: '订单取消' }
+        { key: 'notifyOrderCancelled', label: '订单Cancel' }
     ]
 
     const updateAdminEmailConfig = (userId, updater) => {
@@ -5742,7 +5749,7 @@ function SettingsPage() {
         { id: 'order', label: '订单设置' },
         { id: 'email', label: '邮件设置' },
         { id: 'notify', label: '通知设置' },
-        { id: 'admin', label: '管理员设置' }
+        { id: 'admin', label: 'Admins设置' }
     ]
 
     return (
@@ -5754,7 +5761,7 @@ function SettingsPage() {
                     onClick={handleSave}
                     disabled={saving}
                 >
-                    {saving ? '保存中...' : '保存设置'}
+                    {saving ? 'Saving...' : 'Save Settings'}
                 </button>
             </div>
 
@@ -5786,24 +5793,24 @@ function SettingsPage() {
                             />
                         </div>
                         <div className="setting-item">
-                            <label>网站描述</label>
+                            <label>Site Description</label>
                             <textarea
                                 value={settings.siteDescription}
                                 onChange={(e) => handleChange('siteDescription', e.target.value)}
-                                placeholder="网站描述"
+                                placeholder="Site Description"
                                 rows={3}
                             />
                         </div>
 
-                        {/* 分站主域名 */}
+                        {/* Agent Domain */}
                         <div className="setting-item">
-                            <label>分站主域名</label>
+                            <label>Agent Domain</label>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 <input
                                     type="text"
                                     value={settings.agentSubdomainRoot || ''}
                                     onChange={(e) => handleChange('agentSubdomainRoot', e.target.value.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, ''))}
-                                    placeholder="例如：vshop.cc（留空则代理分站用 /s/slug 路径）"
+                                    placeholder="e.g.vshop.cc（Leave empty to use /s/slug path)"
                                     style={{ flex: 1 }}
                                 />
                                 {settings.agentSubdomainRoot && (
@@ -5811,14 +5818,14 @@ function SettingsPage() {
                                 )}
                             </div>
                             <span className="setting-hint">
-                                仅用于 SSL 证书管理，当前分站访问一律使用路径模式（vmart.cc/s/slug）。
+                                Only for SSL management. Agent sites use path mode（vmart.cc/s/slug）。
                             </span>
                         </div>
 
-                        {/* 站点 Logo */}
+                        {/* Site Logo */}
                         <div className="setting-item">
-                            <label>站点 Logo</label>
-                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>建议尺寸：高度 60px 以内的透明 PNG，将显示在导航栏</div>
+                            <label>Site Logo</label>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>Recommended: transparent PNG, max 60px height, shown in navbar</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 {settings.siteLogo && (
                                     <div style={{
@@ -5834,7 +5841,7 @@ function SettingsPage() {
                                     cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
                                     color: 'var(--text-primary)', transition: 'all 0.15s'
                                 }}>
-                                    {settings.siteLogo ? '更换' : '上传 Logo'}
+                                    {settings.siteLogo ? 'Change' : 'Upload Logo'}
                                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
                                         const file = e.target.files?.[0]
                                         if (!file) return
@@ -5849,9 +5856,9 @@ function SettingsPage() {
                                             const data = await res.json()
                                             if (data.success && data.urls?.logo) {
                                                 handleChange('siteLogo', data.urls.logo)
-                                                showToast('Logo 上传成功', 'success')
+                                                showToast('Logo UploadSuccess', 'success')
                                             }
-                                        } catch { showToast('上传失败', 'error') }
+                                        } catch { showToast('UploadFailed', 'error') }
                                         e.target.value = ''
                                     }} />
                                 </label>
@@ -5863,15 +5870,15 @@ function SettingsPage() {
                                             color: '#EF4444', fontSize: '0.85rem', cursor: 'pointer'
                                         }}
                                         onClick={() => handleChange('siteLogo', '')}
-                                    >清除</button>
+                                    >Clear</button>
                                 )}
                             </div>
                         </div>
 
-                        {/* 书签栏图标 Favicon */}
+                        {/* 书签栏Icon Favicon */}
                         <div className="setting-item">
-                            <label>书签栏图标（Favicon）</label>
-                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>推荐 64×64 PNG，将显示在浏览器标签页和书签栏</div>
+                            <label>Favicon</label>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>Recommended: 64x64 PNG, shown in browser tab</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 {settings.siteFavicon && (
                                     <div style={{
@@ -5887,7 +5894,7 @@ function SettingsPage() {
                                     cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
                                     color: 'var(--text-primary)', transition: 'all 0.15s'
                                 }}>
-                                    {settings.siteFavicon ? '更换' : '上传图标'}
+                                    {settings.siteFavicon ? 'Change' : 'UploadIcon'}
                                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
                                         const file = e.target.files?.[0]
                                         if (!file) return
@@ -5902,9 +5909,9 @@ function SettingsPage() {
                                             const data = await res.json()
                                             if (data.success && data.urls?.favicon) {
                                                 handleChange('siteFavicon', data.urls.favicon)
-                                                showToast('图标上传成功', 'success')
+                                                showToast('IconUploadSuccess', 'success')
                                             }
-                                        } catch { showToast('上传失败', 'error') }
+                                        } catch { showToast('UploadFailed', 'error') }
                                         e.target.value = ''
                                     }} />
                                 </label>
@@ -5916,7 +5923,7 @@ function SettingsPage() {
                                             color: '#EF4444', fontSize: '0.85rem', cursor: 'pointer'
                                         }}
                                         onClick={() => handleChange('siteFavicon', '')}
-                                    >清除</button>
+                                    >Clear</button>
                                 )}
                             </div>
                         </div>
@@ -5929,8 +5936,8 @@ function SettingsPage() {
                     <div className="settings-section">
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>支付宝</label>
-                                <span className="toggle-desc">启用支付宝支付</span>
+                                <label>Alipay</label>
+                                <span className="toggle-desc">EnableAlipay支付</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -5943,8 +5950,8 @@ function SettingsPage() {
                         </div>
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>微信支付</label>
-                                <span className="toggle-desc">启用微信支付</span>
+                                <label>WeChat Pay</label>
+                                <span className="toggle-desc">EnableWeChat Pay</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -5958,7 +5965,7 @@ function SettingsPage() {
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
                                 <label>USDT-TRC20</label>
-                                <span className="toggle-desc">启用USDT支付</span>
+                                <span className="toggle-desc">Enable USDT payment</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -5978,9 +5985,9 @@ function SettingsPage() {
                                         type="text"
                                         value={settings.usdtWalletAddress}
                                         onChange={(e) => handleChange('usdtWalletAddress', e.target.value)}
-                                        placeholder="T开头的TRC20地址"
+                                        placeholder="TRC20 address starting with T"
                                     />
-                                    <span className="setting-hint">请确保地址正确，否则无法收款</span>
+                                    <span className="setting-hint">Ensure address is correct to receive payments</span>
                                 </div>
                                 <div className="setting-item">
                                     <label>USDT 汇率 (1 USDT = ? CNY)</label>
@@ -5992,7 +5999,7 @@ function SettingsPage() {
                                         max={20}
                                         step={0.1}
                                     />
-                                    <span className="setting-hint">当前汇率：1 USDT = ¥{settings.usdtExchangeRate}</span>
+                                    <span className="setting-hint">Current rate：1 USDT = {getCurrencySymbol()}{settings.usdtExchangeRate}</span>
                                 </div>
                             </>
                         )}
@@ -6000,7 +6007,7 @@ function SettingsPage() {
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
                                 <label>USDT-BEP20</label>
-                                <span className="toggle-desc">启用BSC/BNB智能链USDT支付</span>
+                                <span className="toggle-desc">EnableBSC/BNB智能链USDT支付</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6020,9 +6027,9 @@ function SettingsPage() {
                                         type="text"
                                         value={settings.bscUsdtWalletAddress}
                                         onChange={(e) => handleChange('bscUsdtWalletAddress', e.target.value)}
-                                        placeholder="0x开头的BEP20地址"
+                                        placeholder="BEP20 address starting with 0x"
                                     />
-                                    <span className="setting-hint">请确保地址正确，否则无法收款</span>
+                                    <span className="setting-hint">Ensure address is correct to receive payments</span>
                                 </div>
                                 <div className="setting-item">
                                     <label>USDT 汇率 (1 USDT = ? CNY)</label>
@@ -6034,23 +6041,23 @@ function SettingsPage() {
                                         max={20}
                                         step={0.1}
                                     />
-                                    <span className="setting-hint">当前汇率：1 USDT = ¥{settings.bscUsdtExchangeRate}</span>
+                                    <span className="setting-hint">Current rate：1 USDT = {getCurrencySymbol()}{settings.bscUsdtExchangeRate}</span>
                                 </div>
                                 <div className="setting-item">
-                                    <label>BscScan API Key (选填推荐)</label>
+                                    <label>BscScan API Key (Optional, recommended)</label>
                                     <input
                                         type="text"
                                         value={settings.bscUsdtApiKey}
                                         onChange={(e) => handleChange('bscUsdtApiKey', e.target.value)}
-                                        placeholder="用于加速查询防限流（免费申请）"
+                                        placeholder="Speeds up queries, prevents rate limiting (free)"
                                     />
-                                    <span className="setting-hint">前往 bscscan.com/apis 免费获取</span>
+                                    <span className="setting-hint">Get free at bscscan.com/apis</span>
                                 </div>
                             </>
                         )}
 
                         <div className="setting-notice">
-                            💡 USDT支付每30秒自动检测钱包转入，到账后自动发货
+                            💡 USDT payments auto-detected every 30s, auto-shipped on receipt
                         </div>
                     </div>
                 )}
@@ -6058,9 +6065,9 @@ function SettingsPage() {
                 {/* 订单设置 */}
                 {activeTab === 'order' && (
                     <div className="settings-section">
-                        {/* 库存计算方式 - 现代卡片选择 */}
+                        {/* Stock Calculation - 现代卡片选择 */}
                         <div className="setting-item stock-mode-section">
-                            <label className="stock-mode-label">库存计算方式</label>
+                            <label className="stock-mode-label">Stock Calculation</label>
                             <div className="stock-mode-selector">
                                 <div
                                     className={`stock-mode-option ${settings.stockMode === 'auto' ? 'selected' : ''}`}
@@ -6076,11 +6083,11 @@ function SettingsPage() {
                                     <div className="stock-mode-info">
                                         <div className="stock-mode-header">
                                             <span className="stock-mode-emoji">🤖</span>
-                                            <span className="stock-mode-name">自动计算库存</span>
-                                            <span className="stock-mode-tag recommended">推荐</span>
+                                            <span className="stock-mode-name">Auto Calculate Stock</span>
+                                            <span className="stock-mode-tag recommended">Recommended</span>
                                         </div>
                                         <div className="stock-mode-description">
-                                            系统自动统计可用卡密数量作为库存，确保库存实时准确
+                                            System auto-counts available keys as stock, ensuring real-time accuracy
                                         </div>
                                     </div>
                                 </div>
@@ -6098,10 +6105,10 @@ function SettingsPage() {
                                     <div className="stock-mode-info">
                                         <div className="stock-mode-header">
                                             <span className="stock-mode-emoji">✏️</span>
-                                            <span className="stock-mode-name">手动设置库存</span>
+                                            <span className="stock-mode-name">Manual Stock</span>
                                         </div>
                                         <div className="stock-mode-description">
-                                            可在商品管理中手动设置库存，适用于库存充足但卡密未导入的情况
+                                            可在Product管理中Manual Stock，适用于库存充足但卡密未导入的情况
                                         </div>
                                     </div>
                                 </div>
@@ -6112,14 +6119,14 @@ function SettingsPage() {
                                     onClick={handleRebuildStock}
                                     type="button"
                                 >
-                                    重建库存（按可用卡密）
+                                    Rebuild Stock (by available keys)
                                 </button>
                             </div>
                         </div>
 
                         {/* 订单超时 */}
                         <div className="setting-item">
-                            <label>订单超时时间</label>
+                            <label>Order Timeout</label>
                             <div className="input-with-suffix">
                                 <input
                                     type="number"
@@ -6129,16 +6136,16 @@ function SettingsPage() {
                                     max={120}
                                     style={{ width: '120px' }}
                                 />
-                                <span className="input-suffix">分钟</span>
+                                <span className="input-suffix">min</span>
                             </div>
-                            <span className="setting-hint">未支付订单超时后自动取消</span>
+                            <span className="setting-hint">Unpaid orders auto-cancelled after timeout</span>
                         </div>
 
-                        {/* 自动取消 */}
+                        {/* Auto Cancel */}
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>自动取消</label>
-                                <span className="toggle-desc">超时订单自动取消</span>
+                                <label>Auto Cancel</label>
+                                <span className="toggle-desc">超时订单Auto Cancel</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6163,7 +6170,7 @@ function SettingsPage() {
                                 borderRadius: 8, color: '#92400e', fontSize: '0.9rem',
                                 display: 'flex', alignItems: 'center', gap: 10
                             }}>
-                                🔒 当前套餐不包含邮件通知额度，邮件功能已禁用。请升级套餐后启用。
+                                🔒 Current plan has no email quota. Please upgrade to enable.
                             </div>
                         )}
                         {!emailDisabled && (
@@ -6175,9 +6182,9 @@ function SettingsPage() {
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                                     <div>
-                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>本月平台代发邮件</div>
+                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>Platform emails this month</div>
                                         <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                            {emailUsed} / {emailQuota === -1 ? '不限' : emailQuota}
+                                            {emailUsed} / {emailQuota === -1 ? 'Unlimited' : emailQuota}
                                         </div>
                                     </div>
                                     {emailQuota > 0 && (
@@ -6192,8 +6199,8 @@ function SettingsPage() {
                                             </div>
                                             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
                                                 {emailUsed >= emailQuota
-                                                    ? '⚠️ 本月额度已用完，可切换商户自有 SMTP 不受限'
-                                                    : `剩余 ${Math.max(0, emailQuota - emailUsed)} 封 · 自有 SMTP 不计入额度`}
+                                                    ? '⚠️ Monthly quota used up. Switch to own SMTP for unlimited'
+                                                    : `Remaining: ${Math.max(0, emailQuota - emailUsed)} emails. Own SMTP not counted`}
                                             </div>
                                         </div>
                                     )}
@@ -6203,8 +6210,8 @@ function SettingsPage() {
                         <fieldset disabled={emailDisabled} style={{ border: 0, padding: 0, margin: 0, opacity: emailDisabled ? 0.55 : 1 }}>
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>邮件通知</label>
-                                <span className="toggle-desc">订单完成后发送卡密到邮箱</span>
+                                <label>Email Notification</label>
+                                <span className="toggle-desc">Send card keys to email after order completion</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6270,16 +6277,16 @@ function SettingsPage() {
                                         if (res.ok) {
                                             alert('✅ ' + data.message)
                                         } else {
-                                            alert('❌ 测试失败: ' + data.error)
+                                            alert('❌ 测试Failed: ' + data.error)
                                         }
                                     } catch (error) {
-                                        alert('❌ 测试失败: ' + error.message)
+                                        alert('❌ 测试Failed: ' + error.message)
                                     }
                                 }}
                             >
                                 测试邮件连接
                             </button>
-                            <span className="setting-hint">先保存设置，再测试连接</span>
+                            <span className="setting-hint">先Save Settings，再测试连接</span>
                         </div>
                         </fieldset>
                     </div>
@@ -6295,12 +6302,12 @@ function SettingsPage() {
                                 border: '1px solid rgba(245, 158, 11, 0.4)',
                                 borderRadius: 8, color: '#92400e', fontSize: '0.9rem'
                             }}>
-                                🔒 当前套餐不包含邮件通知额度，所有事件邮件通知已禁用。
+                                🔒 Current套餐不包含Email Notification额度，所有事件Email Notification已Disable。
                             </div>
                         )}
                         <fieldset disabled={emailDisabled} style={{ border: 0, padding: 0, margin: 0, opacity: emailDisabled ? 0.55 : 1 }}>
                         <div className="setting-item">
-                            <label>管理员收信邮箱</label>
+                            <label>Admins收信邮箱</label>
                             <input
                                 type="email"
                                 value={settings.adminNotifyEmail}
@@ -6317,8 +6324,8 @@ function SettingsPage() {
 
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>💰 订单支付成功</label>
-                                <span className="toggle-desc">用户完成支付后通知管理员</span>
+                                <label>💰 订单支付Success</label>
+                                <span className="toggle-desc">User完成支付后通知Admins</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6332,8 +6339,8 @@ function SettingsPage() {
 
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>📦 待手动发货</label>
-                                <span className="toggle-desc">订单已支付但无卡密自动发放，需手动发货时通知</span>
+                                <label>📦 待Manual Ship</label>
+                                <span className="toggle-desc">订单Paid但无卡密自动发放，需Manual Ship时通知</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6347,8 +6354,8 @@ function SettingsPage() {
 
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>🎫 新工单创建</label>
-                                <span className="toggle-desc">用户提交新工单时通知管理员</span>
+                                <label>🎫 新ticketsCreate</label>
+                                <span className="toggle-desc">User提交新tickets时通知Admins</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6362,8 +6369,8 @@ function SettingsPage() {
 
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>👤 新用户注册</label>
-                                <span className="toggle-desc">有新用户注册时通知管理员</span>
+                                <label>👤 新User注册</label>
+                                <span className="toggle-desc">有新User注册时通知Admins</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6378,7 +6385,7 @@ function SettingsPage() {
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
                                 <label>⚠️ 库存不足预警</label>
-                                <span className="toggle-desc">商品库存低于阈值时通知管理员</span>
+                                <span className="toggle-desc">Product库存低于阈值时通知Admins</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6392,8 +6399,8 @@ function SettingsPage() {
 
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>📦 订单取消</label>
-                                <span className="toggle-desc">订单被取消时通知管理员</span>
+                                <label>📦 订单Cancel</label>
+                                <span className="toggle-desc">订单被Cancel时通知Admins</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6407,8 +6414,8 @@ function SettingsPage() {
 
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
-                                <label>💸 退款成功通知</label>
-                                <span className="toggle-desc">订单完成退款后向用户发送退款成功邮件</span>
+                                <label>💸 RefundSuccess通知</label>
+                                <span className="toggle-desc">订单Complete Refund后向User发送RefundSuccess邮件</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6428,7 +6435,7 @@ function SettingsPage() {
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
                                 <label>仪表盘总览统计</label>
-                                <span className="toggle-desc">允许普通管理员查看仪表盘顶部的 stats-grid 统计卡和趋势数据</span>
+                                <span className="toggle-desc">允许普通Admins查看仪表盘顶部的 stats-grid 统计卡和趋势数据</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6443,7 +6450,7 @@ function SettingsPage() {
                         <div className="setting-item toggle-item">
                             <div className="toggle-info">
                                 <label>仪表盘今日数据</label>
-                                <span className="toggle-desc">允许普通管理员查看仪表盘中的 today-stats 今日订单和今日收入</span>
+                                <span className="toggle-desc">允许普通Admins查看仪表盘中的 today-stats 今日订单和今日收入</span>
                             </div>
                             <label className="toggle-switch">
                                 <input
@@ -6457,12 +6464,12 @@ function SettingsPage() {
 
                         <div className="admin-email-settings">
                             <div className="admin-email-settings-header">
-                                <label>管理员邮箱通知</label>
-                                <span>为每个管理员配置是否接收邮件，以及接收哪些类型的通知</span>
+                                <label>Admins邮箱通知</label>
+                                <span>for每个Admins配置是否接收邮件，以及接收哪些类型的通知</span>
                             </div>
 
                             {(settings.adminEmailNotificationConfigs || []).length === 0 ? (
-                                <div className="admin-email-empty">暂无管理员账号</div>
+                                <div className="admin-email-empty">暂无Admins账号</div>
                             ) : (
                                 <div className="admin-email-list">
                                     {(settings.adminEmailNotificationConfigs || []).map(config => (
@@ -6470,8 +6477,8 @@ function SettingsPage() {
                                             <div className="admin-email-card-main">
                                                 <div>
                                                     <div className="admin-email-name">
-                                                        {config.username || '未设置用户名'}
-                                                        <span>{config.role === 'SUPER_ADMIN' ? '超级管理员' : '管理员'}</span>
+                                                        {config.username || 'Not setUsername'}
+                                                        <span>{config.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}</span>
                                                     </div>
                                                     <div className="admin-email-address">{config.email}</div>
                                                 </div>
@@ -6516,14 +6523,16 @@ function AdminDashboard({ basePath = '/admin' }) {
     const location = useLocation()
     const navigate = useNavigate()
     const { logout, user } = useAuthStore()
+    const L = useAdminL()
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [agentEnabled, setAgentEnabled] = useState(false)
+    const [setupGuideHidden, setSetupGuideHidden] = useState(false)
     const [planLimits, setPlanLimits] = useState({})
     const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)
 
-    // 拉取代理开关状态
+    // 拉取Agent开关Status
     useEffect(() => {
-        // 已登录管理员（含 TENANT_ADMIN）：用 /api/admin/settings 拿到当前租户的 agentEnabled
+        // 已登录Admins（含 TENANT_ADMIN）：用 /api/admin/settings 拿到Current租户的 agentEnabled
         const token = useAuthStore.getState().token
         if (token) {
             fetch('/api/admin/settings', { headers: { Authorization: `Bearer ${token}` } })
@@ -6531,10 +6540,17 @@ function AdminDashboard({ basePath = '/admin' }) {
                 .then(d => {
                     const v = d?.settings?.agentEnabled
                     setAgentEnabled(v === true || v === 'true')
+                    const hidden = d?.settings?.setupGuideHidden
+                    setSetupGuideHidden(hidden === true || hidden === 'true')
+                    // 同步经营货币到本地缓存
+                    const cur = d?.settings?.currency
+                    if (cur === 'CNY' || cur === 'USD') {
+                        useAdminPrefsStore.getState().setCurrency(cur)
+                    }
                 })
                 .catch(() => {})
         } else {
-            // 兜底：访问公开设置（主站时使用）
+            // 兜底：访问公开设置（Main Site时使用）
             fetch('/api/settings/public')
                 .then(r => r.json())
                 .then(d => setAgentEnabled(d.settings?.agentEnabled === 'true'))
@@ -6562,15 +6578,22 @@ function AdminDashboard({ basePath = '/admin' }) {
         } catch {}
     }, [])
 
+    useEffect(() => {
+        const handleSetupGuideHidden = () => setSetupGuideHidden(true)
+        window.addEventListener('setup-guide-hidden', handleSetupGuideHidden)
+        return () => window.removeEventListener('setup-guide-hidden', handleSetupGuideHidden)
+    }, [])
+
     const handleLogout = () => {
         logout()
+        useMerchantStore.getState().logout()
         navigate('/')
     }
 
-    // 根据角色过滤菜单项
+    // 根据Role过滤菜单项
     const isTenantAdmin = user?.role === 'TENANT_ADMIN';
 
-    // 将 menuItems 里的 /admin 前缀替换为实际 basePath
+    // 将 menuItems 里的 /admin 前缀替换for实际 basePath
     const resolvedMenuItems = menuItems.map(item => ({
         ...item,
         resolvedPath: item.path === '/admin'
@@ -6583,13 +6606,15 @@ function AdminDashboard({ basePath = '/admin' }) {
         if (item.tenantOnly && !isTenantAdmin) return false;
         // 仅所有者可见的菜单（如商城设置）
         if (item.ownerOnly && !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)) return false;
-        // 代理管理仅在开启代理体系时显示
+        // Agents仅在EnableAgent体系时显示
         if (item.path === '/admin/agents' && !agentEnabled) return false;
-        // 套餐限制：联系客服需要套餐开启 support
+        // 新手引导完成或手动关闭后，从侧边栏隐藏入口；路由仍保留可直接访问
+        if (item.path === '/admin/setup' && setupGuideHidden) return false;
+        // 套餐限制：联系客服需要套餐Enable support
         if (item.path === '/admin/support' && planLimits.support === false) return false;
-        // 套餐限制：工单管理需要套餐开启 customerTickets
+        // 套餐限制：tickets管理需要套餐Enable customerTickets
         if (item.path === '/admin/tickets' && planLimits.customerTickets === false) return false;
-        // 子管理员（ADMIN）按 permissions 过滤
+        // Sub-Admins（ADMIN）按 permissions 过滤
         if (user?.role === 'ADMIN' && item.permission) {
             const perms = user.permissions || {}
             if (!perms[item.permission]) return false
@@ -6602,7 +6627,7 @@ function AdminDashboard({ basePath = '/admin' }) {
             {/* 侧边栏 */}
             <aside className="admin-sidebar">
                 <div className="sidebar-header">
-                    <span className="sidebar-title">管理后台</span>
+                    <span className="sidebar-title">{L('admin.title')}</span>
                     <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
                         {sidebarOpen ? <FiX /> : <FiMenu />}
                     </button>
@@ -6620,7 +6645,7 @@ function AdminDashboard({ basePath = '/admin' }) {
                                 className={`nav-item ${isActive ? 'active' : ''}`}
                             >
                                 <item.icon />
-                                <span>{item.label}</span>
+                                <span>{L(item.labelZh, item.labelEn)}</span>
                             </Link>
                         )
                     })}
@@ -6631,12 +6656,12 @@ function AdminDashboard({ basePath = '/admin' }) {
                         <div className="user-avatar">👤</div>
                         <div className="user-details">
                             <span className="user-name">{user?.username || 'Admin'}</span>
-                            <span className="user-role">{user?.role === 'SUPER_ADMIN' ? '超级管理员' : '管理员'}</span>
+                            <span className="user-role">{user?.role === 'SUPER_ADMIN' ? L('admin.userRole.superAdmin') : L('admin.userRole.admin')}</span>
                         </div>
                     </div>
                     <button className="logout-btn" onClick={handleLogout}>
                         <FiLogOut />
-                        <span>退出</span>
+                        <span>{L('admin.logout')}</span>
                     </button>
                 </div>
             </aside>
@@ -6666,6 +6691,9 @@ function AdminDashboard({ basePath = '/admin' }) {
 // 新手起航页面
 function SetupGuidePage() {
     const location = useLocation()
+    const navigate = useNavigate()
+    const L = useAdminL()
+    const { showToast } = useToast()
     const basePath = location.pathname.replace(/\/setup.*$/, '') || '/admin'
     const [stats, setStats] = useState({ totalProducts: 0, totalOrders: 0 });
     const [tenant, setTenant] = useState(null);
@@ -6712,49 +6740,64 @@ function SetupGuidePage() {
         setTimeout(() => setCopiedKey(null), 1500)
     }
 
+    const hideSetupGuide = async ({ silent = false, redirect = false } = {}) => {
+        try {
+            await fetch('/api/admin/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ setupGuideHidden: true })
+            })
+            window.dispatchEvent(new Event('setup-guide-hidden'))
+            if (!silent) showToast(L('inline.setup.guide.hidden.3b15f9b'), 'success')
+            if (redirect) navigate(basePath)
+        } catch {
+            if (!silent) showToast(L('inline.failed.to.hide.please.try.again.later.c53926e'), 'error')
+        }
+    }
+
     const steps = [
         {
             key: 'product',
             icon: '📦',
-            title: '发布第一款商品',
-            desc: '添加商品信息和卡密库存，让买家可以下单购买',
+            title: L('inline.publish.your.first.product.2303958'),
+            desc: L('inline.add.product.details.and.card.key.inventory.so.buyers.can.pla.6c29e69'),
             done: hasProducts,
-            action: { label: '去上架', to: `${basePath}/products` }
+            action: { label: L('inline.publish.84d8bfb'), to: `${basePath}/products` }
         },
         {
             key: 'payment',
             icon: '💳',
-            title: '配置收款方式',
-            desc: '设置支付宝或 USDT 收款，买家付款后资金直达您的账户',
+            title: L('inline.configure.payment.methods.987d02d'),
+            desc: L('inline.set.up.alipay.or.usdt.payments.so.funds.go.directly.to.your..0d7d845'),
             done: hasPayment,
-            action: { label: '去配置', to: `${basePath}/shop-settings` }
+            action: { label: L('inline.configure.2702202'), to: `${basePath}/shop-settings` }
         },
         {
             key: 'plan',
             icon: '💎',
-            title: '升级套餐',
-            desc: '免费试用到期后需升级套餐才能继续接单，升级后解锁更多功能',
+            title: L('inline.upgrade.plan.f72f918'),
+            desc: L('inline.upgrade.after.the.free.trial.ends.to.keep.accepting.orders.a.918404c'),
             done: hasPaidPlan,
-            action: { label: '选择套餐', to: `${basePath}/shop-settings` },
+            action: { label: L('inline.choose.plan.0966710'), to: `${basePath}/shop-settings` },
             highlight: !hasPaidPlan
         },
         {
             key: 'domain',
             icon: '🌐',
-            title: '绑定独立域名',
-            desc: '使用自己的域名访问商城，提升品牌专业度（专业版功能）',
+            title: L('inline.connect.custom.domain.f6623f9'),
+            desc: L('inline.use.your.own.domain.for.the.store.to.strengthen.your.brand.p.61c24d6'),
             done: hasDomain,
-            action: { label: '去绑定', to: `${basePath}/shop-settings` },
+            action: { label: L('inline.connect.e9f4a87'), to: `${basePath}/shop-settings` },
             optional: true
         },
         {
             key: 'share',
             icon: '🚀',
-            title: '完成第一笔订单',
-            desc: '将商城地址分享给客户，开始接收第一笔订单',
+            title: L('inline.complete.your.first.order.5d6a6ab'),
+            desc: L('inline.share.your.store.link.with.customers.and.start.receiving.you.7f874b9'),
             done: hasOrders,
             action: {
-                label: copiedKey === 'share' ? '✓ 已复制' : '复制链接',
+                label: copiedKey === 'share' ? L('inline.copied.2aff14e') : L('inline.copy.link.0d260eb'),
                 onClick: handleCopyShopLink,
                 copied: copiedKey === 'share'
             }
@@ -6763,12 +6806,40 @@ function SetupGuidePage() {
 
     const completedCount = steps.filter(s => s.done).length;
     const progress = Math.round((completedCount / steps.length) * 100);
+    const requiredSteps = steps.filter(s => !s.optional)
+    const requiredDone = requiredSteps.every(s => s.done)
+
+    useEffect(() => {
+        if (token && requiredDone) {
+            hideSetupGuide({ silent: true })
+        }
+    }, [token, requiredDone])
 
     return (
         <div className="dashboard-content">
-            <div style={{ marginBottom: 28 }}>
-                <h2 className="page-title" style={{ marginBottom: 4 }}>新手起航</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>按照以下步骤完成设置，快速开启你的商城之旅</p>
+            <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
+                <div>
+                    <h2 className="page-title" style={{ marginBottom: 4 }}>{L('admin.menu.setup')}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>{L('inline.complete.the.steps.below.to.quickly.launch.your.store.3a75aa6')}</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => hideSetupGuide({ redirect: true })}
+                    style={{
+                        padding: '8px 14px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-tertiary)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        fontFamily: 'inherit'
+                    }}
+                >
+                    {L('inline.hide.guide.0d42f78')}
+                </button>
             </div>
 
             {/* 进度条 */}
@@ -6778,10 +6849,10 @@ function SetupGuidePage() {
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        设置进度
+                        {L('inline.setup.progress.bc73d02')}
                     </span>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        {completedCount} / {steps.length} 已完成
+                        {L(`已完成 ${completedCount} / ${steps.length}`, `${completedCount} / ${steps.length} completed`)}
                     </span>
                 </div>
                 <div style={{ height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
@@ -6793,7 +6864,7 @@ function SetupGuidePage() {
                 </div>
                 {progress === 100 && (
                     <div style={{ marginTop: 12, fontSize: '0.85rem', color: 'var(--success)', fontWeight: 500 }}>
-                        🎉 恭喜！所有步骤已完成，你的商城已准备就绪
+                        🎉 {L('inline.congratulations.all.steps.are.complete.and.your.store.is.rea.ccd047c')}
                     </div>
                 )}
             </div>
@@ -6810,7 +6881,7 @@ function SetupGuidePage() {
                         opacity: step.done ? 0.7 : 1,
                         transition: 'all 0.15s'
                     }}>
-                        {/* 状态图标 */}
+                        {/* StatusIcon */}
                         <div style={{
                             width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -6829,15 +6900,15 @@ function SetupGuidePage() {
                                 display: 'flex', alignItems: 'center', gap: 8
                             }}>
                                 {step.title}
-                                {step.optional && <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 4 }}>可选</span>}
-                                {step.highlight && !step.done && <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'rgba(239,68,68,0.1)', color: 'var(--primary-light)', borderRadius: 4 }}>重要</span>}
+                                {step.optional && <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 4 }}>{L('inline.optional.dfa6fb8')}</span>}
+                                {step.highlight && !step.done && <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'rgba(239,68,68,0.1)', color: 'var(--primary-light)', borderRadius: 4 }}>{L('inline.important.c2627d9')}</span>}
                             </div>
                             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4 }}>
                                 {step.desc}
                             </div>
                         </div>
 
-                        {/* 操作按钮 */}
+                        {/* Actions按钮 */}
                         {!step.done && (
                             step.action.to ? (
                                 <Link to={step.action.to} style={{
@@ -6864,25 +6935,25 @@ function SetupGuidePage() {
                             )
                         )}
                         {step.done && (
-                            <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 500 }}>✓ 已完成</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 500 }}>✓ {L('admin.dashboard.orderStatus.completed')}</span>
                         )}
                     </div>
                 ))}
             </div>
 
-            {/* 帮助提示 */}
+            {/* 帮助Notice */}
             <div style={{
                 marginTop: 28, padding: '20px 24px',
                 background: 'var(--bg-card)', border: '1px solid var(--border-color)',
                 borderRadius: 'var(--radius-md)'
             }}>
-                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>💡 小贴士</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>💡 {L('inline.tips.8a95b16')}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     {[
-                        { icon: '📋', text: '商品支持批量导入卡密，一次上传多张' },
-                        { icon: '🎨', text: '在店铺设置中可切换商城主题皮肤' },
-                        { icon: '📧', text: '订单完成后系统自动发送卡密邮件给买家' },
-                        { icon: '📊', text: '仪表盘可查看实时订单和收入数据' },
+                        { icon: '📋', text: L('inline.products.support.bulk.card.key.import.so.you.can.upload.many.0710b7f') },
+                        { icon: '🎨', text: L('inline.you.can.switch.store.themes.in.store.settings.636104a') },
+                        { icon: '📧', text: L('inline.after.an.order.is.completed.card.keys.are.emailed.to.buyers..af04f68') },
+                        { icon: '📊', text: L('inline.the.dashboard.shows.real.time.order.and.revenue.data.4fd6de3') },
                     ].map((tip, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                             <span>{tip.icon}</span>
@@ -6895,7 +6966,7 @@ function SetupGuidePage() {
     );
 }
 
-// 包装导出
+// 包装Export
 function AdminDashboardWithProvider({ basePath }) {
     return (
         <ToastProvider>

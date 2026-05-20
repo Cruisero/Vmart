@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useMerchantStore } from '../../store/merchantStore'
 import { useAuthStore } from '../../store/authStore'
+import { useBuyerL } from '../../hooks/useBuyerL'
 import './Auth.css'
 
 export default function MerchantLogin() {
+    const L = useBuyerL()
     const navigate = useNavigate()
     const setAuth = useMerchantStore(s => s.setAuth)
     const loginAdmin = useAuthStore(s => s.login)
@@ -29,9 +31,8 @@ export default function MerchantLogin() {
                 body: JSON.stringify(form)
             })
             const data = await res.json()
-            if (!res.ok) { setError(data.error || '登录失败'); return }
+            if (!res.ok) { setError(data.error || L('merchantAuth.loginFailed', 'Login failed')); return }
             setAuth(data.token, data.merchant, data.shop)
-            // 同步写入 admin store（用应答里的 adminUser，确保 id 与 JWT 一致）
             if (data.adminToken && data.adminUser && !data.merchant.isSuperAdmin) {
                 loginAdmin(data.adminUser, data.adminToken)
             }
@@ -44,7 +45,7 @@ export default function MerchantLogin() {
                 navigate('/Man/dashboard')
             }
         } catch {
-            setError('网络错误，请重试')
+            setError(L('merchantAuth.networkError'))
         } finally {
             setLoading(false)
         }
@@ -53,19 +54,19 @@ export default function MerchantLogin() {
     return (
         <div className="merchant-auth-page">
             <div className="merchant-auth-card">
-                <div className="merchant-auth-brand">
-                    <span className="brand-logo">V</span>
-                    <span className="brand-name">Vmart</span>
-                </div>
+              
                 <h1 className="merchant-auth-title">
-                    {isMdPage ? '平台管理员登录' : '商户登录'}
+                    {isMdPage
+                        ? L('merchantAuth.adminLoginTitle', 'Platform Admin Login')
+                        : L('merchantAuth.loginTitle')}
                 </h1>
+                <p className="merchant-auth-sub">{L('merchantAuth.loginSub')}</p>
 
                 {error && <div className="merchant-auth-error">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="merchant-auth-form">
                     <div className="form-group">
-                        <label>邮箱</label>
+                        <label>{L('merchantAuth.email')}</label>
                         <input
                             name="email"
                             type="email"
@@ -76,24 +77,24 @@ export default function MerchantLogin() {
                         />
                     </div>
                     <div className="form-group">
-                        <label>密码</label>
+                        <label>{L('merchantAuth.password')}</label>
                         <input
                             name="password"
                             type="password"
                             value={form.password}
                             onChange={handleChange}
-                            placeholder="请输入密码"
+                            placeholder={L('merchantAuth.passwordPlaceholder')}
                             required
                         />
                     </div>
                     <button type="submit" className="merchant-auth-btn" disabled={loading}>
-                        {loading ? '登录中...' : '登录'}
+                        {loading ? L('merchantAuth.loggingIn') : L('merchantAuth.loginBtn')}
                     </button>
                 </form>
 
                 {!isMdPage && (
                     <p className="merchant-auth-footer">
-                        还没有商城？<Link to="/register">免费开通</Link>
+                        {L('merchantAuth.noAccount')}<Link to="/register">{L('merchantAuth.goRegister')}</Link>
                     </p>
                 )}
             </div>

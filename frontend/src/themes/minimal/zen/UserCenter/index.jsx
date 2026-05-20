@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiUser, FiPackage, FiLock, FiLogOut, FiCopy, FiEye, FiEyeOff, FiChevronRight } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
+import { formatPrice } from '../../../../utils/currencyFormat'
 import toast from 'react-hot-toast'
 import './UserCenter.css'
 
 // ── Profile header (always visible) ──
-function ProfileHeader({ user, stats }) {
-    const { t } = useTranslation()
+function ProfileHeader({ user, stats, currency }) {
+    const L = useBuyerL()
     const initial = user?.username?.charAt(0)?.toUpperCase() || 'U'
     const joinDate = user?.createdAt
         ? new Date(user.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -21,7 +22,7 @@ function ProfileHeader({ user, stats }) {
             <div className="fuc-hero-left">
                 <div className="fuc-avatar">{initial}</div>
                 <div>
-                    <div className="fuc-name">{user?.username || t('nav.user')}</div>
+                    <div className="fuc-name">{user?.username || L('nav.user')}</div>
                     <div className="fuc-email">{user?.email}</div>
                     {joinDate && <div className="fuc-join">{joinDate}</div>}
                 </div>
@@ -29,17 +30,17 @@ function ProfileHeader({ user, stats }) {
             <div className="fuc-stats">
                 <div className="fuc-stat">
                     <div className="fuc-stat-num">{stats.total}</div>
-                    <div className="fuc-stat-label">{t('user.orders')}</div>
+                    <div className="fuc-stat-label">{L('user.orders')}</div>
                 </div>
                 <div className="fuc-stat-divider" />
                 <div className="fuc-stat">
-                    <div className="fuc-stat-num">¥{stats.spent.toFixed(0)}</div>
-                    <div className="fuc-stat-label">{t('checkout.subtotal')}</div>
+                    <div className="fuc-stat-num">{formatPrice(stats.spent, currency || 'CNY')}</div>
+                    <div className="fuc-stat-label">{L('checkout.subtotal')}</div>
                 </div>
                 <div className="fuc-stat-divider" />
                 <div className="fuc-stat">
                     <div className="fuc-stat-num">{stats.completed}</div>
-                    <div className="fuc-stat-label">{t('order.completed')}</div>
+                    <div className="fuc-stat-label">{L('order.completed')}</div>
                 </div>
             </div>
         </div>
@@ -48,8 +49,10 @@ function ProfileHeader({ user, stats }) {
 
 // ── Orders tab ──
 function OrdersPage() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const { token } = useAuthStore()
+    const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [expandedOrder, setExpandedOrder] = useState(null)
@@ -69,20 +72,20 @@ function OrdersPage() {
     }
 
     const copy = (text) => navigator.clipboard.writeText(text)
-        .then(() => toast.success(t('order.copied')))
-        .catch(() => toast.error(t('common.failed')))
+        .then(() => toast.success(L('order.copied')))
+        .catch(() => toast.error(L('common.failed')))
 
     const statusMap = {
-        pending:   { label: t('order.pending'), cls: 'warning' },
-        paid:      { label: t('order.paid'), cls: 'info' },
-        completed: { label: t('order.completed'), cls: 'success' },
-        cancelled: { label: t('order.cancelled'), cls: 'error' },
+        pending:   { label: L('order.pending'), cls: 'warning' },
+        paid:      { label: L('order.paid'), cls: 'info' },
+        completed: { label: L('order.completed'), cls: 'success' },
+        cancelled: { label: L('order.cancelled'), cls: 'error' },
     }
 
     const filters = [
-        { key: 'all', label: t('products.all') },
-        { key: 'pending', label: t('order.pending') },
-        { key: 'completed', label: t('order.completed') },
+        { key: 'all', label: L('products.all') },
+        { key: 'pending', label: L('order.pending') },
+        { key: 'completed', label: L('order.completed') },
     ]
 
     return (
@@ -102,7 +105,7 @@ function OrdersPage() {
             ) : orders.length === 0 ? (
                 <div className="fuc-empty">
                     <FiPackage size={36} style={{ color: '#D1D5DB', marginBottom: 12 }} />
-                    <p>{t('user.noOrders')}</p>
+                    <p>{L('user.noOrders')}</p>
                 </div>
             ) : (
                 <div className="fuc-order-list">
@@ -124,21 +127,21 @@ function OrdersPage() {
                                     </div>
                                     <div className="fuc-order-right">
                                         <span className={`fuc-badge ${s.cls}`}>{s.label}</span>
-                                        <span className="fuc-order-amount">¥{order.totalAmount.toFixed(2)}</span>
+                                        <span className="fuc-order-amount">{formatPrice(order.totalAmount, currency)}</span>
                                         {order.status === 'pending' && !isExpired && (
                                             <Link to={`/order/${order.orderNo}`} className="fuc-action-btn primary">
-                                                {t('order.payNow')} <FiChevronRight size={12} />
+                                                {L('checkout.submit')} <FiChevronRight size={12} />
                                             </Link>
                                         )}
                                         {order.status === 'pending' && isExpired && (
-                                            <span className="fuc-expired">{t('order.expired')}</span>
+                                            <span className="fuc-expired">{L('order.expired')}</span>
                                         )}
                                         {order.status === 'completed' && order.cards?.length > 0 && (
                                             <button
                                                 className="fuc-action-btn ghost"
                                                 onClick={() => setExpandedOrder(expandedOrder === order.orderNo ? null : order.orderNo)}
                                             >
-                                                {expandedOrder === order.orderNo ? t('common.back') : t('order.cardKeys')}
+                                                {expandedOrder === order.orderNo ? L('common.back') : L('order.cardKeys')}
                                             </button>
                                         )}
                                     </div>
@@ -168,7 +171,7 @@ function OrdersPage() {
 
 // ── Password tab ──
 function PasswordPage() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const { token, user } = useAuthStore()
     const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
     const [show, setShow] = useState({ old: false, new: false, confirm: false })
@@ -176,8 +179,8 @@ function PasswordPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (form.newPassword !== form.confirmPassword) { toast.error(t('auth.passwordMismatch')); return }
-        if (form.newPassword.length < 6) { toast.error(t('auth.passwordMin')); return }
+        if (form.newPassword !== form.confirmPassword) { toast.error(L('auth.passwordMismatch')); return }
+        if (form.newPassword.length < 6) { toast.error(L('auth.passwordMin')); return }
         setLoading(true)
         try {
             const url = user?.role === 'CUSTOMER' ? '/api/customer/password' : '/api/auth/change-password'
@@ -187,8 +190,8 @@ function PasswordPage() {
                 body: JSON.stringify({ oldPassword: form.oldPassword, newPassword: form.newPassword })
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || t('common.failed'))
-            toast.success(data.message || t('common.success'))
+            if (!res.ok) throw new Error(data.error || L('common.failed'))
+            toast.success(data.message || L('common.success'))
             setForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
         } catch (err) {
             toast.error(err.message)
@@ -198,9 +201,9 @@ function PasswordPage() {
     }
 
     const fields = [
-        { key: 'oldPassword', label: t('auth.password'), showKey: 'old', placeholder: t('auth.passwordPlaceholder') },
-        { key: 'newPassword', label: t('auth.password'), showKey: 'new', placeholder: t('auth.passwordWithMinPlaceholder') },
-        { key: 'confirmPassword', label: t('auth.confirmPassword'), showKey: 'confirm', placeholder: t('auth.confirmPlaceholder') },
+        { key: 'oldPassword', label: L('auth.password'), showKey: 'old', placeholder: L('auth.passwordPlaceholder') },
+        { key: 'newPassword', label: L('auth.password'), showKey: 'new', placeholder: L('auth.passwordWithMinPlaceholder') },
+        { key: 'confirmPassword', label: L('auth.confirmPassword'), showKey: 'confirm', placeholder: L('auth.confirmPlaceholder') },
     ]
 
     return (
@@ -229,7 +232,7 @@ function PasswordPage() {
                     </div>
                 ))}
                 <button type="submit" className="fuc-submit-btn" disabled={loading}>
-                    {loading ? t('checkout.submitting') : t('common.save')}
+                    {loading ? L('checkout.submitting') : L('common.save')}
                 </button>
             </form>
         </div>
@@ -238,7 +241,7 @@ function PasswordPage() {
 
 // ── Main ──
 export default function ZenUserCenter() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const location = useLocation()
     const navigate = useNavigate()
     const { user, isAuthenticated, token, logout } = useAuthStore()
@@ -266,27 +269,27 @@ export default function ZenUserCenter() {
         <div className="fuc-page">
             <div className="fuc-not-logged">
                 <FiUser size={44} style={{ color: '#D1D5DB', marginBottom: 16 }} />
-                <h2>{t('auth.login')}</h2>
-                <p>{t('auth.loginContinue')}</p>
+                <h2>{L('nav.login')}</h2>
+                <p>{L('auth.loginContinue')}</p>
                 <Link to={`${prefix}/login`} className="fuc-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center' }}>
-                    {t('auth.loginBtn')}
+                    {L('nav.login')}
                 </Link>
             </div>
         </div>
     )
 
-    const handleLogout = () => { logout(); toast.success(t('user.logout')); navigate(`${prefix}/`) }
+    const handleLogout = () => { logout(); toast.success(L('nav.logout')); navigate(`${prefix}/`) }
 
     const tabs = [
-        { path: `${prefix}/user/orders`, label: t('user.orders'), icon: FiPackage },
-        { path: `${prefix}/user/password`, label: t('auth.password'), icon: FiLock },
+        { path: `${prefix}/user/orders`, label: L('user.orders'), icon: FiPackage },
+        { path: `${prefix}/user/password`, label: L('auth.password'), icon: FiLock },
     ]
 
     const activeTab = tabs.find(t => location.pathname.startsWith(t.path))?.path || tabs[0].path
 
     return (
         <div className="fuc-page">
-            <ProfileHeader user={user} stats={stats} />
+            <ProfileHeader user={user} stats={stats} currency={storefront?.currency || 'CNY'} />
 
             <div className="fuc-body">
                 {/* Tab nav */}
@@ -303,7 +306,7 @@ export default function ZenUserCenter() {
                     ))}
                     <button className="fuc-tab fuc-logout-tab" onClick={handleLogout}>
                         <FiLogOut size={15} />
-                        {t('user.logout')}
+                        {L('nav.logout')}
                     </button>
                 </div>
 

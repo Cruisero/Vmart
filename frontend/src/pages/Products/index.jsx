@@ -4,6 +4,7 @@ import { FiTag, FiBox } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
+import { formatPrice } from '../../utils/currencyFormat'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import './Products.css'
 
@@ -29,7 +30,7 @@ function InfoCard({ data }) {
     return (
         <div className="cp-info-card">
             <div className="cp-info-header" onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer' }}>
-                <h2 className="cp-info-title">{data.title || '公告'}</h2>
+                <h2 className="cp-info-title">{data.title || 'Notice'}</h2>
                 <span className={`cp-info-arrow ${open ? 'open' : ''}`}>▾</span>
             </div>
             {open && (
@@ -58,13 +59,7 @@ const isMobile = () => window.innerWidth < 768
 
 // 分类数据 (从后端获取或使用默认)
 const defaultCategories = [
-    { id: 'all', name: '全部商品', icon: '🏠' },
-    { id: 'video', name: '视频会员', icon: '📺' },
-    { id: 'music', name: '音乐会员', icon: '🎵' },
-    { id: 'game', name: '游戏账号', icon: '🎮' },
-    { id: 'software', name: '软件激活', icon: '💿' },
-    { id: 'social', name: '社交账号', icon: '💬' },
-    { id: 'cloud', name: '网盘会员', icon: '☁️' },
+    { id: 'all', name: 'All', icon: '🏠' },
 ]
 
 function Products() {
@@ -77,6 +72,7 @@ function Products() {
     const [categoriesLoaded, setCategoriesLoaded] = useState(false)
     const [loading, setLoading] = useState(true)
     const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const linkPrefix = storefront ? getStorefrontBasePath(storefront) : ''
 
     // 商品/分类 API URL（店面下走 /api/v/:slug；主站走 /api）
@@ -255,10 +251,10 @@ function Products() {
                                     </div>
                                     <div className="product-footer">
                                         <div className="product-price">
-                                            <span className="price-current">¥{product.price.toFixed(2)}</span>
+                                            <span className="price-current">{formatPrice(product.price, currency)}</span>
                                             {product.originalPrice && (
                                                 <span className="price-original">
-                                                    ¥{product.originalPrice.toFixed(2)}
+                                                    {formatPrice(product.originalPrice, currency)}
                                                 </span>
                                             )}
                                         </div>

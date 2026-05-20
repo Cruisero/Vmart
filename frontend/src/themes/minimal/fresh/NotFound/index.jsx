@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import './NotFound.css'
 
 function FreshNotFound() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const navigate = useNavigate()
 
     return (
@@ -16,19 +16,19 @@ function FreshNotFound() {
 
                 <span className="fn-404-icon">🔍</span>
 
-                <h1 className="fn-404-title">{t('common.error')}</h1>
+                <h1 className="fn-404-title">{L('common.error')}</h1>
                 <p className="fn-404-desc">
-                    {t('common.noData')}
+                    {L('common.noData')}
                 </p>
 
                 <div className="fn-404-divider" />
 
                 <div className="fn-404-actions">
                     <Link to="/" className="fn-404-btn-primary">
-                        {t('nav.home')}
+                        {L('nav.home')}
                     </Link>
                     <button onClick={() => navigate(-1)} className="fn-404-btn-secondary">
-                        ← {t('common.back')}
+                        ← {L('common.back')}
                     </button>
                 </div>
             </div>

@@ -4,7 +4,7 @@ import {
     FiShoppingCart, FiSearch, FiUser, FiMenu, FiX,
     FiPackage, FiMessageSquare, FiLogOut, FiSettings
 } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useCartStore } from '../../../../store/cartStore'
 import { useAuthStore } from '../../../../store/authStore'
 import { useSkinStore } from '../../../../store/skinStore'
@@ -12,7 +12,7 @@ import { useStorefrontPath } from '../../../../store/storefrontStore'
 import './Sidebar.css'
 
 function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }) {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const location = useLocation()
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
@@ -60,14 +60,14 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                     onClick={() => { navigate('/search'); onClose?.() }}
                 >
                     <FiSearch className="fs-nav-icon" />
-                    {t('search.title')}
+                    {L('search.title')}
                 </button>
             </div>
 
             <div className="fs-divider" />
 
             <div className="fs-section">
-                <div className="fs-section-label">{t('products.category')}</div>
+                <div className="fs-section-label">{L('products.category')}</div>
                 {categories.map(cat => (
                     <button
                         key={cat.id}
@@ -83,24 +83,24 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
             <div className="fs-divider" />
 
             <div className="fs-section">
-                <div className="fs-section-label">{t('nav.home')}</div>
+                <div className="fs-section-label">{L('nav.home')}</div>
                 <Link to="/cart" className={`fs-nav-item${isActive('/cart') ? ' active' : ''}`} onClick={onClose}>
                     <FiShoppingCart className="fs-nav-icon" />
-                    {t('cart.title')}
+                    {L('cart.title')}
                     {cartCount > 0 && <span className="fs-nav-badge">{cartCount}</span>}
                 </Link>
                 <Link to="/order-query" className={`fs-nav-item${isActive('/order-query') ? ' active' : ''}`} onClick={onClose}>
                     <FiPackage className="fs-nav-icon" />
-                    {t('nav.orderQuery')}
+                    {L('nav.orderQuery')}
                 </Link>
                 <Link to={withPrefix("/tickets/new")} className={`fs-nav-item${isActive('/tickets/new') ? ' active' : ''}`} onClick={onClose}>
                     <FiMessageSquare className="fs-nav-icon" />
-                    {t('ticket.title')}
+                    {L('ticket.title')}
                 </Link>
                 {['ADMIN', 'SUPER_ADMIN'].includes(user?.role) && (
                     <Link to="/admin" className={`fs-nav-item${location.pathname.startsWith('/admin') ? ' active' : ''}`} onClick={onClose}>
                         <FiSettings className="fs-nav-icon" />
-                        {t('nav.dashboard')}
+                        {L('nav.dashboard')}
                     </Link>
                 )}
             </div>
@@ -126,12 +126,12 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                             onClick={handleLogout}
                         >
                             <FiLogOut className="fs-nav-icon" />
-                            {t('user.logout')}
+                            {L('nav.logout')}
                         </button>
                     </>
                 ) : (
                     <Link to="/login" className="fs-login-btn" onClick={onClose}>
-                        {t('nav.login')} / {t('nav.register')}
+                        {L('nav.login')} / {L('nav.register')}
                     </Link>
                 )}
             </div>

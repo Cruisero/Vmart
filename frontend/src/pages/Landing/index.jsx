@@ -1,36 +1,39 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useMerchantStore } from '../../store/merchantStore'
+import { useBuyerL } from '../../hooks/useBuyerL'
+import LanguageToggle from '../../components/common/LanguageToggle'
 import './Landing.css'
 
-const features = [
-    { icon: '⚡', title: '注册即开店', desc: '填写店名、邮箱，30秒自动生成专属商城，立即可用' },
-    { icon: '🎨', title: '多套皮肤', desc: '多套主题和皮肤，随时切换，无需代码' },
-    { icon: '💳', title: '卡密发货', desc: '支持虚拟商品自动发货，订单完成后即时推送卡密' },
-    { icon: '🌐', title: '独立域名', desc: '绑定自己的域名，一键申请 SSL，完全属于你的品牌' },
-    { icon: '📊', title: '数据仪表盘', desc: '订单、收入、访问量实时统计，掌握商城全局' },
-    { icon: '🔒', title: '安全可靠', desc: '数据独立存储，支持支付宝 / USDT 多种收款方式' },
-    { icon: '👥', title: '代理系统', desc: '支持代理商分销，独立分站、自定义加价、利润自动结算' },
-    { icon: '🎫', title: '工单系统', desc: '内置客服工单，买家可提交问题，商户后台统一处理' },
-    { icon: '🛡️', title: '子管理员', desc: '多人协作管理商城，按权限分配商品、订单、卡密等模块' },
+const featureItems = [
+    { icon: '⚡', key: 'instant' },
+    { icon: '🎨', key: 'skins' },
+    { icon: '💳', key: 'delivery' },
+    { icon: '🌐', key: 'domain' },
+    { icon: '📊', key: 'dashboard' },
+    { icon: '🔒', key: 'secure' },
+    { icon: '👥', key: 'agents' },
+    { icon: '🎫', key: 'tickets' },
+    { icon: '🛡️', key: 'admins' },
 ]
 
 // 套餐数据从 plan-config API 动态获取
 const FALLBACK_PLANS = [
     {
-        name: '基础版',
+        nameKey: 'landing.plans.fallbackName',
         price: '¥29',
-        period: '/月',
-        desc: '个人卖家入门',
-        features: ['最多 10 个商品', '卡密自动发货', '多种支付方式'],
-        cta: '立即开始',
+        periodKey: 'landing.plans.fallbackPeriod',
+        descKey: 'landing.plans.fallbackDesc',
+        featureKeys: ['landing.plans.fallbackFeatures.0', 'landing.plans.fallbackFeatures.1', 'landing.plans.fallbackFeatures.2'],
+        ctaKey: 'landing.plans.cta',
         href: '/register',
         highlight: false,
     }
 ]
 
 export default function Landing() {
-    const { token, merchant, shop, logout } = useMerchantStore()
+    const L = useBuyerL()
+    const { token, merchant, shop } = useMerchantStore()
     const isLoggedIn = !!token
 
     const [plans, setPlans] = useState(FALLBACK_PLANS)
@@ -44,14 +47,14 @@ export default function Landing() {
 
                 // 收集所有可能的功能项（用于对齐显示）
                 const ALL_FEATURES = [
-                    { key: 'maxProducts', label: (v) => v === -1 ? '商品数量不限' : `最多 ${v} 个商品` },
-                    { key: 'skins', label: (v) => Array.isArray(v) ? `${v.length} 套皮肤可选` : (v === '全部' ? '全部皮肤解锁' : '1 套皮肤') },
-                    { key: 'customDomain', label: () => '自定义独立域名' },
-                    { key: 'agentSystem', label: () => '代理商分销系统' },
-                    { key: 'emailNotifications', label: (v) => v === -1 ? '邮件通知不限' : `邮件通知 ${(v || 0).toLocaleString()} 封/月` },
-                    { key: 'maxSubAdmins', label: (v) => v === -1 ? '子管理员不限' : `${v} 个子管理员` },
-                    { key: 'support', label: () => '平台客服支持' },
-                    { key: 'customerTickets', label: () => '工单管理系统' },
+                    { key: 'maxProducts', label: (v) => v === -1 ? L('landing.plans.unlimitedProducts') : L('landing.plans.maxProducts', { count: v }) },
+                    { key: 'skins', label: (v) => Array.isArray(v) ? L('landing.plans.skinOptions', { count: v.length }) : (v === '全部' ? L('landing.plans.allSkins') : L('landing.plans.oneSkin')) },
+                    { key: 'customDomain', label: () => L('landing.plans.customDomain') },
+                    { key: 'agentSystem', label: () => L('landing.plans.agentSystem') },
+                    { key: 'emailNotifications', label: (v) => v === -1 ? L('landing.plans.unlimitedEmails') : L('landing.plans.emailQuota', { count: (v || 0).toLocaleString() }) },
+                    { key: 'maxSubAdmins', label: (v) => v === -1 ? L('landing.plans.unlimitedSubAdmins') : L('landing.plans.subAdmins', { count: v }) },
+                    { key: 'support', label: () => L('landing.plans.support') },
+                    { key: 'customerTickets', label: () => L('landing.plans.customerTickets') },
                 ]
 
                 const mapped = apiPlans.map((p, idx) => {
@@ -76,8 +79,8 @@ export default function Landing() {
                     })
 
                     // 通用功能（所有套餐都有）
-                    featureList.push({ text: '卡密自动发货', included: true })
-                    featureList.push({ text: '多种支付方式', included: true })
+                    featureList.push({ text: L('landing.plans.autoDelivery'), included: true })
+                    featureList.push({ text: L('landing.plans.payments'), included: true })
 
                     const isLast = idx === apiPlans.length - 1
                     const isMid = idx === 1 || (apiPlans.length === 2 && idx === 1)
@@ -85,11 +88,11 @@ export default function Landing() {
                     return {
                         name: p.name,
                         price: `¥${p.monthlyPrice}`,
-                        period: '/月',
+                        period: L('landing.plans.fallbackPeriod'),
                         yearlyPrice: p.yearlyPrice ? `¥${p.yearlyPrice}` : null,
-                        desc: idx === 0 ? '个人卖家入门' : (isLast ? '品牌独立商城' : '成长型商户首选'),
+                        desc: idx === 0 ? L('landing.plans.starter') : (isLast ? L('landing.plans.brand') : L('landing.plans.growth')),
                         features: featureList,
-                        cta: '立即开始',
+                        cta: L('landing.plans.cta'),
                         href: '/register',
                         highlight: isMid
                     }
@@ -98,7 +101,7 @@ export default function Landing() {
                 setPlans(mapped)
             })
             .catch(() => {})
-    }, [])
+    }, [L])
     // 登录后跳转目标：超管 → /Man/dashboard，商户 → /v/:slug/admin
     const dashboardLink = merchant?.isSuperAdmin
         ? '/Man/dashboard'
@@ -116,20 +119,11 @@ export default function Landing() {
                         <span className="nav-name">Vmart</span>
                     </div>
                     <div className="nav-actions">
+                        <LanguageToggle alwaysShow />
                         {isLoggedIn ? (
-                            <>
-                                <Link to={dashboardLink} className="nav-cta">进入控制台</Link>
-                                <button
-                                    className="nav-login"
-                                    onClick={() => { logout(); window.location.reload() }}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                                >退出</button>
-                            </>
+                            <Link to={dashboardLink} className="nav-cta">{L('landing.nav.console')}</Link>
                         ) : (
-                            <>
-                                <Link to="/login" className="nav-login">登录</Link>
-                                <Link to="/register" className="nav-cta">免费开始</Link>
-                            </>
+                            <Link to="/register" className="nav-cta">{L('landing.nav.freeStart')}</Link>
                         )}
                     </div>
                 </div>
@@ -137,24 +131,25 @@ export default function Landing() {
 
             {/* Hero */}
             <section className="landing-hero">
-                <div className="hero-badge">🚀 注册即建店，24小时免费体验</div>
+                <div className="hero-badge">{L('landing.hero.badge')}</div>
                 <h1 className="hero-title">
-                    打造你的<br />
-                    <span className="hero-gradient">专属数字商城</span>
+                    {L('landing.hero.titleLine1')}<br />
+                    <span className="hero-gradient">{L('landing.hero.titleHighlight')}</span>
                 </h1>
                 <p className="hero-desc">
-                    面向虚拟商品卖家的一站式商城平台，支持卡密自动发货、多皮肤、独立域名。<br />
-                    开店像喝水一样简单，专为中文市场设计。
+                    {L('landing.hero.desc').split('\n').map((line, index) => (
+                        <span key={line}>{line}{index === 0 && <br />}</span>
+                    ))}
                 </p>
                 <div className="hero-actions">
                     {isLoggedIn ? (
-                        <Link to={dashboardLink} className="btn-primary-lg">进入我的商城 →</Link>
+                        <Link to={dashboardLink} className="btn-primary-lg">{L('landing.hero.enterStore')}</Link>
                     ) : (
-                        <Link to="/register" className="btn-primary-lg">免费开通商城 →</Link>
+                        <Link to="/register" className="btn-primary-lg">{L('landing.hero.openStore')}</Link>
                     )}
-                    <a href="#features" className="btn-ghost-lg">了解功能</a>
+                    <a href="#features" className="btn-ghost-lg">{L('landing.hero.learnFeatures')}</a>
                 </div>
-                <div className="hero-meta">无需信用卡 · 30秒开通 · 随时取消</div>
+                <div className="hero-meta">{L('landing.hero.meta')}</div>
 
                 {/* 预览卡片 */}
                 <div className="hero-preview">
@@ -164,7 +159,7 @@ export default function Landing() {
                     </div>
                     <div className="preview-body">
                         <div className="preview-nav-mock">
-                            <div className="preview-brand-mock">你的商城</div>
+                            <div className="preview-brand-mock">{L('landing.hero.previewBrand')}</div>
                             <div className="preview-actions-mock">
                                 <div className="preview-pill"></div>
                                 <div className="preview-pill dark"></div>
@@ -188,14 +183,14 @@ export default function Landing() {
             {/* 功能特性 */}
             <section className="landing-features" id="features">
                 <div className="section-inner">
-                    <div className="section-label">功能特性</div>
-                    <h2 className="section-title">你需要的，我们都有</h2>
+                    <div className="section-label">{L('landing.features.label')}</div>
+                    <h2 className="section-title">{L('landing.features.title')}</h2>
                     <div className="features-grid">
-                        {features.map(f => (
-                            <div key={f.title} className="feature-card">
+                        {featureItems.map(f => (
+                            <div key={f.key} className="feature-card">
                                 <div className="feature-icon">{f.icon}</div>
-                                <h3 className="feature-title">{f.title}</h3>
-                                <p className="feature-desc">{f.desc}</p>
+                                <h3 className="feature-title">{L(`landing.features.items.${f.key}.title`)}</h3>
+                                <p className="feature-desc">{L(`landing.features.items.${f.key}.desc`)}</p>
                             </div>
                         ))}
                     </div>
@@ -205,17 +200,17 @@ export default function Landing() {
             {/* 流程 */}
             <section className="landing-steps">
                 <div className="section-inner">
-                    <h2 className="section-title">三步开启你的商城</h2>
+                    <h2 className="section-title">{L('landing.steps.title')}</h2>
                     <div className="steps-row">
                         {[
-                            { num: '01', title: '填写注册信息', desc: '邮箱 + 密码 + 店铺名，30秒完成' },
-                            { num: '02', title: '获得专属商城', desc: '系统自动生成 vmart.cc/v/你的slug' },
-                            { num: '03', title: '上架商品开卖', desc: '添加商品、配置支付，立即接受订单' },
+                            { num: '01', key: 'register' },
+                            { num: '02', key: 'store' },
+                            { num: '03', key: 'sell' },
                         ].map((s, i) => (
                             <div key={s.num} className="step-item">
                                 <div className="step-num">{s.num}</div>
-                                <h3 className="step-title">{s.title}</h3>
-                                <p className="step-desc">{s.desc}</p>
+                                <h3 className="step-title">{L(`landing.steps.items.${s.key}.title`)}</h3>
+                                <p className="step-desc">{L(`landing.steps.items.${s.key}.desc`)}</p>
                                 {i < 2 && <div className="step-arrow">→</div>}
                             </div>
                         ))}
@@ -226,28 +221,28 @@ export default function Landing() {
             {/* 套餐 */}
             <section className="landing-plans" id="plans">
                 <div className="section-inner">
-                    <div className="section-label">价格套餐</div>
-                    <h2 className="section-title">透明定价，按需选择</h2>
+                    <div className="section-label">{L('landing.plans.label')}</div>
+                    <h2 className="section-title">{L('landing.plans.title')}</h2>
                     <div className="plans-grid">
                         {plans.map(p => (
-                            <div key={p.name} className={`plan-card ${p.highlight ? 'plan-highlight' : ''}`}>
-                                {p.highlight && <div className="plan-badge">最受欢迎</div>}
-                                <div className="plan-name">{p.name}</div>
-                                <div className="plan-price">{p.price}<span>{p.period}</span></div>
+                            <div key={p.name || p.nameKey} className={`plan-card ${p.highlight ? 'plan-highlight' : ''}`}>
+                                {p.highlight && <div className="plan-badge">{L('landing.plans.popular')}</div>}
+                                <div className="plan-name">{p.name || L(p.nameKey)}</div>
+                                <div className="plan-price">{p.price}<span>{p.period || L(p.periodKey)}</span></div>
                                 {p.yearlyPrice && (
-                                    <div className="plan-yearly">年付 {p.yearlyPrice}/月 · 省 {Math.round((1 - parseInt(p.yearlyPrice.replace('¥','')) / parseInt(p.price.replace('¥',''))) * 100)}%</div>
+                                    <div className="plan-yearly">{L('landing.plans.yearly', { price: p.yearlyPrice, percent: Math.round((1 - parseInt(p.yearlyPrice.replace('¥','')) / parseInt(p.price.replace('¥',''))) * 100) })}</div>
                                 )}
-                                <div className="plan-desc">{p.desc}</div>
+                                <div className="plan-desc">{p.desc || L(p.descKey)}</div>
                                 <ul className="plan-features-list">
-                                    {p.features.map(f => (
+                                    {(p.features || p.featureKeys).map(f => (
                                         <li key={f.text || f} className={typeof f === 'object' && !f.included ? 'not-included' : ''}>
                                             <span className="feature-check">{typeof f === 'object' ? (f.included ? '✓' : '✗') : '✓'}</span>
-                                            {typeof f === 'object' ? f.text : f}
+                                            {typeof f === 'object' ? f.text : L(f)}
                                         </li>
                                     ))}
                                 </ul>
                                 <Link to={p.href} className={`plan-cta ${p.highlight ? 'cta-primary' : 'cta-ghost'}`}>
-                                    {p.cta}
+                                    {p.cta || L(p.ctaKey)}
                                 </Link>
                             </div>
                         ))}
@@ -257,9 +252,9 @@ export default function Landing() {
 
             {/* CTA 底部 */}
             <section className="landing-bottom-cta">
-                <h2>现在开始，免费体验 24 小时</h2>
-                <p>不需要信用卡，30秒注册，立即拥有属于你的商城</p>
-                <Link to="/register" className="btn-primary-lg">免费开通商城 →</Link>
+                <h2>{L('landing.cta.title')}</h2>
+                <p>{L('landing.cta.desc')}</p>
+                <Link to="/register" className="btn-primary-lg">{L('landing.hero.openStore')}</Link>
             </section>
 
             {/* Footer */}
@@ -273,7 +268,7 @@ export default function Landing() {
 
                       
                     </div>
-                    <div className="footer-copy">© 2026 Vmart. All rights reserved.</div>
+                    <div className="footer-copy">{L('landing.footer.copyright')}</div>
                 </div>
             </footer>
         </div>

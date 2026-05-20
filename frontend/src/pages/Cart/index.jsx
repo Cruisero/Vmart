@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../store/cartStore'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
+import { formatPrice } from '../../utils/currencyFormat'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import toast from 'react-hot-toast'
 import './Cart.css'
@@ -13,6 +14,7 @@ function Cart() {
     usePageTitle(t('cart.title'))
     const navigate = useNavigate()
     const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
     const { items, updateQuantity, removeItem, clearCart, getTotalPrice } = useCartStore()
 
@@ -97,7 +99,7 @@ function Cart() {
 
                             <div className="item-price">
                                 <span className="price-label">{t('products.price')}</span>
-                                <span className="price-value">¥{item.price.toFixed(2)}</span>
+                                <span className="price-value">{formatPrice(item.price, currency)}</span>
                             </div>
 
                             <div className="item-quantity">
@@ -124,7 +126,7 @@ function Cart() {
                             <div className="item-subtotal">
                                 <span className="price-label">{t('checkout.subtotal')}</span>
                                 <span className="subtotal-value">
-                                    ¥{(item.price * item.quantity).toFixed(2)}
+                                    {formatPrice(item.price * item.quantity, currency)}
                                 </span>
                             </div>
 
@@ -151,19 +153,19 @@ function Cart() {
 
                         <div className="summary-row">
                             <span>{t('checkout.subtotal')}</span>
-                            <span>¥{totalPrice.toFixed(2)}</span>
+                            <span>{formatPrice(totalPrice, currency)}</span>
                         </div>
 
                         <div className="summary-row">
                             <span>{t('checkout.discount')}</span>
-                            <span className="discount">-¥0.00</span>
+                            <span className="discount">-{formatPrice(0, currency)}</span>
                         </div>
 
                         <div className="summary-divider"></div>
 
                         <div className="summary-total">
                             <span>{t('checkout.totalDue')}</span>
-                            <span className="total-price">¥{totalPrice.toFixed(2)}</span>
+                            <span className="total-price">{formatPrice(totalPrice, currency)}</span>
                         </div>
 
                         <button className="checkout-btn" onClick={handleCheckout}>

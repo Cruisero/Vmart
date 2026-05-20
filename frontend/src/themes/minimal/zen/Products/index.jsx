@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
+import { formatPrice } from '../../../../utils/currencyFormat'
 import './Products.css'
 
 const API_BASE = '/api'
@@ -48,7 +49,9 @@ function FeatureCard({ data }) {
 }
 
 function ProductCard({ product, linkPrefix }) {
-    const { t } = useTranslation()
+    const L = useBuyerL()
+    const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const [imgError, setImgError] = useState(false)
     const imgSrc = getImageUrl(product.image, 'large')
     const outOfStock = product.stock <= 0
@@ -59,13 +62,13 @@ function ProductCard({ product, linkPrefix }) {
                     ? <img src={imgSrc} alt={product.name} onError={() => setImgError(true)} />
                     : <div className="zp-card-ph">📦</div>
                 }
-                {outOfStock && <div className="zp-oos-overlay"><span>{t('products.soldOut')}</span></div>}
+                {outOfStock && <div className="zp-oos-overlay"><span>{L('products.soldOut')}</span></div>}
             </div>
             <div className="zp-card-body">
                 <div className="zp-card-name">{product.name}</div>
                 <div className="zp-card-bottom">
-                    <span className="zp-price">¥{product.price.toFixed(2)}</span>
-                    {product.originalPrice && <span className="zp-price-orig">¥{product.originalPrice.toFixed(2)}</span>}
+                    <span className="zp-price">{formatPrice(product.price, currency)}</span>
+                    {product.originalPrice && <span className="zp-price-orig">{formatPrice(product.originalPrice, currency)}</span>}
                 </div>
             </div>
         </Link>
@@ -73,7 +76,7 @@ function ProductCard({ product, linkPrefix }) {
 }
 
 export default function ZenProducts() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
     const storefront = useStorefront()
@@ -109,7 +112,7 @@ export default function ZenProducts() {
                         <div key={i} className="zp-skeleton"><div className="zp-sk-img" /><div className="zp-sk-body"><div className="zp-sk-line" /><div className="zp-sk-line short" /></div></div>
                     ))
                     : products.length === 0
-                        ? <div className="zp-empty">{t('products.noProducts')}</div>
+                        ? <div className="zp-empty">{L('products.noProducts')}</div>
                         : products.map(p => <ProductCard key={p.id} product={p} linkPrefix={linkPrefix} />)
                 }
             </div>

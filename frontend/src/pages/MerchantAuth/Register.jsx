@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useMerchantStore } from '../../store/merchantStore'
 import { useAuthStore } from '../../store/authStore'
+import { useBuyerL } from '../../hooks/useBuyerL'
 import './Auth.css'
 
 export default function MerchantRegister() {
+    const L = useBuyerL()
     const navigate = useNavigate()
     const setAuth = useMerchantStore(s => s.setAuth)
     const loginAdmin = useAuthStore(s => s.login)
@@ -33,7 +35,7 @@ export default function MerchantRegister() {
 
     const handleSendOtp = async () => {
         setError(''); setInfo('')
-        if (!form.email) { setError('请先填写邮箱'); return }
+        if (!form.email) { setError(L('merchantAuth.errorEmail')); return }
         setSendingOtp(true)
         try {
             const res = await fetch('/api/platform/otp/send', {
@@ -42,11 +44,11 @@ export default function MerchantRegister() {
                 body: JSON.stringify({ email: form.email, scope: 'merchant_register' })
             })
             const data = await res.json()
-            if (!res.ok) { setError(data.error || '发送失败'); return }
-            setInfo('验证码已发送，请查收邮箱')
+            if (!res.ok) { setError(data.error || L('merchantAuth.sendFailed')); return }
+            setInfo(L('merchantAuth.codeSent'))
             setOtpCooldown(60)
-        } catch (err) {
-            setError('网络错误')
+        } catch {
+            setError(L('merchantAuth.networkError'))
         } finally {
             setSendingOtp(false)
         }
@@ -63,7 +65,7 @@ export default function MerchantRegister() {
                 body: JSON.stringify(form)
             })
             const data = await res.json()
-            if (!res.ok) { setError(data.error || '注册失败'); return }
+            if (!res.ok) { setError(data.error || L('merchantAuth.registerFailed')); return }
             setAuth(data.token, data.merchant, data.shop)
             if (data.adminToken && data.adminUser) {
                 loginAdmin(data.adminUser, data.adminToken)
@@ -71,7 +73,7 @@ export default function MerchantRegister() {
             navigate(`/v/${data.shop.slug}/admin`)
         } catch (err) {
             console.error('[register error]', err)
-            setError('错误：' + (err?.message || String(err)))
+            setError(L('merchantAuth.networkError') + ': ' + (err?.message || String(err)))
         } finally {
             setLoading(false)
         }
@@ -80,30 +82,27 @@ export default function MerchantRegister() {
     return (
         <div className="merchant-auth-page">
             <div className="merchant-auth-card">
-                <div className="merchant-auth-brand">
-                    <span className="brand-logo">V</span>
-                    <span className="brand-name">Vmart</span>
-                </div>
-                <h1 className="merchant-auth-title">开启你的商城</h1>
-                <p className="merchant-auth-sub">注册即免费体验，无需信用卡</p>
+              
+                <h1 className="merchant-auth-title">{L('merchantAuth.registerTitle')}</h1>
+                <p className="merchant-auth-sub">{L('merchantAuth.registerSub')}</p>
 
                 {error && <div className="merchant-auth-error">{error}</div>}
                 {info && <div className="merchant-auth-error" style={{ background: 'rgba(16,185,129,0.1)', color: '#059669', borderColor: 'rgba(16,185,129,0.3)' }}>{info}</div>}
 
                 <form onSubmit={handleSubmit} className="merchant-auth-form">
                     <div className="form-group">
-                        <label>店铺名称</label>
+                        <label>{L('merchantAuth.shopName')}</label>
                         <input
                             name="shopName"
                             value={form.shopName}
                             onChange={handleChange}
-                            placeholder="给你的商城起个名字"
+                            placeholder={L('merchantAuth.shopNamePlaceholder')}
                             required
                             maxLength={50}
                         />
                     </div>
                     <div className="form-group">
-                        <label>邮箱</label>
+                        <label>{L('merchantAuth.email')}</label>
                         <input
                             name="email"
                             type="email"
@@ -115,13 +114,13 @@ export default function MerchantRegister() {
                     </div>
                     {otpRequired && (
                         <div className="form-group">
-                            <label>邮箱验证码</label>
+                            <label>{L('merchantAuth.emailVerification')}</label>
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <input
                                     name="otpCode"
                                     value={form.otpCode}
                                     onChange={handleChange}
-                                    placeholder="6 位数字"
+                                    placeholder={L('merchantAuth.codePlaceholder')}
                                     maxLength={6}
                                     inputMode="numeric"
                                     style={{ flex: 1 }}
@@ -142,30 +141,30 @@ export default function MerchantRegister() {
                                         whiteSpace: 'nowrap'
                                     }}
                                 >
-                                    {sendingOtp ? '发送中...' : otpCooldown > 0 ? `${otpCooldown}s` : '获取验证码'}
+                                    {sendingOtp ? L('merchantAuth.sending') : otpCooldown > 0 ? `${otpCooldown}s` : L('merchantAuth.sendCode')}
                                 </button>
                             </div>
                         </div>
                     )}
                     <div className="form-group">
-                        <label>密码</label>
+                        <label>{L('merchantAuth.password')}</label>
                         <input
                             name="password"
                             type="password"
                             value={form.password}
                             onChange={handleChange}
-                            placeholder="至少 6 位"
+                            placeholder={L('merchantAuth.passwordPlaceholder')}
                             required
                             minLength={6}
                         />
                     </div>
                     <button type="submit" className="merchant-auth-btn" disabled={loading}>
-                        {loading ? '开通中...' : '免费开通商城 →'}
+                        {loading ? L('merchantAuth.submitting') : L('merchantAuth.submitBtn')}
                     </button>
                 </form>
 
                 <p className="merchant-auth-footer">
-                    已有账号？<Link to="/login">立即登录</Link>
+                    {L('merchantAuth.hasAccount')}<Link to="/login">{L('merchantAuth.goLogin')}</Link>
                 </p>
             </div>
         </div>

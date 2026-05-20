@@ -164,6 +164,7 @@ export default function MerchantStorefront() {
         featureCard: shop.featureCard || null,
         agreements: shop.agreements || null,
         language: shop.language || 'zh',
+        currency: shop.currency || 'CNY',
         // 主题组件里凡是用 /api/s/${slug} 的，改为读 apiBase
         apiBase: `/api/v`,
         _tenantMode: true,

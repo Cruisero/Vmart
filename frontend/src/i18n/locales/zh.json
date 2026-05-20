@@ -125,15 +125,48 @@
     "refunded": "已退款",
     "expired": "已过期",
     "payNow": "立即支付",
-    "cancelOrder": "取消订单",
+    "cancelOrder": "取消支付",
     "cancelConfirm": "确定取消订单吗？",
     "cancelSuccess": "订单已取消",
+    "cancelFailed": "取消订单失败",
     "countdown": "剩余支付时间",
     "scanToPay": "扫码支付",
     "payAmount": "支付金额",
     "backToShop": "返回商城",
     "viewOrder": "查看订单",
-    "remark": "订单备注"
+    "remark": "订单备注",
+    "paySuccess": "支付成功！",
+    "generating": "生成中...",
+    "orderPending": "订单待支付",
+    "orderCancelled": "订单已取消",
+    "scanAlipay": "请使用支付宝扫码支付",
+    "cardsDelivering": "卡密发放中...",
+    "cardsReady": "卡密已发放",
+    "exchangeRate": "汇率",
+    "originalAmount": "原价",
+    "quantity": "数量",
+    "notFound": "订单不存在",
+    "notFoundDesc": "订单 {{orderNo}} 不存在或已被删除",
+    "queryAgain": "重新查询",
+    "pendingDesc": "请在规定时间内完成支付",
+    "cancelledDesc": "该订单已被取消",
+    "refundingTitle": "退款处理中",
+    "refundingDesc": "您的退款正在处理中",
+    "refundedTitle": "退款完成",
+    "refundedDesc": "退款已处理完成",
+    "cardsDeliveringDesc": "卡密正在准备中，请稍候",
+    "merchantNote": "商家备注",
+    "email": "邮箱",
+    "autoUpdateAfterPay": "支付完成后页面将自动更新",
+    "pleaseTransfer": "请转账",
+    "copyFailed": "复制失败",
+    "usdtWarning": "请务必转账 {{amount}} USDT，金额不符将无法自动确认",
+    "usdtTransferHint": "请向指定地址转账 USDT",
+    "payRequestFailed": "支付请求失败",
+    "payInfoFailed": "获取支付信息失败",
+    "receivingAddress": "收款地址",
+    "cardsKeepSafe": "请妥善保管，避免泄露",
+    "cardsCount": "个卡密（共）"
   },
   "orderQuery": {
     "title": "订单查询",
@@ -273,5 +306,202 @@
     "instantDelivery": "即时发货",
     "secure": "安全保障",
     "authentic": "正品保证"
+  },
+  "admin": {
+    "title": "管理后台",
+    "userRole": {
+      "superAdmin": "超级管理员",
+      "tenantAdmin": "店主",
+      "admin": "管理员"
+    },
+    "logout": "退出",
+    "menu": {
+      "dashboard": "仪表盘",
+      "products": "商品管理",
+      "orders": "订单管理",
+      "tickets": "工单管理",
+      "cards": "卡密管理",
+      "users": "用户管理",
+      "agents": "代理管理",
+      "support": "联系客服",
+      "settings": "商城设置",
+      "setup": "新手起航"
+    },
+    "prefs": {
+      "language": "语言",
+      "currency": "货币",
+      "rate": "汇率",
+      "rateHint": "1 美元 = ? 人民币（用于后台展示换算）",
+      "save": "保存"
+    },
+    "dashboard": {
+      "alerts": {
+        "refunding": "{{count}} 个待退款订单",
+        "unpaid": "{{count}} 个待支付订单"
+      },
+      "stats": {
+        "totalOrders": "总订单",
+        "totalRevenue": "总收入",
+        "totalProducts": "商品数",
+        "totalUsers": "用户数",
+        "totalVisits": "总访问量",
+        "todaySuffix": "今日",
+        "todayOrders": "今日订单",
+        "todayRevenue": "今日收入"
+      },
+      "paymentMonitor": {
+        "title": "支付监控",
+        "pendingCount": "{{count}} 笔待确认",
+        "table": {
+          "orderNo": "订单号",
+          "product": "商品",
+          "method": "支付方式",
+          "amount": "金额",
+          "time": "时间"
+        },
+        "noMethod": "未选择",
+        "countUnit": "笔"
+      },
+      "recentOrders": {
+        "title": "最近订单",
+        "noData": "暂无订单",
+        "table": {
+          "orderNo": "订单号",
+          "product": "商品",
+          "amount": "金额",
+          "status": "状态",
+          "time": "时间"
+        }
+      },
+      "orderStatus": {
+        "completed": "已完成",
+        "pending": "待支付",
+        "paid": "已支付",
+        "shipped": "已发货",
+        "cancelled": "已取消",
+        "refunding": "退款中",
+        "refunded": "已退款",
+        "expired": "已过期"
+      }
+    },
+    "products": {
+      "title": "商品管理",
+      "add": "+ 添加商品",
+      "categories": "📁 分类管理",
+      "table": {
+        "name": "商品名称",
+        "price": "价格",
+        "stock": "库存",
+        "sold": "已售",
+        "weight": "权重",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "active": "上架",
+      "inactive": "下架",
+      "edit": "编辑",
+      "cards": "卡密",
+      "preview": "预览",
+      "delete": "删除",
+      "noProducts": "暂无商品",
+      "loading": "加载中...",
+      "deleteConfirm": "确定删除该商品吗？",
+      "deleteSuccess": "商品已删除",
+      "createSuccess": "商品添加成功",
+      "updateSuccess": "商品更新成功",
+      "operationFailed": "操作失败"
+    },
+    "orders": {
+      "title": "订单管理",
+      "totalCount": "共 {{count}} 条订单",
+      "search": "搜索订单号 / 邮箱 / 商品名",
+      "allStatus": "全部状态",
+      "table": {
+        "orderNo": "订单号",
+        "product": "商品",
+        "amount": "金额",
+        "email": "邮箱",
+        "remark": "备注",
+        "status": "状态",
+        "time": "时间",
+        "actions": "操作"
+      },
+      "view": "查看",
+      "ship": "发货",
+      "noOrders": "暂无订单"
+    },
+    "tickets": {
+      "title": "工单管理",
+      "stats": {
+        "total": "全部工单",
+        "pending": "待处理",
+        "inProgress": "处理中",
+        "pendingSuperAdmin": "待超管处理",
+        "closed": "已关闭",
+        "userUnread": "用户未读",
+        "pendingReply": "待回复"
+      },
+      "list": "工单列表",
+      "noTickets": "暂无工单",
+      "table": {
+        "ticketNo": "工单号",
+        "subject": "主题",
+        "user": "用户",
+        "status": "状态",
+        "time": "时间",
+        "actions": "操作"
+      }
+    },
+    "cards": {
+      "title": "卡密管理",
+      "add": "添加卡密",
+      "import": "导入",
+      "table": {
+        "content": "内容",
+        "product": "商品",
+        "status": "状态",
+        "createdAt": "创建时间",
+        "actions": "操作"
+      },
+      "available": "可用",
+      "sold": "已售",
+      "noCards": "暂无卡密"
+    },
+    "users": {
+      "title": "用户管理",
+      "table": {
+        "username": "用户名",
+        "email": "邮箱",
+        "orders": "订单数",
+        "registered": "注册时间",
+        "actions": "操作"
+      },
+      "noUsers": "暂无用户"
+    },
+    "common": {
+      "save": "保存",
+      "saving": "保存中...",
+      "cancel": "取消",
+      "confirm": "确认",
+      "delete": "删除",
+      "edit": "编辑",
+      "add": "添加",
+      "search": "搜索",
+      "filter": "筛选",
+      "export": "导出",
+      "refresh": "刷新",
+      "actions": "操作",
+      "status": "状态",
+      "time": "时间",
+      "noData": "暂无数据",
+      "loading": "加载中...",
+      "success": "成功",
+      "failed": "失败",
+      "operationSuccess": "操作成功",
+      "operationFailed": "操作失败",
+      "confirmDelete": "确定删除吗？",
+      "yes": "是",
+      "no": "否"
+    }
   }
 }

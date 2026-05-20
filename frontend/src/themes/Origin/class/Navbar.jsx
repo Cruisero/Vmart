@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { FiSearch, FiShoppingCart, FiUser, FiMenu, FiX, FiTrendingUp, FiHeart, FiSun, FiMoon } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../hooks/useBuyerL'
 import { useCartStore } from '../../../store/cartStore'
 import { useAuthStore } from '../../../store/authStore'
 import { useStorefront } from '../../../store/storefrontStore'
 import { useThemeStore } from '../../../store/themeStore'
+import { formatPrice } from '../../../utils/currencyFormat'
 import LanguageToggle from '../../../components/common/LanguageToggle'
 
 export default function OriginNavbar({ shop, slug, onSearchFocus }) {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const navigate = useNavigate()
     const location = useLocation()
     const storefront = useStorefront()
+    const currency = storefront?.currency || 'CNY'
     const cartItems = useCartStore(s => s.items)
     const { isAuthenticated } = useAuthStore()
     const { theme, toggleTheme } = useThemeStore()
@@ -96,9 +98,9 @@ export default function OriginNavbar({ shop, slug, onSearchFocus }) {
     }
 
     const navLinks = [
-        { to: `${prefix}`, label: t('nav.home'), exact: true },
-        { to: `${prefix}/order-query`, label: t('nav.orderQuery') },
-        { to: `${prefix}/tickets/new`, label: t('ticket.title') }
+        { to: `${prefix}`, label: L('nav.home'), exact: true },
+        { to: `${prefix}/order-query`, label: L('nav.orderQuery') },
+        { to: `${prefix}/tickets/new`, label: L('ticket.title') }
     ]
 
     return (
@@ -131,9 +133,9 @@ export default function OriginNavbar({ shop, slug, onSearchFocus }) {
                                 setTimeout(() => setShowDropdown(false), 200)
                             }}
                             onKeyDown={e => { if (e.key === 'Enter') handleSearch(); if (e.key === 'Escape') setShowDropdown(false) }}
-                            placeholder={t('nav.search')}
+                            placeholder={L('nav.search')}
                         />
-                        <button type="button" className="og-search-btn" onClick={() => handleSearch()}>{t('search.title')}</button>
+                        <button type="button" className="og-search-btn" onClick={() => handleSearch()}>{L('search.title')}</button>
                     </div>
 
                     <div className="og-actions">
@@ -193,7 +195,7 @@ export default function OriginNavbar({ shop, slug, onSearchFocus }) {
                                     <Link key={p.id} to={`${prefix}/products/${p.id}`} className="og-dd-product" onClick={() => setShowDropdown(false)}>
                                         <img src={p.image || '/placeholder.png'} alt={p.name} onError={e => { e.target.src = '/placeholder.png' }} />
                                         <div className="og-dd-product-name">{p.name}</div>
-                                        <div className="og-dd-product-price">¥{p.price?.toFixed(2)}</div>
+                                        <div className="og-dd-product-price">{formatPrice(p.price, currency)}</div>
                                     </Link>
                                 ))}
                             </div>
@@ -219,7 +221,7 @@ export default function OriginNavbar({ shop, slug, onSearchFocus }) {
                                     <Link key={p.id} to={`${prefix}/products/${p.id}`} className="og-dd-product" onClick={() => setShowDropdown(false)}>
                                         <img src={p.image || '/placeholder.png'} alt={p.name} onError={e => { e.target.src = '/placeholder.png' }} />
                                         <div className="og-dd-product-name">{p.name}</div>
-                                        <div className="og-dd-product-price">¥{p.price?.toFixed(2)}</div>
+                                        <div className="og-dd-product-price">{formatPrice(p.price, currency)}</div>
                                     </Link>
                                 ))}
                             </div>
@@ -227,7 +229,7 @@ export default function OriginNavbar({ shop, slug, onSearchFocus }) {
                     )}
 
                     {searchQuery.trim() && suggestions.length === 0 && !searchLoading && (
-                        <div className="og-dd-empty">{t('search.noResults')}</div>
+                        <div className="og-dd-empty">{L('search.noResults')}</div>
                     )}
                 </div>
             )}

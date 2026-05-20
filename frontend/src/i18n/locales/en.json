@@ -125,15 +125,48 @@
     "refunded": "Refunded",
     "expired": "Expired",
     "payNow": "Pay Now",
-    "cancelOrder": "Cancel",
+    "cancelOrder": "Cancel Payment",
     "cancelConfirm": "Are you sure you want to cancel this order?",
     "cancelSuccess": "Order cancelled",
+    "cancelFailed": "Failed to cancel order",
     "countdown": "Time remaining",
     "scanToPay": "Scan to Pay",
-    "payAmount": "Amount",
+    "payAmount": "Amount to pay",
     "backToShop": "Back to Shop",
     "viewOrder": "View Order",
-    "remark": "Note"
+    "remark": "Note",
+    "paySuccess": "Payment successful!",
+    "generating": "Generating...",
+    "orderPending": "Order pending payment",
+    "orderCancelled": "Order cancelled",
+    "scanAlipay": "Scan with Alipay to pay",
+    "cardsDelivering": "Card keys are being delivered...",
+    "cardsReady": "Card keys delivered",
+    "exchangeRate": "Exchange rate",
+    "originalAmount": "Original amount",
+    "quantity": "Qty",
+    "notFound": "Order not found",
+    "notFoundDesc": "Order {{orderNo}} does not exist or has been deleted",
+    "queryAgain": "Search again",
+    "pendingDesc": "Please complete payment within the time limit",
+    "cancelledDesc": "This order has been cancelled",
+    "refundingTitle": "Refund in progress",
+    "refundingDesc": "Your refund is being processed",
+    "refundedTitle": "Refund completed",
+    "refundedDesc": "The refund has been processed",
+    "cardsDeliveringDesc": "Card keys are being prepared, please wait",
+    "merchantNote": "Merchant Note",
+    "email": "Email",
+    "autoUpdateAfterPay": "Page will update automatically after payment",
+    "pleaseTransfer": "Please transfer",
+    "copyFailed": "Copy failed",
+    "usdtWarning": "Please transfer exactly {{amount}} USDT. Incorrect amounts cannot be auto-confirmed.",
+    "usdtTransferHint": "Please transfer USDT to the address shown",
+    "payRequestFailed": "Payment request failed",
+    "payInfoFailed": "Failed to get payment info",
+    "receivingAddress": "Receiving address",
+    "cardsKeepSafe": "Please keep your card keys safe",
+    "cardsCount": "card key(s) total"
   },
   "orderQuery": {
     "title": "Track Order",
@@ -273,5 +306,202 @@
     "instantDelivery": "Instant Delivery",
     "secure": "Secure Payment",
     "authentic": "Authentic Guaranteed"
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "userRole": {
+      "superAdmin": "Super Admin",
+      "tenantAdmin": "Owner",
+      "admin": "Admin"
+    },
+    "logout": "Logout",
+    "menu": {
+      "dashboard": "Dashboard",
+      "products": "Products",
+      "orders": "Orders",
+      "tickets": "Tickets",
+      "cards": "Card Keys",
+      "users": "Customers",
+      "agents": "Agents",
+      "support": "Support",
+      "settings": "Settings",
+      "setup": "Get Started"
+    },
+    "prefs": {
+      "language": "Language",
+      "currency": "Currency",
+      "rate": "FX Rate",
+      "rateHint": "1 USD = ? CNY (for admin display only)",
+      "save": "Save"
+    },
+    "dashboard": {
+      "alerts": {
+        "refunding": "{{count}} order(s) pending refund",
+        "unpaid": "{{count}} unpaid order(s)"
+      },
+      "stats": {
+        "totalOrders": "Total Orders",
+        "totalRevenue": "Total Revenue",
+        "totalProducts": "Products",
+        "totalUsers": "Customers",
+        "totalVisits": "Total Visits",
+        "todaySuffix": "today",
+        "todayOrders": "Orders Today",
+        "todayRevenue": "Revenue Today"
+      },
+      "paymentMonitor": {
+        "title": "Payment Monitor",
+        "pendingCount": "{{count}} pending",
+        "table": {
+          "orderNo": "Order No.",
+          "product": "Product",
+          "method": "Method",
+          "amount": "Amount",
+          "time": "Time"
+        },
+        "noMethod": "Not selected",
+        "countUnit": ""
+      },
+      "recentOrders": {
+        "title": "Recent Orders",
+        "noData": "No orders yet",
+        "table": {
+          "orderNo": "Order No.",
+          "product": "Product",
+          "amount": "Amount",
+          "status": "Status",
+          "time": "Time"
+        }
+      },
+      "orderStatus": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "paid": "Paid",
+        "shipped": "Shipped",
+        "cancelled": "Cancelled",
+        "refunding": "Refunding",
+        "refunded": "Refunded",
+        "expired": "Expired"
+      }
+    },
+    "products": {
+      "title": "Products",
+      "add": "+ Add Product",
+      "categories": "📁 Categories",
+      "table": {
+        "name": "Product Name",
+        "price": "Price",
+        "stock": "Stock",
+        "sold": "Sold",
+        "weight": "Weight",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "active": "Active",
+      "inactive": "Inactive",
+      "edit": "Edit",
+      "cards": "Keys",
+      "preview": "Preview",
+      "delete": "Delete",
+      "noProducts": "No products yet",
+      "loading": "Loading...",
+      "deleteConfirm": "Are you sure you want to delete this product?",
+      "deleteSuccess": "Product deleted",
+      "createSuccess": "Product added",
+      "updateSuccess": "Product updated",
+      "operationFailed": "Operation failed"
+    },
+    "orders": {
+      "title": "Orders",
+      "totalCount": "{{count}} orders total",
+      "search": "Search order no / email / product",
+      "allStatus": "All Status",
+      "table": {
+        "orderNo": "Order No.",
+        "product": "Product",
+        "amount": "Amount",
+        "email": "Email",
+        "remark": "Note",
+        "status": "Status",
+        "time": "Time",
+        "actions": "Actions"
+      },
+      "view": "View",
+      "ship": "Ship",
+      "noOrders": "No orders"
+    },
+    "tickets": {
+      "title": "Tickets",
+      "stats": {
+        "total": "All Tickets",
+        "pending": "Pending",
+        "inProgress": "In Progress",
+        "pendingSuperAdmin": "Escalated",
+        "closed": "Closed",
+        "userUnread": "User Unread",
+        "pendingReply": "Pending Reply"
+      },
+      "list": "Ticket List",
+      "noTickets": "No tickets",
+      "table": {
+        "ticketNo": "Ticket No.",
+        "subject": "Subject",
+        "user": "User",
+        "status": "Status",
+        "time": "Time",
+        "actions": "Actions"
+      }
+    },
+    "cards": {
+      "title": "Card Keys",
+      "add": "Add Keys",
+      "import": "Import",
+      "table": {
+        "content": "Content",
+        "product": "Product",
+        "status": "Status",
+        "createdAt": "Created",
+        "actions": "Actions"
+      },
+      "available": "Available",
+      "sold": "Sold",
+      "noCards": "No card keys"
+    },
+    "users": {
+      "title": "Customers",
+      "table": {
+        "username": "Username",
+        "email": "Email",
+        "orders": "Orders",
+        "registered": "Registered",
+        "actions": "Actions"
+      },
+      "noUsers": "No customers"
+    },
+    "common": {
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "delete": "Delete",
+      "edit": "Edit",
+      "add": "Add",
+      "search": "Search",
+      "filter": "Filter",
+      "export": "Export",
+      "refresh": "Refresh",
+      "actions": "Actions",
+      "status": "Status",
+      "time": "Time",
+      "noData": "No data",
+      "loading": "Loading...",
+      "success": "Success",
+      "failed": "Failed",
+      "operationSuccess": "Operation successful",
+      "operationFailed": "Operation failed",
+      "confirmDelete": "Are you sure you want to delete?",
+      "yes": "Yes",
+      "no": "No"
+    }
   }
 }

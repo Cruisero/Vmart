@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
-import { useTranslation } from 'react-i18next'
+import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import './Auth.css'
 
 export default function FreshLogin() {
-    const { t } = useTranslation()
+    const L = useBuyerL()
     const navigate = useNavigate()
     const login = useAuthStore((s) => s.login)
     const storefront = useStorefront()
@@ -20,7 +20,7 @@ export default function FreshLogin() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!form.email || !form.password) { toast.error(t('auth.emailPlaceholder')); return }
+        if (!form.email || !form.password) { toast.error(L('auth.emailPlaceholder')); return }
         setLoading(true)
         try {
             const url = storefront?._tenantMode ? '/api/customer/login' : '/api/auth/login'
@@ -32,9 +32,9 @@ export default function FreshLogin() {
                 body: JSON.stringify(body)
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || t('common.failed'))
+            if (!res.ok) throw new Error(data.error || L('common.failed'))
             login(data.user, data.token)
-            toast.success(t('auth.loginSuccess'))
+            toast.success(L('auth.loginSuccess'))
             const role = data.user.role
             if (!storefront?._tenantMode && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
                 navigate('/admin')
@@ -42,7 +42,7 @@ export default function FreshLogin() {
                 navigate(`${prefix}/`)
             }
         } catch (err) {
-            toast.error(err.message || t('common.failed'))
+            toast.error(err.message || L('common.failed'))
         } finally {
             setLoading(false)
         }
@@ -55,19 +55,19 @@ export default function FreshLogin() {
                     <div className="fa-logo">
                         <FiLock size={20} />
                     </div>
-                    <h1 className="fa-title">{t('user.welcome')}</h1>
-                    <p className="fa-sub">{t('auth.login')}</p>
+                    <h1 className="fa-title">{L('user.welcome')}</h1>
+                    <p className="fa-sub">{L('nav.login')}</p>
                 </div>
 
                 <form className="fa-form" onSubmit={handleSubmit}>
                     <div className="fa-field">
-                        <label className="fa-label">{t('auth.email')}</label>
+                        <label className="fa-label">{L('order.email')}</label>
                         <div className="fa-input-wrap">
                             <FiMail className="fa-input-icon" size={15} />
                             <input
                                 type="email"
                                 className="fa-input"
-                                placeholder={t('auth.emailPlaceholder')}
+                                placeholder={L('auth.emailPlaceholder')}
                                 value={form.email}
                                 onChange={e => setForm({ ...form, email: e.target.value })}
                                 autoComplete="email"
@@ -77,14 +77,14 @@ export default function FreshLogin() {
 
                     <div className="fa-field">
                         <div className="fa-label-row">
-                            <label className="fa-label">{t('auth.password')}</label>
+                            <label className="fa-label">{L('auth.password')}</label>
                         </div>
                         <div className="fa-input-wrap">
                             <FiLock className="fa-input-icon" size={15} />
                             <input
                                 type={showPw ? 'text' : 'password'}
                                 className="fa-input"
-                                placeholder={t('auth.passwordPlaceholder')}
+                                placeholder={L('auth.passwordPlaceholder')}
                                 value={form.password}
                                 onChange={e => setForm({ ...form, password: e.target.value })}
                                 autoComplete="current-password"
@@ -96,18 +96,18 @@ export default function FreshLogin() {
                     </div>
 
                     <button type="submit" className="fa-submit" disabled={loading}>
-                        {loading ? <span className="fa-spinner" /> : <>{t('auth.loginBtn')} <FiArrowRight size={15} /></>}
+                        {loading ? <span className="fa-spinner" /> : <>{L('nav.login')} <FiArrowRight size={15} /></>}
                     </button>
                 </form>
 
                 <div className="fa-footer">
-                    {t('auth.noAccount')}
-                    <Link to={`${prefix}/register`} className="fa-link">{t('auth.goRegister')}</Link>
+                    {L('auth.noAccount')}
+                    <Link to={`${prefix}/register`} className="fa-link">{L('auth.goRegister')}</Link>
                 </div>
 
                 <div className="fa-divider"><span>—</span></div>
 
-                <Link to={`${prefix}/`} className="fa-guest">{t('nav.home')}</Link>
+                <Link to={`${prefix}/`} className="fa-guest">{L('nav.home')}</Link>
             </div>
         </div>
     )
