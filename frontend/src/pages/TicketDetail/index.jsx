@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { FiArrowLeft, FiSend, FiClock, FiCheck, FiAlertCircle, FiPackage, FiCheckCircle, FiX, FiRotateCcw } from 'react-icons/fi'
+import { FiArrowLeft, FiSend, FiClock, FiCheck, FiAlertCircle, FiPackage, FiCheckCircle, FiX, FiRotateCcw, FiImage } from 'react-icons/fi'
 import { useAuthStore } from '../../store/authStore'
 import { useStorefrontPath } from '../../store/storefrontStore'
+import { uploadImages as uploadTicketImages, processSelectedFiles } from '../../utils/imageUtils'
 import toast from 'react-hot-toast'
 import './TicketDetail.css'
 
@@ -33,6 +34,8 @@ function TicketDetail() {
     const [loading, setLoading] = useState(true)
     const [message, setMessage] = useState('')
     const [sending, setSending] = useState(false)
+    const [replyAttachments, setReplyAttachments] = useState([])
+    const [replyUploading, setReplyUploading] = useState(false)
     const [showCloseConfirm, setShowCloseConfirm] = useState(false)
     const [closing, setClosing] = useState(false)
     const [reopening, setReopening] = useState(false)
@@ -62,6 +65,32 @@ function TicketDetail() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
 
+    const handleReplyImageChange = async (e) => {
+        const files = e.target.files
+        if (!files || files.length === 0) return
+
+        try {
+            const selected = await processSelectedFiles(files)
+            if (!selected.length) {
+                toast.error('请选择图片文件')
+                return
+            }
+            const next = [...replyAttachments, ...selected].slice(0, 10)
+            if (next.length < replyAttachments.length + selected.length) {
+                toast.error('最多只能上传 10 张图片')
+            }
+            setReplyAttachments(next)
+        } catch (error) {
+            toast.error(error.message || '图片处理失败')
+        } finally {
+            e.target.value = ''
+        }
+    }
+
+    const removeReplyAttachment = (index) => {
+        setReplyAttachments(prev => prev.filter((_, i) => i !== index))
+    }
+
     const fetchTicket = async () => {
         try {
             const res = await fetch(`/api/tickets/${id}`, {
@@ -86,7 +115,7 @@ function TicketDetail() {
     const handleSend = async (e) => {
         e.preventDefault()
 
-        if (!message.trim()) return
+        if (!message.trim() && replyAttachments.length === 0) return
         if (ticket.status === 'CLOSED') {
             toast.error('工单已关闭，无法发送消息')
             return
@@ -94,17 +123,31 @@ function TicketDetail() {
 
         setSending(true)
         try {
+            let images = null
+            if (replyAttachments.length > 0) {
+                setReplyUploading(true)
+                const uploaded = await uploadTicketImages(replyAttachments.map(item => item.file))
+                images = uploaded
+                    .map(item => item?.urls?.original)
+                    .filter(Boolean)
+                setReplyUploading(false)
+            }
+
             const res = await fetch(`/api/tickets/${id}/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ content: message.trim() })
+                body: JSON.stringify({
+                    content: message.trim(),
+                    images: images && images.length ? images : null
+                })
             })
 
             if (res.ok) {
                 setMessage('')
+                setReplyAttachments([])
                 fetchTicket()
             } else {
                 const data = await res.json()
@@ -113,6 +156,7 @@ function TicketDetail() {
         } catch (error) {
             toast.error('发送失败')
         } finally {
+            setReplyUploading(false)
             setSending(false)
         }
     }
@@ -271,6 +315,15 @@ function TicketDetail() {
                                         <span className="message-time">{formatTime(msg.createdAt)}</span>
                                     </div>
                                     <div className="message-text">{msg.content}</div>
+                                    {msg.images && Array.isArray(msg.images) && msg.images.length > 0 && (
+                                        <div className="message-images">
+                                            {msg.images.map((url, i) => (
+                                                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="message-image-link">
+                                                    <img src={url} alt="" className="message-image" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -281,22 +334,52 @@ function TicketDetail() {
                     {ticket.status !== 'CLOSED' ? (
                         <>
                             <form className="message-input-form" onSubmit={handleSend}>
-                                <textarea
-                                    className="message-input"
-                                    placeholder="输入消息..."
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
-                                    rows={3}
-                                    disabled={sending}
-                                />
-                                <button
-                                    type="submit"
-                                    className="btn btn-primary send-btn"
-                                    disabled={sending || !message.trim()}
-                                >
-                                    <FiSend />
-                                    {sending ? '发送中...' : '发送'}
-                                </button>
+                                <div className="message-input-panel">
+                                    <textarea
+                                        className="message-input"
+                                        placeholder="输入消息..."
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                        rows={3}
+                                        disabled={sending || replyUploading}
+                                    />
+                                    <div className="message-attachment-row">
+                                        <div className="message-attachments">
+                                            {replyAttachments.map((item, index) => (
+                                                <div className="message-attachment" key={`${item.name}-${index}`}>
+                                                    <img src={item.preview} alt={item.name} />
+                                                    <button
+                                                        type="button"
+                                                        className="remove-attachment-btn"
+                                                        onClick={() => removeReplyAttachment(index)}
+                                                        aria-label="移除图片"
+                                                    >
+                                                        <FiX />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <label className="message-image-add">
+                                            <FiImage />
+                                            <span>{replyUploading ? '上传中...' : '添加图片'}</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                onChange={handleReplyImageChange}
+                                                disabled={sending || replyUploading}
+                                            />
+                                        </label>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary send-btn"
+                                            disabled={sending || replyUploading || (!message.trim() && replyAttachments.length === 0)}
+                                        >
+                                            <FiSend />
+                                            {sending || replyUploading ? '发送中...' : '发送'}
+                                        </button>
+                                    </div>
+                                </div>
                             </form>
                         </>
                     ) : (

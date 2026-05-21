@@ -7,7 +7,6 @@ const SETTINGS_KEYS = [
     'securityBlockedIps',
     'securityEnableEmailSuffixBlock',
     'securityBlockedEmailSuffixes',
-    'securityRequireVerifiedForTicket',
     'securityRegisterLimitMax',
     'securityRegisterLimitWindowMinutes',
     'securityOrderQueryLimitMax',
@@ -22,7 +21,6 @@ const DEFAULT_SETTINGS = {
     securityBlockedIps: [],
     securityEnableEmailSuffixBlock: true,
     securityBlockedEmailSuffixes: [],
-    securityRequireVerifiedForTicket: true,
     securityRegisterLimitMax: 5,
     securityRegisterLimitWindowMinutes: 10,
     securityOrderQueryLimitMax: 20,
@@ -164,7 +162,6 @@ async function loadSecuritySettings() {
             securityBlockedIps: parseList(map.securityBlockedIps),
             securityEnableEmailSuffixBlock: parseBoolean(map.securityEnableEmailSuffixBlock, DEFAULT_SETTINGS.securityEnableEmailSuffixBlock),
             securityBlockedEmailSuffixes: parseList(map.securityBlockedEmailSuffixes).map(normalizeSuffix).filter(Boolean),
-            securityRequireVerifiedForTicket: parseBoolean(map.securityRequireVerifiedForTicket, DEFAULT_SETTINGS.securityRequireVerifiedForTicket),
             securityRegisterLimitMax: parseNumber(map.securityRegisterLimitMax, DEFAULT_SETTINGS.securityRegisterLimitMax, 1, 500),
             securityRegisterLimitWindowMinutes: parseNumber(map.securityRegisterLimitWindowMinutes, DEFAULT_SETTINGS.securityRegisterLimitWindowMinutes, 1, 1440),
             securityOrderQueryLimitMax: parseNumber(map.securityOrderQueryLimitMax, DEFAULT_SETTINGS.securityOrderQueryLimitMax, 1, 1000),
@@ -266,7 +263,7 @@ async function resolveCurrentUser(req) {
     return user
 }
 
-function createSecurityAccessGuard({ actionName, getEmail, requireVerifiedForTicket = false }) {
+function createSecurityAccessGuard({ actionName, getEmail }) {
     return async (req, res, next) => {
         try {
             const settings = await loadSecuritySettings()
@@ -282,16 +279,6 @@ function createSecurityAccessGuard({ actionName, getEmail, requireVerifiedForTic
             if (settings.securityEnableEmailSuffixBlock && email && isEmailSuffixBlocked(email, settings.securityBlockedEmailSuffixes)) {
                 logger.warn('命中邮箱后缀黑名单', { action: actionName, ip, email })
                 return res.status(403).json({ error: '该邮箱后缀暂不支持，请更换邮箱' })
-            }
-
-            if (requireVerifiedForTicket && settings.securityRequireVerifiedForTicket) {
-                const user = await resolveCurrentUser(req)
-                if (!user) {
-                    return res.status(401).json({ error: '请先登录' })
-                }
-                if (!user.emailVerified) {
-                    return res.status(403).json({ error: '请先完成邮箱验证后再提交工单' })
-                }
             }
 
             next()
@@ -316,8 +303,7 @@ const ticketCreateSecurityGuard = createSecurityAccessGuard({
     getEmail: async (req) => {
         const user = await resolveCurrentUser(req)
         return user?.email || req.user?.email || ''
-    },
-    requireVerifiedForTicket: true
+    }
 })
 
 const registerRateLimiter = createSecurityRateLimiter({

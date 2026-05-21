@@ -7,49 +7,49 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
+    padding: 28px 20px;
     box-sizing: border-box;
 }
 
 /* ── Card ── */
 .fa-card {
     width: 100%;
-    max-width: 420px;
+    max-width: 380px;
     background: #fff;
-    border-radius: 24px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
-    padding: 40px 36px;
+    border-radius: 18px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+    padding: 22px;
 }
 
 /* ── Header ── */
 .fa-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 16px;
 }
 
 .fa-logo {
-    width: 52px;
-    height: 52px;
-    border-radius: 15px;
-    background: #DC2626;
-    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(220, 38, 38, 0.08);
+    color: #DC2626;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 16px;
-    box-shadow: 0 6px 20px rgba(79,70,229,0.28);
+    margin: 0 auto 8px;
+    box-shadow: none;
 }
 
 .fa-title {
-    font-size: 1.5rem;
+    font-size: 1.22rem;
     font-weight: 800;
     color: #111827;
-    letter-spacing: -0.03em;
-    margin-bottom: 6px;
+    letter-spacing: 0;
+    margin: 0;
 }
 
 .fa-sub {
-    font-size: 0.875rem;
+    font-size: 0.82rem;
     color: #9CA3AF;
 }
 
@@ -57,14 +57,14 @@
 .fa-form {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 14px;
 }
 
 .fa-field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
 }
 
 .fa-label-row {
@@ -74,7 +74,7 @@
 }
 
 .fa-label {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: #374151;
     letter-spacing: 0.01em;
@@ -97,7 +97,7 @@
 
 .fa-input-icon {
     position: absolute;
-    left: 14px;
+    left: 12px;
     color: #9CA3AF;
     pointer-events: none;
     flex-shrink: 0;
@@ -105,11 +105,11 @@
 
 .fa-input {
     width: 100%;
-    height: 46px;
+    height: 42px;
     border: 1.5px solid #E5E7EB;
-    border-radius: 11px;
-    padding: 0 44px 0 40px;
-    font-size: 0.9rem;
+    border-radius: 10px;
+    padding: 0 40px 0 36px;
+    font-size: 0.86rem;
     color: #111827;
     background: #F9FAFB;
     outline: none;
@@ -125,7 +125,7 @@
 
 .fa-toggle-pw {
     position: absolute;
-    right: 13px;
+    right: 10px;
     background: transparent;
     border: none;
     color: #9CA3AF;
@@ -139,13 +139,13 @@
 
 /* ── Submit ── */
 .fa-submit {
-    height: 48px;
+    height: 42px;
     width: 100%;
     background: #DC2626;
     color: #fff;
     border: none;
-    border-radius: 12px;
-    font-size: 0.95rem;
+    border-radius: 10px;
+    font-size: 0.88rem;
     font-weight: 700;
     cursor: pointer;
     display: flex;
@@ -153,9 +153,9 @@
     justify-content: center;
     gap: 8px;
     transition: opacity 0.15s, transform 0.1s;
-    box-shadow: 0 4px 14px rgba(79,70,229,0.3);
-    letter-spacing: 0.02em;
-    margin-top: 4px;
+    box-shadow: 0 4px 12px rgba(220,38,38,0.22);
+    letter-spacing: 0;
+    margin-top: 2px;
 }
 .fa-submit:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
 .fa-submit:active:not(:disabled) { transform: translateY(0); }
@@ -175,9 +175,9 @@
 /* ── Footer ── */
 .fa-footer {
     text-align: center;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: #6B7280;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .fa-link {
@@ -193,7 +193,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     color: #D1D5DB;
     font-size: 0.78rem;
 }
@@ -210,7 +210,7 @@
 .fa-guest {
     display: block;
     text-align: center;
-    padding: 11px;
+    padding: 9px 11px;
     border: 1.5px solid #E5E7EB;
     border-radius: 11px;
     font-size: 0.85rem;
@@ -240,6 +240,7 @@
 
 /* ── Responsive ── */
 @media (max-width: 480px) {
-    .fa-card { padding: 32px 24px; border-radius: 20px; }
-    .fa-title { font-size: 1.3rem; }
+    .fa-page { padding: 18px 12px; }
+    .fa-card { padding: 20px 16px; border-radius: 16px; }
+    .fa-title { font-size: 1.18rem; }
 }

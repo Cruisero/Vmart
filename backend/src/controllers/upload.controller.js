@@ -10,10 +10,25 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // 生成唯一文件名
-const generateFileName = (originalName) => {
+const getExtension = (originalName, mimetype) => {
+    const mimeMap = {
+        'image/jpeg': '.jpg',
+        'image/jpg': '.jpg',
+        'image/png': '.png',
+        'image/gif': '.gif',
+        'image/webp': '.webp',
+        'image/bmp': '.bmp',
+        'image/svg+xml': '.svg',
+        'image/x-icon': '.ico',
+        'image/vnd.microsoft.icon': '.ico'
+    }
+    return mimeMap[mimetype] || path.extname(originalName).toLowerCase()
+}
+
+const generateFileName = (originalName, mimetype) => {
     const timestamp = Date.now()
     const random = crypto.randomBytes(8).toString('hex')
-    const ext = path.extname(originalName).toLowerCase()
+    const ext = getExtension(originalName, mimetype)
     return `${timestamp}_${random}${ext}`
 }
 
@@ -23,7 +38,7 @@ const storage = multer.diskStorage({
         cb(null, uploadDir)
     },
     filename: (req, file, cb) => {
-        cb(null, generateFileName(file.originalname))
+        cb(null, generateFileName(file.originalname, file.mimetype))
     }
 })
 

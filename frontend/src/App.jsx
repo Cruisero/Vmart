@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import VerifyEmail from './pages/VerifyEmail'
 import ForgotPassword from './pages/Auth/ForgotPassword'
 import ResetPassword from './pages/Auth/ResetPassword'
 import NotFound from './pages/NotFound'
@@ -126,7 +125,6 @@ function App() {
                     <Route path="/agent-apply" element={<AgentApply />} />
 
                     {/* 公共邮箱/密码相关 */}
-                    <Route path="/verify-email" element={<VerifyEmail />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
 

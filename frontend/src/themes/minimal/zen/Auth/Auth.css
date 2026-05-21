@@ -1,54 +1,251 @@
 .za-page {
-  min-height: calc(100vh - 56px); display: flex; align-items: center; justify-content: center;
-  background: #FAFAF8; padding: 40px 24px;
+  min-height: calc(100vh - 56px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #f7f7f4 0%, #f4f3ee 100%);
+  padding: 30px 24px;
+  box-sizing: border-box;
 }
+
 .za-card {
-  width: 100%; max-width: 380px;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ece8e1;
+  border-radius: 14px;
+  box-shadow: 0 10px 26px rgba(17, 17, 17, 0.05);
+  padding: 24px 22px 20px;
 }
-.za-title { font-size: 1.5rem; font-weight: 700; color: #1A1A1A; margin-bottom: 4px; }
-.za-sub { font-size: 0.85rem; color: #999; margin-bottom: 28px; }
-.za-form { display: flex; flex-direction: column; gap: 16px; }
-.za-field { display: flex; flex-direction: column; gap: 5px; }
-.za-label { font-size: 0.78rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-.za-label-row { display: flex; justify-content: space-between; align-items: center; }
-.za-forgot { font-size: 0.75rem; color: #C45D3E; text-decoration: none; }
-.za-forgot:hover { text-decoration: underline; }
-.za-input-wrap { position: relative; }
+
+.za-header {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.za-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #f0ece6;
+  color: #6b6258;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.za-title {
+  font-size: 1.38rem;
+  font-weight: 750;
+  color: #171717;
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.za-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.za-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.za-label {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: #5d646d;
+  letter-spacing: 0;
+}
+
+.za-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.za-forgot {
+  font-size: 0.75rem;
+  color: #C45D3E;
+  text-decoration: none;
+}
+
+.za-forgot:hover {
+  text-decoration: underline;
+}
+
+.za-input-wrap {
+  position: relative;
+}
+
 .za-input {
-  width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #EEECE8;
-  background: transparent; font-size: 0.9rem; color: #2D2D2D; outline: none;
-  transition: border-color 0.15s;
+  width: 100%;
+  height: 44px;
+  padding: 0 44px 0 40px;
+  border: 1px solid #e4e0d8;
+  border-radius: 8px;
+  background: #fbfaf8;
+  font-size: 0.9rem;
+  color: #2d2d2d;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  box-sizing: border-box;
 }
-.za-input:focus { border-bottom-color: #1A1A1A; }
-.za-input::placeholder { color: #ccc; }
-.za-pw-toggle {
-  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: #bbb; cursor: pointer;
+
+.za-input:focus {
+  border-color: #1a1a1a;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.06);
 }
+
+.za-input::placeholder {
+  color: #b2b2b2;
+}
+
+.za-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.za-toggle-pw {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #bbb;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
 .za-submit {
-  margin-top: 8px; padding: 12px; border: none; border-radius: 4px;
-  background: #1A1A1A; color: #fff; font-size: 0.88rem; font-weight: 600;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-  transition: opacity 0.15s;
+  margin-top: 4px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #1A1A1A;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 10px 22px rgba(17, 17, 17, 0.12);
+  letter-spacing: 0;
 }
-.za-submit:hover { opacity: 0.85; }
-.za-submit:disabled { background: #ccc; cursor: default; }
-.za-footer { text-align: center; margin-top: 24px; font-size: 0.82rem; color: #999; }
-.za-link { color: #C45D3E; text-decoration: none; margin-left: 4px; font-weight: 600; }
-.za-link:hover { text-decoration: underline; }
+
+.za-submit:hover {
+  opacity: 0.94;
+  transform: translateY(-1px);
+}
+
+.za-submit:disabled {
+  background: #ccc;
+  cursor: default;
+}
+
+.za-footer {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 0.82rem;
+  color: #8b8b8b;
+}
+
+.za-link {
+  color: #C45D3E;
+  text-decoration: none;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+.za-link:hover {
+  text-decoration: underline;
+}
+
 .za-divider {
-  text-align: center; margin: 20px 0; position: relative; color: #ccc; font-size: 0.78rem;
+  text-align: center;
+  margin: 16px 0;
+  position: relative;
+  color: #ccc;
+  font-size: 0.78rem;
 }
-.za-divider::before, .za-divider::after {
-  content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: #EEECE8;
+
+.za-divider::before,
+.za-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 42%;
+  height: 1px;
+  background: #e7e1d7;
 }
+
 .za-divider::before { left: 0; }
 .za-divider::after { right: 0; }
-.za-divider span { background: #FAFAF8; padding: 0 12px; position: relative; }
-.za-guest {
-  display: block; text-align: center; font-size: 0.82rem; color: #999;
-  text-decoration: none; transition: color 0.15s;
+
+.za-divider span {
+  background: transparent;
+  padding: 0 12px;
+  position: relative;
 }
-.za-guest:hover { color: #2D2D2D; }
-.za-terms { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #999; }
-.za-terms input[type="checkbox"] { accent-color: #1A1A1A; }
+
+.za-guest {
+  display: block;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #999;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.za-guest:hover {
+  color: #2D2D2D;
+}
+
+.za-terms {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #999;
+}
+
+.za-terms input[type="checkbox"] {
+  accent-color: #1A1A1A;
+}
+
+@media (max-width: 480px) {
+  .za-page {
+    padding: 18px 12px;
+  }
+
+  .za-card {
+    padding: 20px 16px 18px;
+    border-radius: 12px;
+  }
+
+  .za-title {
+    font-size: 1.22rem;
+  }
+
+  .za-input {
+    height: 44px;
+  }
+}

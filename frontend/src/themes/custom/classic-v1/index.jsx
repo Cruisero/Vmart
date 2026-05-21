@@ -22,6 +22,7 @@ import Search from '../../../pages/Search'
 import TicketNew from '../../../pages/TicketNew'
 import TicketDetail from '../../../pages/TicketDetail'
 import { TermsPage, RefundPolicyPage } from '../../../pages/PolicyPage'
+import './styles.css'
 
 function NoticeBanner({ text, slug }) {
     const location = useLocation()
@@ -35,15 +36,10 @@ function NoticeBanner({ text, slug }) {
     )
 }
 
-function Footer({ shopName }) {
-    return (
-        <footer className="sf-footer">
-            <span>{shopName} · <a href="https://vmart.cc" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by Vmart</a></span>
-        </footer>
-    )
-}
-
 export default function ClassicV1Theme({ shop, slug }) {
+    const LoginHeader = () => <Login headerTitle="欢迎回来" headerSubtitle="登录账号，继续购物" />
+    const RegisterHeader = () => <Register headerTitle="创建账号" headerSubtitle="注册账号，享受更多服务" />
+
     const routes = (
         <Routes>
             <Route index element={<Products />} />
@@ -52,8 +48,8 @@ export default function ClassicV1Theme({ shop, slug }) {
             <Route path="cart" element={<Cart />} />
             <Route path="order/:orderNo" element={<OrderResult />} />
             <Route path="order-query" element={<OrderQuery />} />
-            <Route path="login" element={<Login />} />
-            <Route path="register" element={<Register />} />
+            <Route path="login" element={<LoginHeader />} />
+            <Route path="register" element={<RegisterHeader />} />
             <Route path="search" element={<Search />} />
             <Route path="tickets/new" element={<TicketNew />} />
             <Route path="tickets/:id" element={<TicketDetail />} />
@@ -64,11 +60,10 @@ export default function ClassicV1Theme({ shop, slug }) {
     )
 
     return (
-        <div className="sf-root">
+        <div className="sf-root class-v1-theme">
             <Navbar />
             <NoticeBanner text={shop.shopNotice} slug={slug} />
             <main className="main-content">{routes}</main>
-            <Footer shopName={shop.shopName} />
         </div>
     )
 }

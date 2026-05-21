@@ -22,7 +22,7 @@ async function getTenantAdminPath(token) {
     }
 }
 
-function Login() {
+function Login({ headerTitle, headerSubtitle } = {}) {
     const { t } = useTranslation()
     usePageTitle(t('auth.login'))
     const navigate = useNavigate()
@@ -96,8 +96,8 @@ function Login() {
         <div className="auth-page">
             <div className="auth-container">
                 <div className="auth-header">
-                    <h1>{t('user.welcome')}</h1>
-                    <p>{t('auth.login')}</p>
+                    <h1>{headerTitle || t('user.welcome')}</h1>
+                    <p>{headerSubtitle || t('auth.loginContinue')}</p>
                 </div>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
@@ -160,6 +160,7 @@ function Login() {
                         {t('nav.home')}
                     </Link>
                 </div>
+
             </div>
         </div>
     )

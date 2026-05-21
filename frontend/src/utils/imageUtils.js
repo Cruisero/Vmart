@@ -6,6 +6,7 @@
  */
 
 const API_BASE = '/api'
+const NO_COMPRESS_TYPES = new Set(['image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'])
 
 /**
  * 压缩图片
@@ -49,6 +50,28 @@ export const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
         img.onerror = () => reject(new Error('图片加载失败'))
         img.src = URL.createObjectURL(file)
     })
+}
+
+/**
+ * 统一准备上传图片文件
+ * - 可压缩的位图转成 WebP
+ * - SVG / ICO 等保留原文件
+ * @param {File} file
+ * @param {number} maxWidth
+ * @param {number} quality
+ * @returns {Promise<File>}
+ */
+export const prepareUploadImageFile = async (file, maxWidth = 1600, quality = 0.82) => {
+    if (!file?.type?.startsWith('image/')) return file
+    if (NO_COMPRESS_TYPES.has(file.type)) return file
+
+    try {
+        const compressed = await compressImage(file, maxWidth, quality)
+        const baseName = file.name.replace(/\.[^.]+$/, '') || file.name
+        return new File([compressed], `${baseName}.webp`, { type: 'image/webp' })
+    } catch {
+        return file
+    }
 }
 
 /**
@@ -101,10 +124,8 @@ export const uploadImages = async (files, onProgress = () => { }) => {
     const formData = new FormData()
 
     for (const file of files) {
-        // 前端先压缩
-        const compressed = await compressImage(file, 1920, 0.85)
-        const compressedFile = new File([compressed], file.name, { type: 'image/webp' })
-        formData.append('images', compressedFile)
+        const uploadFile = await prepareUploadImageFile(file, 1920, 0.85)
+        formData.append('images', uploadFile)
     }
 
     return new Promise((resolve, reject) => {

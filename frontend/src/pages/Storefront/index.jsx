@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, Outlet } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { StorefrontContext } from '../../store/storefrontStore'
 
 // Theme layout shells
@@ -37,6 +38,7 @@ import './Storefront.css'
 function Storefront({ forcedSlug, isSubdomain = false }) {
     const params = useParams()
     const slug = forcedSlug || params.slug
+    const { t } = useTranslation()
     const [shop, setShop] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -94,8 +96,8 @@ function Storefront({ forcedSlug, isSubdomain = false }) {
                             <Route path="checkout" element={<FreshCheckout />} />
                             <Route path="order/:orderNo" element={<FreshOrderResult />} />
                             <Route path="order-query" element={<FreshOrderQuery />} />
-                            <Route path="login" element={<FreshLogin />} />
-                            <Route path="register" element={<FreshRegister />} />
+                            <Route path="login" element={<FreshLogin headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} />} />
+                            <Route path="register" element={<FreshRegister headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} />} />
                         </Routes>
                     </main>
                     <StorefrontFooter shopName={shop.shopName} />
@@ -117,8 +119,8 @@ function Storefront({ forcedSlug, isSubdomain = false }) {
                             <Route path="checkout" element={<Checkout />} />
                             <Route path="order/:orderNo" element={<OrderResult />} />
                             <Route path="order-query" element={<OrderQuery />} />
-                            <Route path="login" element={<Login />} />
-                            <Route path="register" element={<Register />} />
+                            <Route path="login" element={<Login headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} />} />
+                            <Route path="register" element={<Register headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} />} />
                         </Routes>
                     </main>
                     <StorefrontFooter shopName={shop.shopName} />
@@ -133,17 +135,17 @@ function Storefront({ forcedSlug, isSubdomain = false }) {
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#FAFAF8' }}>
                 <ZenNavbar />
                 {shop.shopNotice && <AgentNoticeBanner text={shop.shopNotice} />}
-                <main style={{ flex: 1 }}>
-                    <Routes>
-                        <Route index element={<ZenProducts />} />
-                        <Route path="products/:id" element={<ZenProductDetail />} />
-                        <Route path="checkout" element={<ZenCheckout />} />
-                        <Route path="order/:orderNo" element={<ZenOrderResult />} />
-                        <Route path="order-query" element={<ZenOrderQuery />} />
-                        <Route path="login" element={<ZenLogin />} />
-                        <Route path="register" element={<ZenRegister />} />
-                    </Routes>
-                </main>
+                    <main style={{ flex: 1 }}>
+                        <Routes>
+                            <Route index element={<ZenProducts />} />
+                            <Route path="products/:id" element={<ZenProductDetail />} />
+                            <Route path="checkout" element={<ZenCheckout />} />
+                            <Route path="order/:orderNo" element={<ZenOrderResult />} />
+                            <Route path="order-query" element={<ZenOrderQuery />} />
+                            <Route path="login" element={<ZenLogin headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} />} />
+                            <Route path="register" element={<ZenRegister headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} />} />
+                        </Routes>
+                    </main>
                 <StorefrontFooter shopName={shop.shopName} />
             </div>
         </StorefrontContext.Provider>

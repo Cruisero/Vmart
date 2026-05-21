@@ -17,6 +17,7 @@ import { useMerchantStore } from '../../../store/merchantStore'
 import { useAdminPrefsStore } from '../../../store/adminPrefsStore'
 import { useAdminL } from '../../../hooks/useAdminL'
 import { formatMoney, getCurrencySymbol } from '../../../utils/adminFormat'
+import { prepareUploadImageFile, uploadImages as uploadCompressedImages } from '../../../utils/imageUtils'
 import './Dashboard.css'
 import TenantSettings from '../TenantSettings'
 
@@ -263,8 +264,9 @@ function MerchantSupportPage() {
         if (!file) return
         setUploading(true)
         try {
+            const uploadFile = await prepareUploadImageFile(file)
             const fd = new FormData()
-            fd.append('images', file)
+            fd.append('images', uploadFile)
             const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
             const d = await r.json()
             if (d.success && d.images?.[0]?.urls?.original) {
@@ -1431,21 +1433,7 @@ function ProductsManage() {
         setUploadProgress(0)
 
         try {
-            const formDataUpload = new FormData()
-            pendingImages.forEach(item => {
-                formDataUpload.append('images', item.file)
-            })
-
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formDataUpload
-            })
-
-            if (!response.ok) {
-                throw new Error('Upload failed')
-            }
-
-            const result = await response.json()
+            const result = await uploadCompressedImages(pendingImages.map(item => item.file))
 
             // Add到Uploaded列表
             const newImages = result.images.map(img => ({
@@ -3001,8 +2989,9 @@ function TicketsManage() {
         if (!file) return
         setUploadingImg(true)
         try {
+            const uploadFile = await prepareUploadImageFile(file)
             const fd = new FormData()
-            fd.append('images', file)
+            fd.append('images', uploadFile)
             const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
             const d = await r.json()
             if (d.success && d.images?.[0]?.urls?.original) {
@@ -5866,22 +5855,23 @@ function SettingsPage() {
                                         <img src={settings.siteLogo} alt="Logo" style={{ height: 36, width: 'auto', display: 'block' }} />
                                     </div>
                                 )}
-                                <label style={{
-                                    padding: '8px 16px', borderRadius: 8,
-                                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                                    cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
-                                    color: 'var(--text-primary)', transition: 'all 0.15s'
-                                }}>
-                                    {settings.siteLogo ? L('更换 Logo', 'Change') : L('上传 Logo', 'Upload Logo')}
-                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
-                                        const file = e.target.files?.[0]
-                                        if (!file) return
-                                        const fd = new FormData()
-                                        fd.append('logo', file)
-                                        try {
-                                            const res = await fetch('/api/upload/branding', {
-                                                method: 'POST',
-                                                headers: { 'Authorization': `Bearer ${token}` },
+                                    <label style={{
+                                        padding: '8px 16px', borderRadius: 8,
+                                        background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
+                                        color: 'var(--text-primary)', transition: 'all 0.15s'
+                                    }}>
+                                        {settings.siteLogo ? L('更换 Logo', 'Change') : L('上传 Logo', 'Upload Logo')}
+                                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
+                                            const file = e.target.files?.[0]
+                                            if (!file) return
+                                            const uploadFile = await prepareUploadImageFile(file)
+                                            const fd = new FormData()
+                                            fd.append('logo', uploadFile)
+                                            try {
+                                                const res = await fetch('/api/upload/branding', {
+                                                    method: 'POST',
+                                                    headers: { 'Authorization': `Bearer ${token}` },
                                                 body: fd
                                             })
                                             const data = await res.json()
@@ -5919,22 +5909,23 @@ function SettingsPage() {
                                         <img src={settings.siteFavicon} alt="Favicon" style={{ height: 32, width: 32, display: 'block', objectFit: 'contain' }} />
                                     </div>
                                 )}
-                                <label style={{
-                                    padding: '8px 16px', borderRadius: 8,
-                                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                                    cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
-                                    color: 'var(--text-primary)', transition: 'all 0.15s'
-                                }}>
-                                    {settings.siteFavicon ? L('更换图标', 'Change') : L('上传图标', 'Upload Icon')}
-                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
-                                        const file = e.target.files?.[0]
-                                        if (!file) return
-                                        const fd = new FormData()
-                                        fd.append('favicon', file)
-                                        try {
-                                            const res = await fetch('/api/upload/branding', {
-                                                method: 'POST',
-                                                headers: { 'Authorization': `Bearer ${token}` },
+                                    <label style={{
+                                        padding: '8px 16px', borderRadius: 8,
+                                        background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
+                                        color: 'var(--text-primary)', transition: 'all 0.15s'
+                                    }}>
+                                        {settings.siteFavicon ? L('更换图标', 'Change') : L('上传图标', 'Upload Icon')}
+                                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
+                                            const file = e.target.files?.[0]
+                                            if (!file) return
+                                            const uploadFile = await prepareUploadImageFile(file)
+                                            const fd = new FormData()
+                                            fd.append('favicon', uploadFile)
+                                            try {
+                                                const res = await fetch('/api/upload/branding', {
+                                                    method: 'POST',
+                                                    headers: { 'Authorization': `Bearer ${token}` },
                                                 body: fd
                                             })
                                             const data = await res.json()

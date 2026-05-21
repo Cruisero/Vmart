@@ -20,7 +20,7 @@ async function getTenantAdminPath(token) {
     }
 }
 
-export default function FreshLogin() {
+export default function FreshLogin({ headerTitle, headerSubtitle } = {}) {
     const L = useBuyerL()
     const navigate = useNavigate()
     const login = useAuthStore((s) => s.login)
@@ -74,8 +74,8 @@ export default function FreshLogin() {
                     <div className="fa-logo">
                         <FiLock size={20} />
                     </div>
-                    <h1 className="fa-title">{L('user.welcome')}</h1>
-                    <p className="fa-sub">{L('nav.login')}</p>
+                    <h1 className="fa-title">{headerTitle || L('user.welcome')}</h1>
+                    <p className="fa-sub">{headerSubtitle || L('auth.loginContinue')}</p>
                 </div>
 
                 <form className="fa-form" onSubmit={handleSubmit}>

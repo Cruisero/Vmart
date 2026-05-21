@@ -11,6 +11,7 @@
  *  - 后续可逐步替换内嵌组件以达到完全独立
  */
 import { Routes, Route, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import OriginNavbar from './Navbar'
 
@@ -43,19 +44,8 @@ function NoticeBanner({ text, slug }) {
     )
 }
 
-function Footer({ shopName }) {
-    return (
-        <footer className="og-footer">
-            <div className="og-footer-inner">
-                <span className="og-footer-brand">{shopName}</span>
-                <span className="og-footer-divider">·</span>
-                <a href="https://vmart.cc" target="_blank" rel="noopener noreferrer" className="og-footer-meta">Powered by Vmart</a>
-            </div>
-        </footer>
-    )
-}
-
 export default function OriginTheme({ shop, slug }) {
+    const { t } = useTranslation()
     const routes = (
         <Routes>
             <Route index element={<Products />} />
@@ -64,8 +54,8 @@ export default function OriginTheme({ shop, slug }) {
             <Route path="cart" element={<Cart />} />
             <Route path="order/:orderNo" element={<OrderResult />} />
             <Route path="order-query" element={<OrderQuery />} />
-            <Route path="login" element={<Login />} />
-            <Route path="register" element={<Register />} />
+            <Route path="login" element={<Login headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} />} />
+            <Route path="register" element={<Register headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} />} />
             <Route path="search" element={<Search />} />
             <Route path="tickets/new" element={<TicketNew />} />
             <Route path="tickets/:id" element={<TicketDetail />} />
@@ -80,7 +70,6 @@ export default function OriginTheme({ shop, slug }) {
             <OriginNavbar shop={shop} slug={slug} />
             <NoticeBanner text={shop.shopNotice} slug={slug} />
             <main className="og-main">{routes}</main>
-            <Footer shopName={shop.shopName} />
         </div>
     )
 }

@@ -73,8 +73,7 @@ exports.register = async (req, res, next) => {
                 email,
                 password: hashedPassword,
                 username: username || email.split('@')[0],
-                // OTP 验证通过则视为已验证；否则保持原状（默认 false 但不再阻塞使用）
-                emailVerified: sw?.value === 'true'
+                emailVerified: true
             }
         })
 

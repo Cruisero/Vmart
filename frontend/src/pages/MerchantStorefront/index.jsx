@@ -87,7 +87,7 @@ export default function MerchantStorefront() {
     const [shop, setShop] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
-    const { i18n } = useTranslation()
+    const { i18n, t } = useTranslation()
 
     useEffect(() => {
         setLoading(true)
@@ -179,8 +179,8 @@ export default function MerchantStorefront() {
             <Route path="cart" element={<Cart />} />
             <Route path="order/:orderNo" element={skin === 'fresh' ? <FreshOrderResult /> : <ZenOrderResult />} />
             <Route path="order-query" element={skin === 'fresh' ? <FreshOrderQuery /> : <ZenOrderQuery />} />
-            <Route path="login" element={skin === 'fresh' ? <FreshLogin /> : <ZenLogin />} />
-            <Route path="register" element={skin === 'fresh' ? <FreshRegister /> : <ZenRegister />} />
+            <Route path="login" element={skin === 'fresh' ? <FreshLogin headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} /> : <ZenLogin headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} />} />
+            <Route path="register" element={skin === 'fresh' ? <FreshRegister headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} /> : <ZenRegister headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} />} />
             <Route path="search" element={<Search />} />
             <Route path="tickets/new" element={<TicketNew />} />
             <Route path="tickets/:id" element={<TicketDetail />} />

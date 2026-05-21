@@ -16,7 +16,7 @@ router.post('/otp/send', async (req, res) => {
         if (!email) return res.status(400).json({ error: '邮箱不能为空' })
         const sw = await prisma.platformSetting.findUnique({ where: { key: 'customer_register_otp' } })
         if (sw?.value !== 'true') {
-            return res.status(400).json({ error: '该商城未启用邮箱验证' })
+            return res.status(400).json({ error: '该商城未启用注册验证码' })
         }
         let tenantId = null
         if (slug) {

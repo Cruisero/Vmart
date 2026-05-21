@@ -28,7 +28,7 @@ router.post('/platform/otp/send', async (req, res) => {
         const switchKey = scope === 'merchant_register' ? 'merchant_register_otp' : 'customer_register_otp'
         const sw = await prisma.platformSetting.findUnique({ where: { key: switchKey } })
         if (sw?.value !== 'true') {
-            return res.status(400).json({ error: '该场景未启用邮箱验证' })
+            return res.status(400).json({ error: '该场景未启用注册验证码' })
         }
         let tenantId = null
         if (scope === 'customer_register' && slug) {

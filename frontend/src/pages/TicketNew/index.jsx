@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useNavigate, Link } from 'react-router-dom'
-import { FiArrowLeft, FiSend, FiPackage, FiChevronDown, FiCheck, FiAlertTriangle } from 'react-icons/fi'
+import { FiArrowLeft, FiSend, FiPackage, FiChevronDown, FiCheck, FiAlertTriangle, FiImage, FiX } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/authStore'
 import { useMerchantStore } from '../../store/merchantStore'
 import { useStorefrontPath } from '../../store/storefrontStore'
+import { uploadImages as uploadTicketImages, processSelectedFiles } from '../../utils/imageUtils'
 import toast from 'react-hot-toast'
 import './TicketNew.css'
 
@@ -48,6 +49,8 @@ function TicketNew() {
     const [orderId, setOrderId] = useState('')
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(false)
+    const [imageUploading, setImageUploading] = useState(false)
+    const [attachments, setAttachments] = useState([])
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [openTickets, setOpenTickets] = useState([])
     const dropdownRef = useRef(null)
@@ -105,6 +108,32 @@ function TicketNew() {
         }
     }
 
+    const handleImageChange = async (e) => {
+        const files = e.target.files
+        if (!files || files.length === 0) return
+
+        try {
+            const selected = await processSelectedFiles(files)
+            if (!selected.length) {
+                toast.error('请选择图片文件')
+                return
+            }
+            const next = [...attachments, ...selected].slice(0, 10)
+            if (next.length < attachments.length + selected.length) {
+                toast.error('最多只能上传 10 张图片')
+            }
+            setAttachments(next)
+        } catch (error) {
+            toast.error(error.message || '图片处理失败')
+        } finally {
+            e.target.value = ''
+        }
+    }
+
+    const removeAttachment = (index) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index))
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault()
 
@@ -131,6 +160,16 @@ function TicketNew() {
 
         setLoading(true)
         try {
+            let images = null
+            if (attachments.length > 0) {
+                setImageUploading(true)
+                const uploaded = await uploadTicketImages(attachments.map(item => item.file))
+                images = uploaded
+                    .map(item => item?.urls?.original)
+                    .filter(Boolean)
+                setImageUploading(false)
+            }
+
             const res = await fetch('/api/tickets', {
                 method: 'POST',
                 headers: {
@@ -141,7 +180,8 @@ function TicketNew() {
                     type,
                     subject: subject.trim(),
                     content: content.trim(),
-                    orderId: orderId || null
+                    orderId: orderId || null,
+                    images: images && images.length ? images : null
                 })
             })
 
@@ -151,8 +191,7 @@ function TicketNew() {
                 toast.success('工单提交成功')
                 navigate(withPrefix(`/tickets/${data.ticket.id}`))
             } else if (res.status === 409 && data.existingTicket) {
-                toast.error(data.error)
-                navigate(withPrefix(`/tickets/${data.existingTicket.id}`))
+                toast.error(data.error || '您还有未关闭的工单，请先处理原工单')
             } else {
                 toast.error(data.error || '提交失败')
             }
@@ -160,6 +199,7 @@ function TicketNew() {
             console.error('提交工单失败:', error)
             toast.error('提交失败，请稍后重试')
         } finally {
+            setImageUploading(false)
             setLoading(false)
         }
     }
@@ -329,15 +369,52 @@ function TicketNew() {
                         <div className="char-count">{content.length}/2000</div>
                     </div>
 
+                    {/* 图片附件 */}
+                    <div className="form-group">
+                        <label>
+                            <FiImage />
+                            图片附件（可选）
+                        </label>
+                        <div className="ticket-image-uploader">
+                            {attachments.map((item, index) => (
+                                <div className="ticket-image-preview" key={`${item.name}-${index}`}>
+                                    <img src={item.preview} alt={item.name} />
+                                    <button
+                                        type="button"
+                                        className="remove-image-btn"
+                                        onClick={() => removeAttachment(index)}
+                                        aria-label="移除图片"
+                                    >
+                                        <FiX />
+                                    </button>
+                                </div>
+                            ))}
+                            {attachments.length < 10 && (
+                                <label className="ticket-image-add">
+                                    <FiImage />
+                                    <span>{imageUploading ? '上传中...' : '添加图片'}</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleImageChange}
+                                        disabled={imageUploading || loading}
+                                    />
+                                </label>
+                            )}
+                        </div>
+                        <div className="upload-tip">支持 JPG、PNG、WebP 等图片格式，最多 10 张，单张不超过 5MB。</div>
+                    </div>
+
                     {/* 提交按钮 */}
                     <div className="form-actions">
                         <button
                             type="submit"
                             className="btn btn-primary btn-lg"
-                            disabled={loading}
+                            disabled={loading || imageUploading}
                         >
                             <FiSend />
-                            {loading ? '提交中...' : '提交工单'}
+                            {loading || imageUploading ? '提交中...' : '提交工单'}
                         </button>
                     </div>
                 </form>

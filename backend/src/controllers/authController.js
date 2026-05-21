@@ -61,10 +61,6 @@ exports.register = async (req, res, next) => {
         // 加密密码
         const hashedPassword = await bcrypt.hash(password, 10)
 
-        // 生成验证 token
-        const crypto = require('crypto')
-        const verificationToken = crypto.randomBytes(32).toString('hex')
-
         // 创建用户
         const role = req.body.isSaas ? 'TENANT_ADMIN' : 'USER'
         
@@ -74,8 +70,7 @@ exports.register = async (req, res, next) => {
                 password: hashedPassword,
                 username: username || email.split('@')[0],
                 role,
-                emailVerified: false,
-                verificationToken,
+                emailVerified: true,
                 referralAgentId,
                 tenantId
             }
@@ -114,23 +109,11 @@ exports.register = async (req, res, next) => {
             console.error('关联游客订单失败:', err)
         }
 
-        // 发送验证邮件
-        const emailService = require('../services/emailService')
-        const baseUrl = req.headers.origin || 'http://localhost:3000'
-        emailService.sendVerificationEmail(user, verificationToken, baseUrl)
-            .then(result => {
-                if (result.success) {
-                    console.log(`验证邮件已发送至 ${email}`)
-                } else {
-                    console.log(`验证邮件发送失败: ${result.error || result.reason}`)
-                }
-            })
-
         // 生成 Token
         const token = generateToken(user)
 
         res.status(201).json({
-            message: '注册成功，请查收验证邮件',
+            message: '注册成功',
             user: {
                 id: user.id,
                 email: user.email,
@@ -252,81 +235,6 @@ exports.logout = async (req, res, next) => {
     try {
         // 可以在这里将 Token 加入黑名单 (使用 Redis)
         res.json({ message: '已退出登录' })
-    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
-}
-
-// 验证邮箱
-exports.verifyEmail = async (req, res, next) => {
-    try {
-        const { token } = req.query
-
-        if (!token) {
-            return res.status(400).json({ error: '验证链接无效' })
-        }
-
-        const user = await prisma.user.findFirst({
-            where: { verificationToken: token }
-        })
-
-        if (!user) {
-            return res.status(400).json({ error: '验证链接无效或已过期' })
-        }
-
-        if (user.emailVerified) {
-            return res.json({ message: '邮箱已验证，无需重复操作' })
-        }
-
-        // 更新用户验证状态
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                emailVerified: true,
-                verificationToken: null
-            }
-        })
-
-        res.json({ message: '邮箱验证成功！' })
-    } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
-}
-
-// 重发验证邮件
-exports.resendVerification = async (req, res, next) => {
-    try {
-        if (!req.user) {
-            return res.status(401).json({ error: '请先登录' })
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { id: req.user.id }
-        })
-
-        if (!user) {
-            return res.status(404).json({ error: '用户不存在' })
-        }
-
-        if (user.emailVerified) {
-            return res.json({ message: '邮箱已验证，无需重复发送' })
-        }
-
-        // 生成新的验证 token
-        const crypto = require('crypto')
-        const verificationToken = crypto.randomBytes(32).toString('hex')
-
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { verificationToken }
-        })
-
-        // 发送验证邮件
-        const emailService = require('../services/emailService')
-        const baseUrl = req.headers.origin || 'http://localhost:3000'
-        const result = await emailService.sendVerificationEmail(user, verificationToken, baseUrl)
-
-        if (result.success) {
-            res.json({ message: '验证邮件已发送，请查收' })
-        } else {
-            res.status(500).json({ error: '邮件发送失败，请稍后重试' })
-        }
     } catch (error) { res.status(500).json({ error: error.message, stack: error.stack }); }
 }
 

@@ -9,7 +9,7 @@ import { useRegisterOtp } from '../../../../hooks/useRegisterOtp'
 import toast from 'react-hot-toast'
 import './Auth.css'
 
-export default function FreshRegister() {
+export default function FreshRegister({ headerTitle, headerSubtitle } = {}) {
     const L = useBuyerL()
     const navigate = useNavigate()
     const login = useAuthStore((s) => s.login)
@@ -63,19 +63,19 @@ export default function FreshRegister() {
                     <div className="fa-logo">
                         <FiUser size={20} />
                     </div>
-                    <h1 className="fa-title">{L('nav.register')}</h1>
-                    <p className="fa-sub">{L('nav.register')}</p>
+                    <h1 className="fa-title">{headerTitle || L('auth.createAccount')}</h1>
+                    <p className="fa-sub">{headerSubtitle || L('auth.registerToShop')}</p>
                 </div>
 
                 <form className="fa-form" onSubmit={handleSubmit}>
                     <div className="fa-field">
-                        <label className="fa-label">{L('order.email')}</label>
+                        <label className="fa-label">{L('auth.username')}</label>
                         <div className="fa-input-wrap">
                             <FiUser className="fa-input-icon" size={15} />
                             <input
                                 type="text"
                                 className="fa-input"
-                                placeholder={L('auth.emailPlaceholder')}
+                                placeholder={L('auth.usernamePlaceholder')}
                                 value={form.username}
                                 onChange={e => setForm({ ...form, username: e.target.value })}
                                 autoComplete="username"

@@ -9,7 +9,7 @@ import { useRegisterOtp } from '../../../hooks/useRegisterOtp'
 import toast from 'react-hot-toast'
 import './Auth.css'
 
-function Register() {
+function Register({ headerTitle, headerSubtitle } = {}) {
     const { t } = useTranslation()
     usePageTitle(t('auth.register'))
     const navigate = useNavigate()
@@ -95,20 +95,20 @@ function Register() {
         <div className="auth-page">
             <div className="auth-container">
                 <div className="auth-header">
-                    <h1>{t('auth.register')}</h1>
-                    <p>{t('auth.register')}</p>
+                    <h1>{headerTitle || t('auth.createAccount')}</h1>
+                    <p>{headerSubtitle || t('auth.registerToShop')}</p>
                 </div>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>店铺名称</label>
+                        <label>{t('auth.username')}</label>
                         <div className="input-wrapper">
                             <FiUser className="input-icon" />
                             <input
                                 type="text"
                                 name="username"
                                 className="input with-icon"
-                                placeholder="给你的商城起个名字"
+                                placeholder={t('auth.usernamePlaceholder')}
                                 value={formData.username}
                                 onChange={handleChange}
                             />
@@ -206,6 +206,7 @@ function Register() {
                 <div className="auth-footer">
                     <p>{t('auth.hasAccount')} <Link to={withPrefix('/login')}>{t('auth.goLogin')}</Link></p>
                 </div>
+
             </div>
         </div>
     )

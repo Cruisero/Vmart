@@ -4,15 +4,34 @@ import { useAuthStore } from '../../../store/authStore'
 import { useMerchantStore } from '../../../store/merchantStore'
 import { useAdminPrefsStore } from '../../../store/adminPrefsStore'
 import { useAdminL } from '../../../hooks/useAdminL'
+import { prepareUploadImageFile } from '../../../utils/imageUtils'
 import PlanPurchase from '../../ShopAdmin/PlanPurchase'
 import './TenantSettings.css'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
 const ALL_SKIN_OPTIONS = [
-    { value: 'fresh', label: 'Fresh', desc: 'Clean and bright' },
-    { value: 'zen', label: 'Zen', desc: 'Dark and elegant' },
-    { value: 'class', label: 'Class', desc: 'Modern classic' },
+    {
+        value: 'fresh',
+        labelZh: 'Fresh',
+        labelEn: 'Fresh',
+        descZh: '清爽明亮的现代商城主题',
+        descEn: 'Clean and bright storefront theme'
+    },
+    {
+        value: 'zen',
+        labelZh: 'Zen',
+        labelEn: 'Zen',
+        descZh: '克制优雅的极简商城主题',
+        descEn: 'Minimal and elegant storefront theme'
+    },
+    {
+        value: 'class',
+        labelZh: 'Class',
+        labelEn: 'Class',
+        descZh: '现代经典风格商城主题',
+        descEn: 'Modern classic storefront theme'
+    },
 ]
 
 // 后台语言 & 货币偏好组件
@@ -685,8 +704,9 @@ For orders eligible for a refund, we prioritize free replacement:
                                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
                                         const file = e.target.files[0]
                                         if (!file) return
+                                        const uploadFile = await prepareUploadImageFile(file)
                                         const formData = new FormData()
-                                        formData.append('images', file)
+                                        formData.append('images', uploadFile)
                                         try {
                                             const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData })
                                             const d = await r.json()
@@ -708,8 +728,9 @@ For orders eligible for a refund, we prioritize free replacement:
                                     <input type="file" accept="image/*,.ico" style={{ display: 'none' }} onChange={async e => {
                                         const file = e.target.files[0]
                                         if (!file) return
+                                        const uploadFile = await prepareUploadImageFile(file)
                                         const formData = new FormData()
-                                        formData.append('images', file)
+                                        formData.append('images', uploadFile)
                                         try {
                                             const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData })
                                             const d = await r.json()

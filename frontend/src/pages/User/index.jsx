@@ -18,7 +18,6 @@ const menuItems = [
 // 个人信息页
 function ProfilePage() {
     const { user, token } = useAuthStore()
-    const [resending, setResending] = useState(false)
     const [stats, setStats] = useState({ total: 0, spent: 0, completed: 0 })
 
     useEffect(() => {
@@ -42,46 +41,9 @@ function ProfilePage() {
         if (token) fetchStats()
     }, [token])
 
-    const handleResendVerification = async () => {
-        setResending(true)
-        try {
-            const res = await fetch('/api/auth/resend-verification', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            const data = await res.json()
-            if (res.ok) {
-                toast.success(data.message)
-            } else {
-                toast.error(data.error)
-            }
-        } catch (error) {
-            toast.error('发送失败，请稍后重试')
-        } finally {
-            setResending(false)
-        }
-    }
-
     return (
         <div className="profile-page">
             <h2>个人信息</h2>
-
-            {/* 邮箱未验证提示 */}
-            {user && !user.emailVerified && user.role !== 'ADMIN' && (
-                <div className="email-verify-alert">
-                    <div className="alert-content">
-                        <span>⚠️ 您的邮箱尚未验证</span>
-                        <p>请查收验证邮件并点击链接完成验证，以确保账户安全</p>
-                    </div>
-                    <button
-                        className="btn btn-warning"
-                        onClick={handleResendVerification}
-                        disabled={resending}
-                    >
-                        {resending ? '发送中...' : '重新发送验证邮件'}
-                    </button>
-                </div>
-            )}
 
             {/* 个人资料卡片 - 现代设计 */}
             <div className="profile-hero-card">
@@ -99,13 +61,6 @@ function ProfilePage() {
                         <h3 className="hero-name">{user?.username || '用户'}</h3>
                         <p className="hero-email">
                             {user?.email || '未绑定邮箱'}
-                            {user?.role !== 'ADMIN' && (
-                                user?.emailVerified ? (
-                                    <span className="verified-tag">已验证</span>
-                                ) : (
-                                    <span className="unverified-tag">未验证</span>
-                                )
-                            )}
                         </p>
                         <p className="hero-date">
                             {user?.createdAt

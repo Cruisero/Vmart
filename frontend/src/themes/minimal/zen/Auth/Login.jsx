@@ -20,7 +20,7 @@ async function getTenantAdminPath(token) {
     }
 }
 
-export default function ZenLogin() {
+export default function ZenLogin({ headerTitle, headerSubtitle } = {}) {
     const L = useBuyerL()
     const navigate = useNavigate()
     const login = useAuthStore((s) => s.login)
@@ -71,11 +71,9 @@ export default function ZenLogin() {
         <div className="za-page">
             <div className="za-card">
                 <div className="za-header">
-                    <div className="za-logo">
-                        <FiLock size={20} />
-                    </div>
-                    <h1 className="za-title">{L('user.welcome')}</h1>
-                    <p className="za-sub">{L('nav.login')}</p>
+                    <div className="za-eyebrow">BUYER ACCESS</div>
+                    <h1 className="za-title">{headerTitle || L('user.welcome')}</h1>
+                    <p className="za-sub">{headerSubtitle || L('auth.loginContinue')}</p>
                 </div>
 
                 <form className="za-form" onSubmit={handleSubmit}>

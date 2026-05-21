@@ -99,6 +99,25 @@ exports.createTicket = async (req, res, next) => {
             return res.status(400).json({ error: '请填写完整信息' })
         }
 
+        // 只要存在未关闭工单，就不允许新建工单
+        const existingOpenTicketWhere = { status: { not: 'CLOSED' } }
+        if (isCustomer) existingOpenTicketWhere.customerId = userId
+        else existingOpenTicketWhere.userId = userId
+
+        const existingOpenTicket = await prisma.ticket.findFirst({
+            where: existingOpenTicketWhere,
+            orderBy: { updatedAt: 'desc' },
+            select: { id: true, ticketNo: true, subject: true, status: true }
+        })
+
+        if (existingOpenTicket) {
+            const previousStatusMap = await getSuperAdminPreviousStatusMap()
+            return res.status(409).json({
+                error: '您还有未关闭的工单，请先在原工单中继续沟通',
+                existingTicket: maskTicketStatusForUser(existingOpenTicket, previousStatusMap)
+            })
+        }
+
         // 如果关联订单，验证订单属于该用户
         let orderNo = null
         if (orderId) {
