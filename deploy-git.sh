@@ -114,6 +114,7 @@ else
     done
 
     rm -rf "$preserve_tmp"
+    cd "$REMOTE_PATH"
 fi
 
 git clean -fd -e backend/uploads -e backend/backups -e .env
