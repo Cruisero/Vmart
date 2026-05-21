@@ -1,10 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useBuyerL } from '../../../../hooks/useBuyerL'
+import { useStorefront } from '../../../../store/storefrontStore'
+import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import './NotFound.css'
 
 function FreshNotFound() {
     const L = useBuyerL()
     const navigate = useNavigate()
+    const storefront = useStorefront()
+    const prefix = storefront ? getStorefrontBasePath(storefront) : ''
 
     return (
         <div className="fn-404-page">
@@ -24,7 +28,7 @@ function FreshNotFound() {
                 <div className="fn-404-divider" />
 
                 <div className="fn-404-actions">
-                    <Link to="/" className="fn-404-btn-primary">
+                    <Link to={`${prefix}/`} className="fn-404-btn-primary">
                         {L('nav.home')}
                     </Link>
                     <button onClick={() => navigate(-1)} className="fn-404-btn-secondary">

@@ -15,16 +15,17 @@ export default function ZenNavbar() {
     const storefront = useStorefront()
     const navigate = useNavigate()
 
-    const handleLogout = () => { logout(); navigate('/') }
-
     const displayName = storefront ? storefront.shopName : (siteName || 'VMART')
     const displayLogo = storefront ? storefront.shopLogo : siteLogo
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
+    const homePath = `${prefix}/`
+
+    const handleLogout = () => { logout(); navigate(homePath) }
 
     return (
         <header className="zn-bar">
             <div className="zn-bar-inner">
-                <Link to={`${prefix}/`} className="zn-logo">
+                <Link to={homePath} className="zn-logo">
                     {displayLogo
                         ? <img src={displayLogo} alt={displayName} className="zn-logo-img" />
                         : displayName

@@ -334,7 +334,7 @@ const zh = {
                         "order": {
                             "timeout": {
                                 "rules": {
-                                    "8ee9656": "配置库存计算方式和Order Timeout规则"
+                                    "8ee9656": "配置库存计算方式和订单超时规则"
                                 }
                             }
                         }
@@ -777,7 +777,7 @@ const zh = {
                 "fe524a0": "经营货币"
             },
             "settings": {
-                "d95dc37": "Store Settings"
+                "d95dc37": "商城设置"
             },
             "name": {
                 "b223d79": "商城名称"
@@ -807,7 +807,7 @@ const zh = {
                                 "store": {
                                     "settings": {
                                         "and": {
-                                            "251b332": "商城所有者拥有全部权限（含Store Settings、套餐管理）"
+                                            "251b332": "商城所有者拥有全部权限（含商城设置、套餐管理）"
                                         }
                                     }
                                 }
@@ -834,12 +834,12 @@ const zh = {
             },
             "order": {
                 "settings": {
-                    "1cc7703": "Save Order Settings"
+                    "1cc7703": "保存订单设置"
                 }
             },
             "email": {
                 "settings": {
-                    "ef7cb1b": "保存Email"
+                    "ef7cb1b": "保存邮件设置"
                 }
             },
             "permissions": {
@@ -890,7 +890,7 @@ const zh = {
                 "8e798b4": "更新失败"
             },
             "password": {
-                "cd02826": "更New Password"
+                "cd02826": "更新密码"
             }
         },
         "alipay": {
@@ -953,9 +953,9 @@ const zh = {
             "19d0b2a": "订单设置"
         },
         "email": {
-            "dceeba7": "Email",
+            "dceeba7": "邮件设置",
             "notifications": {
-                "1b7b91b": "Email Notification"
+                "1b7b91b": "邮件通知"
             },
             "password": {
                 "app": {
@@ -991,10 +991,10 @@ const zh = {
             "d35236c": "管理员"
         },
         "account": {
-            "d72d065": "Security"
+            "d72d065": "安全设置"
         },
         "plan": {
-            "e8ec140": "Plan"
+            "e8ec140": "我的套餐"
         },
         "manage": {
             "store": {
@@ -1005,7 +1005,7 @@ const zh = {
                                 "security": {
                                     "and": {
                                         "domai": {
-                                            "f6fe2d3": "管理商城信息、支付方式、Security和域名配置"
+                                            "f6fe2d3": "管理商城信息、支付方式、账户安全和域名配置"
                                         }
                                     }
                                 }
@@ -1030,7 +1030,7 @@ const zh = {
                                     "notification": {
                                         "quota": {
                                             "": {
-                                                "7fef012": "当前套餐不包含Email Notification额度，邮件功能已禁用。请升级套餐后启用。"
+                                                "7fef012": "当前套餐不包含邮件通知额度，邮件功能已禁用。请升级套餐后启用。"
                                             }
                                         }
                                     }
@@ -1042,14 +1042,14 @@ const zh = {
             }
         },
         "replace": {
-            "6ce02bc": "Change"
+            "6ce02bc": "更换"
         },
         "upload": {
             "logo": {
-                "2a5b9fa": "Upload Logo"
+                "2a5b9fa": "上传 Logo"
             },
             "failed": {
-                "7d90602": "Upload failed"
+                "7d90602": "上传失败"
             },
             "favicon": {
                 "28f504b": "上传 Favicon"
@@ -1064,11 +1064,11 @@ const zh = {
         },
         "logo": {
             "uploaded": {
-                "076e78c": "Logo uploaded"
+                "076e78c": "Logo 已上传"
             }
         },
         "clear": {
-            "a0e44b2": "Clear",
+            "a0e44b2": "清除",
             "uploaded": {
                 "content": {
                     "a5ba771": "清除已上传内容"
@@ -1083,7 +1083,7 @@ const zh = {
                             "ico": {
                                 "or": {
                                     "png": {
-                                        "97179ea": "Recommended: 32x32, ICO or PNG"
+                                        "97179ea": "推荐：32x32 像素，ICO 或 PNG 格式"
                                     }
                                 }
                             }
@@ -1096,7 +1096,7 @@ const zh = {
                             "png": {
                                 "svg": {
                                     "supported": {
-                                        "0d81dfb": "Recommended: 200x200, PNG/SVG"
+                                        "0d81dfb": "推荐：200x200 像素，PNG 或 SVG 格式"
                                     }
                                 }
                             }
@@ -1217,7 +1217,7 @@ const zh = {
                 }
             },
             "password": {
-                "cad7e6b": "Current Password"
+                "cad7e6b": "当前密码"
             }
         },
         "enabled": {
@@ -1301,7 +1301,7 @@ const zh = {
             "3107846": "展开 ▼"
         },
         "saving": {
-            "18c1774": "Saving..."
+            "18c1774": "保存中..."
         },
         "enable": {
             "payment": {
@@ -1436,20 +1436,20 @@ const zh = {
         },
         "change": {
             "password": {
-                "0afa917": "Change Password"
+                "0afa917": "修改密码"
             }
         },
         "new": {
             "password": {
-                "57a200d": "New Password"
+                "57a200d": "新密码"
             },
             "ticket": {
-                "d1818f7": "New Ticket创建",
-                "1f5a015": "📮 New Ticket"
+                "d1818f7": "新工单创建",
+                "1f5a015": "📮 新工单通知"
             },
             "user": {
                 "registration": {
-                    "16930a4": "New User"
+                    "16930a4": "新用户注册"
                 }
             }
         },
@@ -1465,7 +1465,7 @@ const zh = {
         "confirm": {
             "new": {
                 "password": {
-                    "2f631ee": "确认New Password"
+                    "2f631ee": "确认新密码"
                 }
             }
         },
@@ -1477,15 +1477,15 @@ const zh = {
                 "f9ade7b": "订单设置"
             },
             "timeout": {
-                "982bde5": "Order Timeout时间"
+                "982bde5": "订单超时时间"
             },
             "paid": {
-                "9f137b9": "Order Paid",
+                "9f137b9": "订单已支付",
                 "f7ee83e": "💰 订单支付"
             },
             "cancelled": {
-                "e74cb32": "Order Cancelled",
-                "df76e50": "🚫 Order Cancelled"
+                "e74cb32": "订单已取消",
+                "df76e50": "🚫 订单已取消"
             }
         },
         "stock": {
@@ -1512,7 +1512,7 @@ const zh = {
                 }
             },
             "alert": {
-                "aad841e": "⚠️ Stock Alert"
+                "aad841e": "⚠️ 库存不足警报"
             }
         },
         "manual": {
@@ -1543,7 +1543,7 @@ const zh = {
             }
         },
         "minutes": {
-            "96cd1c2": "min"
+            "96cd1c2": "分钟"
         },
         "unpaid": {
             "orders": {
@@ -1552,7 +1552,7 @@ const zh = {
                         "automatically": {
                             "after": {
                                 "timeout": {
-                                    "897dd2e": "未支付Order Timeout后Auto Cancel"
+                                    "897dd2e": "未支付订单超时后自动取消"
                                 }
                             }
                         }
@@ -1570,7 +1570,7 @@ const zh = {
                                     "orders": {
                                         "are": {
                                             "c": {
-                                                "948090b": "配置Auto-send card keys email after order completion给买家"
+                                                "948090b": "订单完成后自动向买家发送卡密邮件"
                                             }
                                         }
                                     }
@@ -1602,12 +1602,12 @@ const zh = {
             "emails": {
                 "this": {
                     "month": {
-                        "f1fbf39": "本月Platform sends邮件"
+                        "f1fbf39": "本月平台发信邮件"
                     }
                 }
             },
             "sending": {
-                "040437c": "Platform sends",
+                "040437c": "平台发信",
                 "needs": {
                     "no": {
                         "configuration": {
@@ -1616,7 +1616,7 @@ const zh = {
                                     "name": {
                                         "is": {
                                             "u": {
-                                                "db7b340": "Platform sends无需配置，系统以你的店铺名称作为发件人。额度由套餐决定。"
+                                                "db7b340": "平台发信无需配置，系统以你的店铺名称作为发件人。额度由套餐决定。"
                                             }
                                         }
                                     }
@@ -1661,7 +1661,7 @@ const zh = {
                                                     "your": {
                                                         "own": {
                                                             "sm": {
-                                                                "ae3a651": "⚠️ 本月额度已用完，可购买资源包或切换Own SMTP"
+                                                                "ae3a651": "⚠️ 本月额度已用完，可购买资源包或切换自建 SMTP"
                                                             }
                                                         }
                                                     }
@@ -1688,7 +1688,7 @@ const zh = {
         },
         "own": {
             "smtp": {
-                "fd68a8b": "Own SMTP"
+                "fd68a8b": "自建 SMTP"
             }
         },
         "smtp": {
@@ -1696,7 +1696,7 @@ const zh = {
                 "c5216fc": "SMTP 服务器"
             },
             "port": {
-                "dafafac": "SMTP Port"
+                "dafafac": "SMTP 端口"
             }
         },
         "sender": {
@@ -1724,7 +1724,7 @@ const zh = {
                     "users": {
                         "submit": {
                             "tickets": {
-                                "efb780e": "用户提交New Ticket时通知管理员"
+                                "efb780e": "用户提交新工单时通知管理员"
                             }
                         }
                     },
@@ -1732,7 +1732,7 @@ const zh = {
                         "new": {
                             "user": {
                                 "registers": {
-                                    "aa51bd0": "有New User时通知管理员"
+                                    "aa51bd0": "有新用户注册时通知管理员"
                                 }
                             }
                         }
@@ -1951,7 +1951,7 @@ const zh = {
                         "password": {
                             "after": {
                                 "login": {
-                                    "eb04f0f": "员工可在登录后自行Change Password"
+                                    "eb04f0f": "员工可在登录后自行修改密码"
                                 }
                             }
                         }

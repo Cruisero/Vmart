@@ -10,6 +10,18 @@ import './Auth.css'
 
 const API_BASE = '/api'
 
+async function getTenantAdminPath(token) {
+    try {
+        const response = await fetch('/api/tenant/me', {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        const data = await response.json()
+        return data?.tenant?.shopSlug ? `/v/${data.tenant.shopSlug}/admin` : null
+    } catch {
+        return null
+    }
+}
+
 function Login() {
     const { t } = useTranslation()
     usePageTitle(t('auth.login'))
@@ -61,8 +73,15 @@ function Login() {
             toast.success(t('auth.loginSuccess'))
 
             const role = data.user.role
-            if (!storefront?._tenantMode && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
-                navigate('/admin')
+            if (!storefront?._tenantMode && ['ADMIN', 'TENANT_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+                const tenantPath = await getTenantAdminPath(data.token)
+                if (tenantPath) {
+                    navigate(tenantPath, { replace: true })
+                } else if (role === 'SUPER_ADMIN') {
+                    navigate('/Man/dashboard', { replace: true })
+                } else {
+                    navigate(withPrefix('/'))
+                }
             } else {
                 navigate(withPrefix('/'))
             }

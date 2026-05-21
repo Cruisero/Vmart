@@ -79,7 +79,7 @@ exports.applyStep2 = async (req, res) => {
         const certArgs = [ACME_SH, '--install-cert', '-d', cleanDomain, '-d', `*.${cleanDomain}`,
             '--cert-file', path.join(SSL_DIR, `${cleanDomain}.cer`),
             '--key-file', path.join(SSL_DIR, `${cleanDomain}.key`),
-            '--fullchain-file', path.join(SSL_DIR, 'fullchain.pem'),
+            '--fullchain-file', path.join(SSL_DIR, `${cleanDomain}.fullchain.pem`),
             '--reloadcmd', 'nginx -s reload || true']
 
         const ip = spawn('sh', certArgs, { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -100,7 +100,7 @@ exports.getStatus = async (req, res) => {
     if (!domain) return res.status(400).json({ error: '缺少域名' })
     const cleanDomain = domain.trim().toLowerCase()
 
-    const certPath = path.join(SSL_DIR, 'fullchain.pem')
+    const certPath = path.join(SSL_DIR, `${cleanDomain}.fullchain.pem`)
     const keyPath = path.join(SSL_DIR, `${cleanDomain}.key`)
     const hasCert = fs.existsSync(certPath)
     const hasKey = fs.existsSync(keyPath)

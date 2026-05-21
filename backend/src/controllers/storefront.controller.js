@@ -240,33 +240,44 @@ exports.getTenantProducts = async (req, res, next) => {
         if (categoryId) where.categoryId = categoryId
         if (search) where.name = { contains: search }
 
-        const products = await prisma.product.findMany({
-            where,
-            include: {
-                category: { select: { id: true, name: true, icon: true } },
-                cards: { where: { status: 'AVAILABLE', tenantId: req.tenantId }, select: { id: true } },
-                variants: {
-                    where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
-                    include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
-                }
-            },
-            orderBy: [{ weight: 'desc' }, { createdAt: 'desc' }],
-            skip: (page - 1) * Number(limit),
-            take: Number(limit)
-        })
+        const [products, stockModeSetting] = await Promise.all([
+            prisma.product.findMany({
+                where,
+                include: {
+                    category: { select: { id: true, name: true, icon: true } },
+                    cards: { where: { status: 'AVAILABLE', tenantId: req.tenantId }, select: { id: true } },
+                    variants: {
+                        where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
+                        include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+                    }
+                },
+                orderBy: [{ weight: 'desc' }, { createdAt: 'desc' }],
+                skip: (page - 1) * Number(limit),
+                take: Number(limit)
+            }),
+            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        ])
+
+        const stockMode = stockModeSetting?.value || 'auto'
 
         const categoriesMap = new Map()
         const result = products.map(p => {
             if (p.category) categoriesMap.set(p.category.id, p.category)
+
+            let stock = stockMode === 'manual' ? p.stock : p.cards.length
+            if (p.variants.length > 0 && stockMode !== 'manual') {
+                stock = p.variants.reduce((sum, v) => sum + v.cards.length, 0)
+            }
+
             return {
                 id: p.id, name: p.name, description: p.description,
                 image: p.image, images: p.images, price: parseFloat(p.price),
                 originalPrice: p.originalPrice ? parseFloat(p.originalPrice) : null,
-                stock: p.cards.length || p.variants.reduce((s, v) => s + v.cards.length, 0),
+                stock,
                 soldCount: p.soldCount, category: p.category, tags: p.tags,
                 variants: p.variants.map(v => ({
                     id: v.id, name: v.name, price: parseFloat(v.price),
-                    stock: v.cards.length
+                    stock: stockMode === 'manual' ? v.stock : v.cards.length
                 }))
             }
         })
@@ -281,19 +292,28 @@ exports.getTenantProduct = async (req, res, next) => {
         if (!req.tenantId) return res.status(404).json({ error: '商城不存在' })
 
         const { productId } = req.params
-        const product = await prisma.product.findFirst({
-            where: { id: productId, tenantId: req.tenantId, status: 'ACTIVE' },
-            include: {
-                category: { select: { id: true, name: true } },
-                cards: { where: { status: 'AVAILABLE', tenantId: req.tenantId }, select: { id: true } },
-                variants: {
-                    where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
-                    include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+        const [product, stockModeSetting] = await Promise.all([
+            prisma.product.findFirst({
+                where: { id: productId, tenantId: req.tenantId, status: 'ACTIVE' },
+                include: {
+                    category: { select: { id: true, name: true } },
+                    cards: { where: { status: 'AVAILABLE', tenantId: req.tenantId }, select: { id: true } },
+                    variants: {
+                        where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
+                        include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+                    }
                 }
-            }
-        })
+            }),
+            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        ])
 
         if (!product) return res.status(404).json({ error: '商品不存在' })
+
+        const stockMode = stockModeSetting?.value || 'auto'
+        let stock = stockMode === 'manual' ? product.stock : product.cards.length
+        if (product.variants.length > 0 && stockMode !== 'manual') {
+            stock = product.variants.reduce((sum, v) => sum + v.cards.length, 0)
+        }
 
         res.json({
             product: {
@@ -301,11 +321,11 @@ exports.getTenantProduct = async (req, res, next) => {
                 fullDescription: product.fullDescription, image: product.image, images: product.images,
                 price: parseFloat(product.price),
                 originalPrice: product.originalPrice ? parseFloat(product.originalPrice) : null,
-                stock: product.cards.length || product.variants.reduce((s, v) => s + v.cards.length, 0),
+                stock,
                 soldCount: product.soldCount, category: product.category, tags: product.tags,
                 deliveryNote: product.deliveryNote, wholesalePrices: product.wholesalePrices,
                 variants: product.variants.map(v => ({
-                    id: v.id, name: v.name, price: parseFloat(v.price), stock: v.cards.length
+                    id: v.id, name: v.name, price: parseFloat(v.price), stock: stockMode === 'manual' ? v.stock : v.cards.length
                 })),
                 _tenantId: req.tenantId
             }
@@ -416,32 +436,43 @@ exports.getMerchantProducts = async (req, res, next) => {
         if (categoryId) where.categoryId = categoryId
         if (search) where.name = { contains: search }
 
-        const products = await prisma.product.findMany({
-            where,
-            include: {
-                category: { select: { id: true, name: true, icon: true } },
-                cards: { where: { status: 'AVAILABLE', tenantId: tenant.id }, select: { id: true } },
-                variants: {
-                    where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
-                    include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
-                }
-            },
-            orderBy: [{ weight: 'desc' }, { createdAt: 'desc' }],
-            skip: (page - 1) * Number(limit),
-            take: Number(limit)
-        })
+        const [products, stockModeSetting] = await Promise.all([
+            prisma.product.findMany({
+                where,
+                include: {
+                    category: { select: { id: true, name: true, icon: true } },
+                    cards: { where: { status: 'AVAILABLE', tenantId: tenant.id }, select: { id: true } },
+                    variants: {
+                        where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
+                        include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+                    }
+                },
+                orderBy: [{ weight: 'desc' }, { createdAt: 'desc' }],
+                skip: (page - 1) * Number(limit),
+                take: Number(limit)
+            }),
+            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        ])
+
+        const stockMode = stockModeSetting?.value || 'auto'
 
         const categoriesMap = new Map()
         const result = products.map(p => {
             if (p.category) categoriesMap.set(p.category.id, p.category)
+
+            let stock = stockMode === 'manual' ? p.stock : p.cards.length
+            if (p.variants.length > 0 && stockMode !== 'manual') {
+                stock = p.variants.reduce((sum, v) => sum + v.cards.length, 0)
+            }
+
             return {
                 id: p.id, name: p.name, description: p.description,
                 image: p.image, images: p.images, price: parseFloat(p.price),
                 originalPrice: p.originalPrice ? parseFloat(p.originalPrice) : null,
-                stock: p.cards.length || p.variants.reduce((s, v) => s + v.cards.length, 0),
+                stock,
                 soldCount: p.soldCount, category: p.category, tags: p.tags,
                 variants: p.variants.map(v => ({
-                    id: v.id, name: v.name, price: parseFloat(v.price), stock: v.cards.length
+                    id: v.id, name: v.name, price: parseFloat(v.price), stock: stockMode === 'manual' ? v.stock : v.cards.length
                 }))
             }
         })
@@ -459,19 +490,28 @@ exports.getMerchantProduct = async (req, res, next) => {
             return res.status(404).json({ error: '商城不存在' })
         }
 
-        const product = await prisma.product.findFirst({
-            where: { id: productId, tenantId: tenant.id, status: 'ACTIVE' },
-            include: {
-                category: { select: { id: true, name: true } },
-                cards: { where: { status: 'AVAILABLE', tenantId: tenant.id }, select: { id: true } },
-                variants: {
-                    where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
-                    include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+        const [product, stockModeSetting] = await Promise.all([
+            prisma.product.findFirst({
+                where: { id: productId, tenantId: tenant.id, status: 'ACTIVE' },
+                include: {
+                    category: { select: { id: true, name: true } },
+                    cards: { where: { status: 'AVAILABLE', tenantId: tenant.id }, select: { id: true } },
+                    variants: {
+                        where: { status: 'ACTIVE' }, orderBy: { sortOrder: 'asc' },
+                        include: { cards: { where: { status: 'AVAILABLE' }, select: { id: true } } }
+                    }
                 }
-            }
-        })
+            }),
+            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        ])
 
         if (!product) return res.status(404).json({ error: '商品不存在' })
+
+        const stockMode = stockModeSetting?.value || 'auto'
+        let stock = stockMode === 'manual' ? product.stock : product.cards.length
+        if (product.variants.length > 0 && stockMode !== 'manual') {
+            stock = product.variants.reduce((sum, v) => sum + v.cards.length, 0)
+        }
 
         res.json({
             product: {
@@ -479,11 +519,11 @@ exports.getMerchantProduct = async (req, res, next) => {
                 fullDescription: product.fullDescription, image: product.image, images: product.images,
                 price: parseFloat(product.price),
                 originalPrice: product.originalPrice ? parseFloat(product.originalPrice) : null,
-                stock: product.cards.length || product.variants.reduce((s, v) => s + v.cards.length, 0),
+                stock,
                 soldCount: product.soldCount, category: product.category, tags: product.tags,
                 deliveryNote: product.deliveryNote, wholesalePrices: product.wholesalePrices,
                 variants: product.variants.map(v => ({
-                    id: v.id, name: v.name, price: parseFloat(v.price), stock: v.cards.length
+                    id: v.id, name: v.name, price: parseFloat(v.price), stock: stockMode === 'manual' ? v.stock : v.cards.length
                 })),
                 _tenantId: tenant.id
             }

@@ -4,6 +4,18 @@ import { useAuthStore } from '../../store/authStore'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
+async function getTenantAdminPath(token) {
+    try {
+        const response = await fetch('/api/tenant/me', {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        const data = await response.json()
+        return data?.tenant?.shopSlug ? `/v/${data.tenant.shopSlug}/admin` : null
+    } catch {
+        return null
+    }
+}
+
 export default function SaasRegister() {
     const navigate = useNavigate()
     const [params] = useSearchParams()
@@ -32,7 +44,14 @@ export default function SaasRegister() {
             if (r.ok) {
                 // 注册成功并直接登录
                 login(d.user, d.token)
-                navigate('/admin', { replace: true })
+                const tenantPath = await getTenantAdminPath(d.token)
+                if (tenantPath) {
+                    navigate(tenantPath, { replace: true })
+                } else if (d.user?.role === 'SUPER_ADMIN') {
+                    navigate('/Man/dashboard', { replace: true })
+                } else {
+                    navigate('/', { replace: true })
+                }
             } else if (d.message && d.message.includes('验证')) {
                 // 需要邮箱验证
                 setStep('success')

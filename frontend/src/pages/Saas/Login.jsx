@@ -4,6 +4,18 @@ import { useAuthStore } from '../../store/authStore'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
+async function getTenantAdminPath(token) {
+    try {
+        const response = await fetch('/api/tenant/me', {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        const data = await response.json()
+        return data?.tenant?.shopSlug ? `/v/${data.tenant.shopSlug}/admin` : null
+    } catch {
+        return null
+    }
+}
+
 export default function SaasLogin() {
     const navigate = useNavigate()
     const [params] = useSearchParams()
@@ -26,8 +38,14 @@ export default function SaasLogin() {
             const d = await r.json()
             if (d.token) {
                 login(d.user, d.token)
-                // 登录成功 → 直接跳商户商城后台
-                navigate('/admin', { replace: true })
+                const tenantPath = await getTenantAdminPath(d.token)
+                if (tenantPath) {
+                    navigate(tenantPath, { replace: true })
+                } else if (d.user?.role === 'SUPER_ADMIN') {
+                    navigate('/Man/dashboard', { replace: true })
+                } else {
+                    navigate('/', { replace: true })
+                }
             } else {
                 setError(d.error || '登录失败，请检查邮箱和密码')
             }

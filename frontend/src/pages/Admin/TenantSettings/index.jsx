@@ -610,7 +610,7 @@ For orders eligible for a refund, we prioritize free replacement:
                 body: JSON.stringify({ domain: domain.trim().toLowerCase() })
             })
             const d = await r.json()
-            if (d.dnsGuide) { setDnsGuide(d.dnsGuide); setDomainMsg({ type: 'info', text: 'Domain added, please configure DNS' }) }
+            if (d.dnsGuide) { setDnsGuide(d.dnsGuide); setDomainMsg({ type: 'info', text: L('域名已添加，请配置 DNS 解析', 'Domain added, please configure DNS') }) }
             else setDomainMsg({ type: 'error', text: d.error || L('inline.add.failed.4bda4aa') })
         } catch { setDomainMsg({ type: 'error', text: L('inline.network.error.c15d73e') }) }
         setDomainSaving(false)
@@ -625,8 +625,8 @@ For orders eligible for a refund, we prioritize free replacement:
                 body: JSON.stringify({ domain: domain.trim() })
             })
             const d = await r.json()
-            if (d.verified) { setDnsVerified(true); setDomainMsg({ type: 'success', text: 'DNS verified!' }) }
-            else setDomainMsg({ type: 'warning', text: d.message || 'DNS not yet propagated' })
+            if (d.verified) { setDnsVerified(true); setDomainMsg({ type: 'success', text: L('DNS 验证成功！', 'DNS verified!') }) }
+            else setDomainMsg({ type: 'warning', text: d.message || L('DNS 尚未生效或未匹配成功', 'DNS not yet propagated') })
         } catch { setDomainMsg({ type: 'error', text: L('inline.network.error.c15d73e') }) }
         setVerifying(false)
     }
@@ -849,36 +849,36 @@ For orders eligible for a refund, we prioritize free replacement:
                                         <input
                                             value={domain}
                                             onChange={e => setDomain(e.target.value.toLowerCase())}
-                                            placeholder="e.g. shop.yourdomain.com"
+                                            placeholder={L('例如 shop.yourdomain.com', 'e.g. shop.yourdomain.com')}
                                             disabled={dnsVerified}
                                             style={{ flex: 1 }}
                                         />
                                         {!dnsVerified && (
                                             <button type="button" className="ts-btn-secondary" onClick={addDomain} disabled={domainSaving || !domain}>
-                                                {domainSaving ? '...' : 'Add'}
+                                                {domainSaving ? '...' : L('添加', 'Add')}
                                             </button>
                                         )}
                                     </div>
                                     {dnsGuide && !dnsVerified && (
                                         <div className="ts-dns-guide" style={{ marginTop: 12 }}>
-                                            <div className="ts-dns-title">📋 Please add the following DNS record</div>
+                                            <div className="ts-dns-title">{L('📋 请添加以下 DNS 解析记录', '📋 Please add the following DNS record')}</div>
                                             <div className="ts-dns-table">
-                                                <div><span>Type</span><code>A</code></div>
-                                                <div><span>Host</span><code>@</code></div>
-                                                <div><span>Value</span><code>{dnsGuide.value}</code></div>
-                                                <div><span>TTL</span><code>600</code></div>
+                                                <div><span>{L('类型', 'Type')}</span><code>A</code></div>
+                                                <div><span>{L('主机记录', 'Host')}</span><code>@</code></div>
+                                                <div><span>{L('记录值', 'Value')}</span><code>{dnsGuide.value}</code></div>
+                                                <div><span>{L('TTL', 'TTL')}</span><code>600</code></div>
                                             </div>
                                         </div>
                                     )}
                                     {domain && !dnsVerified && (
                                         <button type="button" className="ts-btn-primary" onClick={verifyDns} disabled={verifying} style={{ marginTop: 10 }}>
-                                            {verifying ? 'Checking...' : '🔍 Verify DNS'}
+                                            {verifying ? L('正在验证...', 'Checking...') : L('🔍 验证 DNS', '🔍 Verify DNS')}
                                         </button>
                                     )}
                                     {dnsVerified && (
-                                        <div className="ts-success-box" style={{ marginTop: 10 }}>✅ DNS verified, domain is active</div>
+                                        <div className="ts-success-box" style={{ marginTop: 10 }}>{L('✅ DNS 验证成功，域名已生效', '✅ DNS verified, domain is active')}</div>
                                     )}
-                                    <span className="ts-hint">Bind your own domain for a professional look</span>
+                                    <span className="ts-hint">{L('绑定您自己的独立域名，打造更专业的商城形象', 'Bind your own domain for a professional look')}</span>
                                 </>
                             )}
                         </div>
@@ -886,7 +886,7 @@ For orders eligible for a refund, we prioritize free replacement:
                         {/* Homepage Info Card */}
                         <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 4 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                <label style={{ margin: 0 }}>Homepage Info Card</label>
+                                <label style={{ margin: 0 }}>{L('首页特色卡片', 'Homepage Info Card')}</label>
                                 <label className="ts-switch" style={{ position: 'relative', display: 'inline-block', width: 42, height: 22 }}>
                                     <input
                                         type="checkbox"
@@ -906,17 +906,17 @@ For orders eligible for a refund, we prioritize free replacement:
                                     </span>
                                 </label>
                             </div>
-                            <span className="ts-hint">When enabled, shows an info card above the product list</span>
+                            <span className="ts-hint">{L('启用后，将在首页商品列表上方展示一个信息提示卡片', 'When enabled, shows an info card above the product list')}</span>
 
                             {featureCard.enabled && (
                                 <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     <div>
-                                        <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>Title (optional)</label>
-                                        <input value={featureCard.title || ''} onChange={e => setFeatureCard(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Announcement" maxLength={40} />
+                                        <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>{L('标题 (可选)', 'Title (optional)')}</label>
+                                        <input value={featureCard.title || ''} onChange={e => setFeatureCard(f => ({ ...f, title: e.target.value }))} placeholder={L('例如 声明公告', 'e.g. Announcement')} maxLength={40} />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>Description</label>
-                                        <textarea value={featureCard.description} onChange={e => setFeatureCard(f => ({ ...f, description: e.target.value }))} placeholder="Supports line breaks. URLs auto-linked." rows={8} maxLength={2000} style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical', minHeight: 160 }} />
+                                        <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>{L('描述内容', 'Description')}</label>
+                                        <textarea value={featureCard.description} onChange={e => setFeatureCard(f => ({ ...f, description: e.target.value }))} placeholder={L('支持换行，URL 会自动转为超链接。', 'Supports line breaks. URLs auto-linked.')} rows={8} maxLength={2000} style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical', minHeight: 160 }} />
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
                                         <label style={{ position: 'relative', display: 'inline-block', width: 36, height: 20, flexShrink: 0 }}>
@@ -932,8 +932,8 @@ For orders eligible for a refund, we prioritize free replacement:
                                                 }} />
                                             </span>
                                         </label>
-                                        <span style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>Collapsed by default</span>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Users need to click title to expand</span>
+                                        <span style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>{L('默认收起', 'Collapsed by default')}</span>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{L('买家需要点击标题才能展开内容', 'Users need to click title to expand')}</span>
                                     </div>
                                 </div>
                             )}
@@ -941,15 +941,15 @@ For orders eligible for a refund, we prioritize free replacement:
 
                         {/* Notice Banner */}
                         <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 4 }}>
-                            <label>Notice Banner</label>
-                            <input value={shopForm.notice} onChange={e => setShopForm(f => ({ ...f, notice: e.target.value }))} placeholder="One-line notice shown at top of homepage (optional)" />
-                            <span className="ts-hint">Shown in the dark gray bar below the navbar</span>
+                            <label>{L('首页滚动公告', 'Notice Banner')}</label>
+                            <input value={shopForm.notice} onChange={e => setShopForm(f => ({ ...f, notice: e.target.value }))} placeholder={L('在首页顶部展示的单行滚动公告 (可选)', 'One-line notice shown at top of homepage (optional)')} />
+                            <span className="ts-hint">{L('显示在导航栏下方的提示条中', 'Shown in the dark gray bar below the navbar')}</span>
                         </div>
 
                         {/* Store Policies */}
                         <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 4 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                <label style={{ margin: 0 }}>Store Policies</label>
+                                <label style={{ margin: 0 }}>{L('商城服务协议', 'Store Policies')}</label>
                                 <label className="ts-switch" style={{ position: 'relative', display: 'inline-block', width: 42, height: 22 }}>
                                     <input type="checkbox" checked={!!agreements.enabled} onChange={e => setAgreements(a => ({ ...a, enabled: e.target.checked }))} style={{ opacity: 0, width: 0, height: 0 }} />
                                     <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, background: agreements.enabled ? 'var(--primary)' : '#ccc', borderRadius: 22, transition: '0.2s' }}>
@@ -957,7 +957,7 @@ For orders eligible for a refund, we prioritize free replacement:
                                     </span>
                                 </label>
                             </div>
-                            <span className="ts-hint">When enabled, checkout shows agreement checkbox (checked by default)</span>
+                            <span className="ts-hint">{L('启用后，买家下单结算时需勾选同意协议（默认勾选）', 'When enabled, checkout shows agreement checkbox (checked by default)')}</span>
 
                             {agreements.enabled && (
                                 <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1033,7 +1033,7 @@ For orders eligible for a refund, we prioritize free replacement:
                                                 <div style={{ marginTop: 10 }}>
                                             {agreements.purchasePolicy && (
                                                 <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>Purchase Policy</div>
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>{L('购买须知', 'Purchase Policy')}</div>
                                                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden' }}>
                                                         {agreements.purchasePolicy.slice(0, 200)}{agreements.purchasePolicy.length > 200 ? '...' : ''}
                                                     </div>
@@ -1041,7 +1041,7 @@ For orders eligible for a refund, we prioritize free replacement:
                                             )}
                                             {agreements.refundPolicy && (
                                                 <div>
-                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>Refund Policy</div>
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>{L('退款政策', 'Refund Policy')}</div>
                                                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden' }}>
                                                         {agreements.refundPolicy.slice(0, 200)}{agreements.refundPolicy.length > 200 ? '...' : ''}
                                                     </div>
@@ -1061,7 +1061,7 @@ For orders eligible for a refund, we prioritize free replacement:
 
                                     {agreements.enabled && !agreements.purchasePolicy && !agreements.refundPolicy && (
                                         <div style={{ padding: '8px 12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 6, fontSize: '0.78rem', color: '#92400e' }}>
-                                            ⚠️ Enabled but no policy file uploaded. Checkout will not show agreement checkbox. Please upload and save.
+                                            {L('⚠️ 已启用但未上传协议内容。买家结账时不会显示勾选框，请上传协议并保存。', '⚠️ Enabled but no policy file uploaded. Checkout will not show agreement checkbox. Please upload and save.')}
                                         </div>
                                     )}
                                 </div>
@@ -2233,6 +2233,7 @@ function AdminTab({ token, currentUserEmail, maxSubAdmins = -1 }) {
 
 // Plan Tab 组件
 function PlanTab({ shop, mToken, displaySlug }) {
+    const L = useAdminL()
     const [showPurchase, setShowPurchase] = useState(false)
 
     const planName = shop?.plan === 'FREE' ? '免费试用' : shop?.plan === 'BASIC' ? '基础版' : shop?.plan === 'STANDARD' ? '标准版' : shop?.plan === 'PRO' ? 'Pro' : shop?.plan || '—'
@@ -2252,7 +2253,7 @@ function PlanTab({ shop, mToken, displaySlug }) {
                         <div>
                             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{planName}</div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                                {isExpired ? '已到期' : expiryDate ? `Expires ${expiryDate}` : '永久有效'}
+                                {isExpired ? '已到期' : expiryDate ? L(`到期时间 ${expiryDate}`, `Expires ${expiryDate}`) : '永久有效'}
                             </div>
                         </div>
                     </div>
@@ -2261,7 +2262,7 @@ function PlanTab({ shop, mToken, displaySlug }) {
                         background: isExpired ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
                         color: isExpired ? 'var(--error)' : 'var(--success)'
                     }}>
-                        {isExpired ? '已到期' : 'Active'}
+                        {isExpired ? '已到期' : L('使用中', 'Active')}
                     </div>
                 </div>
 
@@ -2272,7 +2273,7 @@ function PlanTab({ shop, mToken, displaySlug }) {
                     border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
                     fontSize: '0.84rem'
                 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Store URL: </span>
+                    <span style={{ color: 'var(--text-muted)' }}>{L('店铺链接: ', 'Store URL: ')}</span>
                     <a href={`/v/${displaySlug}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-light)', textDecoration: 'none' }}>
                         {window.location.origin}/v/{displaySlug}
                     </a>
@@ -2286,11 +2287,11 @@ function PlanTab({ shop, mToken, displaySlug }) {
                     className="ts-btn-primary"
                     style={{ padding: '12px 28px', fontSize: '0.9rem' }}
                 >
-                    {showPurchase ? '收起' : (shop?.plan === 'FREE' || isExpired ? '🚀 升级套餐' : 'Renew / Upgrade')}
+                    {showPurchase ? L('收起', 'Collapse') : (shop?.plan === 'FREE' || isExpired ? L('🚀 升级套餐', '🚀 Upgrade Plan') : L('续费 / 升级', 'Renew / Upgrade'))}
                 </button>
                 {!showPurchase && shop?.plan && shop.plan !== 'FREE' && !isExpired && (
                     <span style={{ alignSelf: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        Paid plan active. Renew or switch plans here.
+                        {L('付费套餐已启用。您可以在此处进行续费或更换套餐。', 'Paid plan active. Renew or switch plans here.')}
                     </span>
                 )}
             </div>

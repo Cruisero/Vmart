@@ -19,6 +19,40 @@ exports.applyAgent = async (req, res, next) => {
         // 检查是否已经申请过
         const existing = await prisma.agent.findUnique({ where: { userId } })
         if (existing) {
+            if (existing.status === 'REJECTED') {
+                // 如果是已被拒绝的申请，允许重新修改并提交
+                
+                // 检查重新提交的 slug 是否被其他活跃代理占用（排除自己）
+                const slugExists = await prisma.agent.findFirst({
+                    where: { shopSlug, NOT: { userId } }
+                })
+                if (slugExists) {
+                    return res.status(400).json({ error: '该分站路径已被占用' })
+                }
+
+                const updatedAgent = await prisma.agent.update({
+                    where: { userId },
+                    data: {
+                        shopName,
+                        shopSlug,
+                        contactEmail: contactEmail || null,
+                        contactInfo: contactInfo || null,
+                        applyDescription: description || null,
+                        status: 'PENDING'
+                    }
+                })
+
+                // 重新确保用户角色是 AGENT
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: { role: 'AGENT' }
+                })
+
+                return res.status(200).json({
+                    message: '代理申请已重新提交，请等待管理员审核',
+                    agent: { id: updatedAgent.id, shopName: updatedAgent.shopName, shopSlug: updatedAgent.shopSlug, status: updatedAgent.status }
+                })
+            }
             return res.status(400).json({ error: '您已提交过代理申请', agent: { status: existing.status } })
         }
 
@@ -286,26 +320,46 @@ exports.requestWithdrawal = async (req, res, next) => {
             return res.status(400).json({ error: '该提现方式还未保存收款账号' })
         }
 
-        if (parseFloat(agent.balance) < amount) {
-            return res.status(400).json({ error: `可提现余额不足，当前余额 ¥${parseFloat(agent.balance).toFixed(2)}` })
-        }
+        // 使用交互式事务进行悲观锁定，杜绝并发提现漏洞
+        try {
+            await prisma.$transaction(async (tx) => {
+                // 用 SELECT ... FOR UPDATE 锁住 Agent 行，获取最新余额
+                const [lockedAgent] = await tx.$queryRaw`SELECT balance FROM agents WHERE id = ${agent.id} FOR UPDATE`
+                
+                if (!lockedAgent) {
+                    throw new Error('代理商不存在')
+                }
+                
+                const currentBalance = parseFloat(lockedAgent.balance)
+                if (currentBalance < amount) {
+                    throw new Error(`可提现余额不足，当前余额 ¥${currentBalance.toFixed(2)}`)
+                }
 
-        const pendingCount = await prisma.withdrawal.count({
-            where: { agentId: agent.id, status: 'PENDING' }
-        })
-        if (pendingCount > 0) {
-            return res.status(400).json({ error: '您有未处理的提现申请，请等待审核完成后再提交' })
-        }
+                // 再次检查是否有 pending 的提现记录
+                const pendingCount = await tx.withdrawal.count({
+                    where: { agentId: agent.id, status: 'PENDING' }
+                })
+                if (pendingCount > 0) {
+                    throw new Error('您有未处理的提现申请，请等待审核完成后再提交')
+                }
 
-        await prisma.$transaction([
-            prisma.agent.update({
-                where: { id: agent.id },
-                data: { balance: { decrement: amount } }
-            }),
-            prisma.withdrawal.create({
-                data: { agentId: agent.id, amount, method, account }
+                // 执行扣减和创建
+                await tx.agent.update({
+                    where: { id: agent.id },
+                    data: { balance: { decrement: amount } }
+                })
+
+                await tx.withdrawal.create({
+                    data: { agentId: agent.id, amount, method, account }
+                })
             })
-        ])
+        } catch (error) {
+            // 捕获业务逻辑的报错，返回 400
+            if (error.message && (error.message.includes('余额不足') || error.message.includes('未处理') || error.message.includes('不存在'))) {
+                return res.status(400).json({ error: error.message })
+            }
+            throw error
+        }
 
         res.json({ message: '提现申请已提交，请等待管理员审核' })
     } catch (error) {

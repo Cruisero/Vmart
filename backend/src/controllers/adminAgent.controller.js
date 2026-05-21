@@ -183,33 +183,42 @@ exports.processWithdrawal = async (req, res, next) => {
             return res.status(400).json({ error: '无效的状态' })
         }
 
-        const withdrawal = await prisma.withdrawal.findUnique({
-            where: { id },
-            include: { agent: true }
-        })
+        // 使用交互式事务进行悲观加锁，防止多名管理员并发审核或双击产生的重复退款漏洞
+        try {
+            await prisma.$transaction(async (tx) => {
+                // 锁住 Withdrawal 行
+                const [lockedWithdrawal] = await tx.$queryRaw`SELECT status, amount, agent_id FROM withdrawals WHERE id = ${id} FOR UPDATE`
+                
+                if (!lockedWithdrawal) {
+                    throw new Error('提现记录不存在')
+                }
+                if (lockedWithdrawal.status !== 'PENDING') {
+                    throw new Error('提现记录已处理')
+                }
 
-        if (!withdrawal || withdrawal.status !== 'PENDING') {
-            return res.status(400).json({ error: '提现记录不存在或已处理' })
-        }
-
-        if (status === 'REJECTED') {
-            // 拒绝：退回余额
-            await prisma.$transaction([
-                prisma.withdrawal.update({
-                    where: { id },
-                    data: { status: 'REJECTED', remark, processedAt: new Date() }
-                }),
-                prisma.agent.update({
-                    where: { id: withdrawal.agentId },
-                    data: { balance: { increment: withdrawal.amount } }
-                })
-            ])
-        } else {
-            // 通过
-            await prisma.withdrawal.update({
-                where: { id },
-                data: { status: 'APPROVED', remark, processedAt: new Date() }
+                if (status === 'REJECTED') {
+                    // 拒绝：退回余额
+                    await tx.withdrawal.update({
+                        where: { id },
+                        data: { status: 'REJECTED', remark, processedAt: new Date() }
+                    })
+                    await tx.agent.update({
+                        where: { id: lockedWithdrawal.agent_id },
+                        data: { balance: { increment: lockedWithdrawal.amount } }
+                    })
+                } else {
+                    // 通过
+                    await tx.withdrawal.update({
+                        where: { id },
+                        data: { status: 'APPROVED', remark, processedAt: new Date() }
+                    })
+                }
             })
+        } catch (error) {
+            if (error.message && (error.message.includes('不存在') || error.message.includes('已处理'))) {
+                return res.status(400).json({ error: error.message })
+            }
+            throw error
         }
 
         res.json({ message: `提现${status === 'APPROVED' ? '已通过' : '已拒绝'}` })

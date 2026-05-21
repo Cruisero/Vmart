@@ -138,43 +138,47 @@ exports.createOrder = async (req, res, next) => {
         // 构建商品名称（包含规格）
         const productName = variant ? `${product.name} (${variant.name})` : product.name
 
-        // 创建订单
-        const order = await prisma.order.create({
-            data: {
-                orderNo: generateOrderNo(),
-                userId,
-                email,
-                productId,
-                productName,
-                variantId: variant?.id || null,
-                variantName: variant?.name || null,
-                quantity,
-                unitPrice,
-                totalAmount,
-                status: 'PENDING',
-                paymentMethod,
-                ipAddress: req.ip,
-                userAgent: req.get('User-Agent'),
-                remark: remark || null,
-                queryPassword: (!userId && !customerId && queryPassword) ? String(queryPassword).trim() : null,
-                tenantId: product.tenantId || null,
-                customerId
-            }
-        })
-
-        // ---- 创建代理订单记录 ----
-        if (agentInfo) {
-            await prisma.agentOrder.create({
+        // 使用事务创建订单与代理订单记录，确保原子性
+        const order = await prisma.$transaction(async (tx) => {
+            const ord = await tx.order.create({
                 data: {
-                    agentId: agentInfo.agentId,
-                    orderId: order.id,
-                    costPrice: costPrice * quantity,
-                    sellPrice: unitPrice * quantity,
-                    profit: agentInfo.markup * quantity,
-                    settled: false
+                    orderNo: generateOrderNo(),
+                    userId,
+                    email,
+                    productId,
+                    productName,
+                    variantId: variant?.id || null,
+                    variantName: variant?.name || null,
+                    quantity,
+                    unitPrice,
+                    totalAmount,
+                    status: 'PENDING',
+                    paymentMethod,
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent'),
+                    remark: remark || null,
+                    queryPassword: (!userId && !customerId && queryPassword) ? String(queryPassword).trim() : null,
+                    tenantId: product.tenantId || null,
+                    customerId
                 }
             })
-        }
+
+            // ---- 创建代理订单记录 ----
+            if (agentInfo) {
+                await tx.agentOrder.create({
+                    data: {
+                        agentId: agentInfo.agentId,
+                        orderId: ord.id,
+                        costPrice: costPrice * quantity,
+                        sellPrice: unitPrice * quantity,
+                        profit: agentInfo.markup * quantity,
+                        settled: false
+                    }
+                })
+            }
+
+            return ord
+        })
 
         res.status(201).json({
             message: '订单创建成功',

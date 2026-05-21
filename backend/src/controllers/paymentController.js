@@ -3,6 +3,7 @@ const prisma = require('../config/database')
 const { dispenseCards } = require('./cardController')
 const logger = require('../utils/logger')
 const alipayService = require('../services/alipayService')
+const agentService = require('../services/agentService')
 
 // 支付方式配置（默认值）
 const defaultPaymentMethods = [
@@ -368,23 +369,7 @@ async function processPaymentSuccess(orderNo, tradeNo, paymentMethod) {
         })
 
         // ---- 代理利润结算 ----
-        const agentOrder = await prisma.agentOrder.findUnique({ where: { orderId: order.id } })
-        if (agentOrder && !agentOrder.settled) {
-            await prisma.$transaction([
-                prisma.agent.update({
-                    where: { id: agentOrder.agentId },
-                    data: {
-                        balance: { increment: agentOrder.profit },
-                        totalEarnings: { increment: agentOrder.profit }
-                    }
-                }),
-                prisma.agentOrder.update({
-                    where: { id: agentOrder.id },
-                    data: { settled: true }
-                })
-            ])
-            logger.info(`代理订单 ${orderNo} 利润 ¥${agentOrder.profit} 已结算`)
-        }
+        await agentService.settleAgentOrder(order.id)
 
         logger.info(`订单 ${orderNo} 卡密发放成功`)
     } catch (error) {

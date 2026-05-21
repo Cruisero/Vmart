@@ -156,7 +156,7 @@ exports.dispenseCards = async (orderId, productId, quantity, variantId = null) =
 
     // 更新商品销量和库存
     await prisma.product.update({
-        where: { id: productId, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+        where: { id: productId },
         data: {
             stock: { decrement: quantity },
             soldCount: { increment: quantity }
@@ -166,7 +166,7 @@ exports.dispenseCards = async (orderId, productId, quantity, variantId = null) =
     // 检查库存警报
     try {
         const updatedProduct = await prisma.product.findUnique({
-            where: { id: productId, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+            where: { id: productId },
             select: { id: true, name: true, stock: true, price: true }
         })
         if (updatedProduct && updatedProduct.stock <= 0) {

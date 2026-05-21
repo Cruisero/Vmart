@@ -18,16 +18,17 @@ export default function FreshNavbar() {
     const displayName = storefront ? storefront.shopName : siteName
     const displayLogo = storefront ? storefront.shopLogo : siteLogo
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
+    const homePath = `${prefix}/`
 
     const handleLogout = () => {
         logout()
-        navigate('/')
+        navigate(homePath)
     }
 
     return (
         <header className="fn-bar">
         <div className="fn-bar-inner">
-            <Link to={`${prefix}/`} className="fn-logo">
+            <Link to={homePath} className="fn-logo">
                 {displayLogo ? (
                     <img src={displayLogo} alt={displayName || 'Logo'} className="fn-logo-img" />
                 ) : (

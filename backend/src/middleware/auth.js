@@ -108,17 +108,22 @@ const isAdmin = async (req, res, next) => {
                 where: { id: req.user.id },
                 select: { tenantId: true, permissions: true }
             })
-            if (u?.tenantId) {
-                // 验证 tenant 仍 ACTIVE
-                const tenant = await prisma.tenant.findUnique({
-                    where: { id: u.tenantId },
-                    select: { id: true, status: true }
-                })
-                if (!tenant || tenant.status !== 'ACTIVE') {
-                    return res.status(403).json({ error: '所属商城已被暂停，请联系商城所有者' })
-                }
-                req.tenantId = tenant.id
+            
+            if (!u?.tenantId) {
+                // 彻底阻断无租户绑定的越权孤儿管理员
+                return res.status(403).json({ error: '该子管理员账号未绑定所属商城，禁止访问' })
             }
+
+            // 验证 tenant 仍 ACTIVE
+            const tenant = await prisma.tenant.findUnique({
+                where: { id: u.tenantId },
+                select: { id: true, status: true }
+            })
+            if (!tenant || tenant.status !== 'ACTIVE') {
+                return res.status(403).json({ error: '所属商城已被暂停，请联系商城所有者' })
+            }
+            req.tenantId = tenant.id
+
             // 解析权限
             try {
                 req.permissions = u?.permissions ? JSON.parse(u.permissions) : {}

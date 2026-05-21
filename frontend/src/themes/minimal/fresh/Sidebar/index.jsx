@@ -8,7 +8,7 @@ import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useCartStore } from '../../../../store/cartStore'
 import { useAuthStore } from '../../../../store/authStore'
 import { useSkinStore } from '../../../../store/skinStore'
-import { useStorefrontPath } from '../../../../store/storefrontStore'
+import { useStorefront, useStorefrontPath } from '../../../../store/storefrontStore'
 import './Sidebar.css'
 
 function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }) {
@@ -16,23 +16,31 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
     const location = useLocation()
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
+    const storefront = useStorefront()
     const { withPrefix } = useStorefrontPath()
     const cartItems = useCartStore(s => s.items)
     const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0)
     const navigate = useNavigate()
+    const homePath = withPrefix('/')
+    const searchPath = withPrefix('/search')
+    const cartPath = withPrefix('/cart')
+    const orderQueryPath = withPrefix('/order-query')
+    const ticketPath = withPrefix('/tickets/new')
+    const userPath = withPrefix('/user')
+    const adminPath = storefront?._tenantMode ? withPrefix('/admin') : '/Man/dashboard'
 
     const isActive = (path) => location.pathname === path
 
     const handleLogout = () => {
         logout()
-        navigate('/')
+        navigate(homePath)
         onClose?.()
     }
 
     return (
         <>
             {/* Logo */}
-            <Link to="/" className="fs-logo" onClick={onClose}>
+            <Link to={homePath} className="fs-logo" onClick={onClose}>
                 {siteLogo ? (
                     <img src={siteLogo} alt={siteName || 'Logo'} className="fs-logo-img" />
                 ) : (
@@ -57,7 +65,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
             <div className="fs-section">
                 <button
                     className="fs-nav-item"
-                    onClick={() => { navigate('/search'); onClose?.() }}
+                    onClick={() => { navigate(searchPath); onClose?.() }}
                 >
                     <FiSearch className="fs-nav-icon" />
                     {L('search.title')}
@@ -84,21 +92,21 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
 
             <div className="fs-section">
                 <div className="fs-section-label">{L('nav.home')}</div>
-                <Link to="/cart" className={`fs-nav-item${isActive('/cart') ? ' active' : ''}`} onClick={onClose}>
+                <Link to={cartPath} className={`fs-nav-item${isActive(cartPath) ? ' active' : ''}`} onClick={onClose}>
                     <FiShoppingCart className="fs-nav-icon" />
                     {L('cart.title')}
                     {cartCount > 0 && <span className="fs-nav-badge">{cartCount}</span>}
                 </Link>
-                <Link to="/order-query" className={`fs-nav-item${isActive('/order-query') ? ' active' : ''}`} onClick={onClose}>
+                <Link to={orderQueryPath} className={`fs-nav-item${isActive(orderQueryPath) ? ' active' : ''}`} onClick={onClose}>
                     <FiPackage className="fs-nav-icon" />
                     {L('nav.orderQuery')}
                 </Link>
-                <Link to={withPrefix("/tickets/new")} className={`fs-nav-item${isActive('/tickets/new') ? ' active' : ''}`} onClick={onClose}>
+                <Link to={ticketPath} className={`fs-nav-item${isActive(ticketPath) ? ' active' : ''}`} onClick={onClose}>
                     <FiMessageSquare className="fs-nav-icon" />
                     {L('ticket.title')}
                 </Link>
-                {['ADMIN', 'SUPER_ADMIN'].includes(user?.role) && (
-                    <Link to="/admin" className={`fs-nav-item${location.pathname.startsWith('/admin') ? ' active' : ''}`} onClick={onClose}>
+                {['ADMIN', 'TENANT_ADMIN', 'SUPER_ADMIN'].includes(user?.role) && (
+                    <Link to={adminPath} className={`fs-nav-item${location.pathname.startsWith(adminPath) ? ' active' : ''}`} onClick={onClose}>
                         <FiSettings className="fs-nav-icon" />
                         {L('nav.dashboard')}
                     </Link>
@@ -108,7 +116,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
             <div className="fs-user-section">
                 {isAuthenticated ? (
                     <>
-                        <Link to="/user" className="fs-user-card" onClick={onClose}>
+                        <Link to={userPath} className="fs-user-card" onClick={onClose}>
                             <div className="fs-avatar">
                                 {user?.avatar
                                     ? <img src={user.avatar} alt="" />
@@ -130,7 +138,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                         </button>
                     </>
                 ) : (
-                    <Link to="/login" className="fs-login-btn" onClick={onClose}>
+                    <Link to={withPrefix('/login')} className="fs-login-btn" onClick={onClose}>
                         {L('nav.login')} / {L('nav.register')}
                     </Link>
                 )}
@@ -142,6 +150,11 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
 export default function FreshSidebar({ categories, activeCategory, onCategoryClick }) {
     const [drawerOpen, setDrawerOpen] = useState(false)
     const location = useLocation()
+    const storefront = useStorefront()
+    const { withPrefix } = useStorefrontPath()
+    const topbarHomePath = withPrefix('/')
+    const topbarCartPath = withPrefix('/cart')
+    const topbarTitle = storefront?.shopName || useSkinStore.getState().siteName || 'Vmart'
 
     // 路由变化时关闭 drawer
     useEffect(() => { setDrawerOpen(false) }, [location.pathname])
@@ -162,11 +175,11 @@ export default function FreshSidebar({ categories, activeCategory, onCategoryCli
 
             {/* 移动端顶部栏 */}
             <header className="fresh-topbar">
-                <Link to="/" className="fresh-topbar-logo">
-                    <span>🛍</span> {useSkinStore.getState().siteName || 'Vmart'}
+                <Link to={topbarHomePath} className="fresh-topbar-logo">
+                    <span>🛍</span> {topbarTitle}
                 </Link>
                 <div className="fresh-topbar-actions">
-                    <Link to="/cart" className="fresh-topbar-btn">
+                    <Link to={topbarCartPath} className="fresh-topbar-btn">
                         <FiShoppingCart />
                         {cartCount > 0 && <span className="fresh-topbar-badge" />}
                     </Link>

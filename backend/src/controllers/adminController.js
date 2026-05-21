@@ -2,6 +2,7 @@
 const prisma = require('../config/database')
 const bcrypt = require('bcryptjs')
 const emailService = require('../services/emailService')
+const agentService = require('../services/agentService')
 
 // 检查租户的当前套餐是否允许代理系统
 async function isAgentSystemAllowed(tenantId) {
@@ -1023,6 +1024,9 @@ exports.completeRefundOrder = async (req, res, next) => {
                 where: { orderId: id },
                 data: { status: 'REFUNDED' }
             })
+
+            // 回滚已结算的代理商佣金（如有）
+            await agentService.rollbackAgentOrder(id, tx)
         })
 
         let emailSent = false
@@ -1214,6 +1218,9 @@ exports.shipOrder = async (req, res, next) => {
             }
         })
 
+        // ---- 代理利润结算 ----
+        await agentService.settleAgentOrder(updatedOrder.id)
+
         // 发送邮件通知
         let emailSent = false
         try {
@@ -1296,6 +1303,8 @@ exports.resendCards = async (req, res, next) => {
                 where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                 data: { status: 'COMPLETED', completedAt: new Date() }
             })
+            // ---- 代理利润结算 ----
+            await agentService.settleAgentOrder(order.id)
         }
 
         // 重新获取包含所有卡密的订单
@@ -2402,6 +2411,10 @@ exports.createAdmin = async (req, res, next) => {
                 (existing.role === 'ADMIN' && existing.tenantId && existing.tenantId !== req.tenantId)) {
                 return res.status(409).json({ error: '该邮箱已被其他商城使用，请换一个邮箱' })
             }
+            // 跨租户劫持防御：如果是其他商城的普通用户或代理，禁止跨租户强行接管
+            if (existing.tenantId && existing.tenantId !== req.tenantId) {
+                return res.status(409).json({ error: '该邮箱已被其他商城使用，请换一个邮箱' })
+            }
             // 普通用户（USER / AGENT）— 升级为本商城的子管理员
             if (req.tenantId) {
                 const updated = await prisma.user.update({
@@ -2545,10 +2558,10 @@ exports.deleteAdmin = async (req, res, next) => {
             return res.status(400).json({ error: '该用户不是管理员' })
         }
 
-        // 将角色降为普通用户而非物理删除
+        // 将角色降为普通用户而非物理删除，保留其在该商城的 tenantId 以便历史数据和买家上下文完整
         await prisma.user.update({
             where: { id },
-            data: { role: 'USER', tenantId: null }
+            data: { role: 'USER' }
         })
 
         res.json({ message: '子管理员已移除（降级为普通用户）' })
