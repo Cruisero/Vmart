@@ -86,6 +86,11 @@ export default function MerchantLogin() {
                             placeholder={L('merchantAuth.passwordPlaceholder')}
                             required
                         />
+                        <div className="merchant-auth-meta">
+                            <Link to="/forgot-password" className="merchant-auth-forgot">
+                                忘记密码
+                            </Link>
+                        </div>
                     </div>
                     <button type="submit" className="merchant-auth-btn" disabled={loading}>
                         {loading ? L('merchantAuth.loggingIn') : L('merchantAuth.loginBtn')}

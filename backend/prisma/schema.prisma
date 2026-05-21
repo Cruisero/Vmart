@@ -62,6 +62,7 @@ model Product {
   images          Json?
   status          Status           @default(ACTIVE)
   sortOrder       Int              @default(0) @map("sort_order")
+  sortScore       Int              @default(0) @map("sort_score")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   deliveryNote    String?          @map("delivery_note") @db.Text

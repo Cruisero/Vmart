@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { FiLock, FiEye, FiEyeOff, FiCheck } from 'react-icons/fi'
 import toast from 'react-hot-toast'
-import '../Login/Auth.css'
+import '../../MerchantAuth/Auth.css'
 
 function ResetPassword() {
     const [searchParams] = useSearchParams()
@@ -13,7 +12,6 @@ function ResetPassword() {
         password: '',
         confirmPassword: ''
     })
-    const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
 
@@ -69,17 +67,12 @@ function ResetPassword() {
 
     if (!token) {
         return (
-            <div className="auth-page">
-                <div className="auth-container">
-                    <div className="auth-header">
-                        <div className="error-icon">❌</div>
-                        <h1>链接无效</h1>
-                        <p>重置密码链接无效或已过期</p>
-                    </div>
-                    <div className="auth-footer" style={{ marginTop: '24px' }}>
-                        <Link to="/forgot-password" className="btn btn-primary" style={{ width: '100%' }}>
-                            重新请求重置链接
-                        </Link>
+            <div className="merchant-auth-page">
+                <div className="merchant-auth-card">
+                    <h1 className="merchant-auth-title">链接无效</h1>
+                    <p className="merchant-auth-sub">重置密码链接无效或已过期</p>
+                    <div className="merchant-auth-footer">
+                        <Link to="/forgot-password" className="merchant-auth-forgot">重新请求重置链接</Link>
                     </div>
                 </div>
             </div>
@@ -88,80 +81,51 @@ function ResetPassword() {
 
     if (success) {
         return (
-            <div className="auth-page">
-                <div className="auth-container">
-                    <div className="auth-header">
-                        <div className="success-icon">
-                            <FiCheck />
-                        </div>
-                        <h1>密码重置成功</h1>
-                        <p>您的密码已更新，请使用新密码登录</p>
-                    </div>
-                    <div className="auth-footer" style={{ marginTop: '24px' }}>
-                        <button
-                            onClick={() => navigate('/login')}
-                            className="btn btn-primary"
-                            style={{ width: '100%' }}
-                        >
-                            前往登录
-                        </button>
-                    </div>
+            <div className="merchant-auth-page">
+                <div className="merchant-auth-card">
+                    <h1 className="merchant-auth-title">密码重置成功</h1>
+                    <p className="merchant-auth-sub">您的密码已更新，请使用新密码登录</p>
+                    <button
+                        onClick={() => navigate('/login')}
+                        className="merchant-auth-btn"
+                    >
+                        前往登录
+                    </button>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="auth-page">
-            <div className="auth-container">
-                <div className="auth-header">
-                    <h1>设置新密码</h1>
-                    <p>请输入您的新密码</p>
-                </div>
+        <div className="merchant-auth-page">
+                    <div className="merchant-auth-card">
+                        <h1 className="merchant-auth-title">设置新密码</h1>
+                        <p className="merchant-auth-sub">请输入您的新密码</p>
 
-                <form className="auth-form" onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label>新密码</label>
-                        <div className="input-wrapper">
-                            <FiLock className="input-icon" />
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                name="password"
-                                className="input with-icon"
-                                placeholder="请输入新密码（至少6位）"
-                                value={formData.password}
-                                onChange={handleChange}
-                            />
-                            <button
-                                type="button"
-                                className="password-toggle"
-                                onClick={() => setShowPassword(!showPassword)}
-                            >
-                                {showPassword ? <FiEyeOff /> : <FiEye />}
-                            </button>
-                        </div>
+                        <form className="merchant-auth-form" onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label>新密码</label>
+                                <input
+                                    type="password"
+                                    name="password"
+                                    placeholder="请输入新密码（至少6位）"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                />
                     </div>
 
-                    <div className="form-group">
-                        <label>确认密码</label>
-                        <div className="input-wrapper">
-                            <FiLock className="input-icon" />
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                name="confirmPassword"
-                                className="input with-icon"
-                                placeholder="请再次输入新密码"
-                                value={formData.confirmPassword}
-                                onChange={handleChange}
-                            />
-                        </div>
+                            <div className="form-group">
+                                <label>确认密码</label>
+                                <input
+                                    type="password"
+                                    name="confirmPassword"
+                                    placeholder="请再次输入新密码"
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
+                                />
                     </div>
 
-                    <button
-                        type="submit"
-                        className="btn btn-primary btn-lg auth-btn"
-                        disabled={loading}
-                    >
+                    <button type="submit" className="merchant-auth-btn" disabled={loading}>
                         {loading ? '重置中...' : '确认重置'}
                     </button>
                 </form>

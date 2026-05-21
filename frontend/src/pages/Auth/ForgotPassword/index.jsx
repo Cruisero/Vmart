@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiMail, FiArrowLeft, FiCheck } from 'react-icons/fi'
+import { FiMail, FiArrowLeft } from 'react-icons/fi'
 import toast from 'react-hot-toast'
-import '../Login/Auth.css'
+import '../../MerchantAuth/Auth.css'
 
 function ForgotPassword() {
     const [email, setEmail] = useState('')
@@ -43,26 +43,21 @@ function ForgotPassword() {
 
     if (submitted) {
         return (
-            <div className="auth-page">
-                <div className="auth-container">
-                    <div className="auth-header">
-                        <div className="success-icon">
-                            <FiCheck />
-                        </div>
-                        <h1>邮件已发送</h1>
-                        <p>请检查您的邮箱 <strong>{email}</strong>，按照邮件中的链接重置密码</p>
+            <div className="merchant-auth-page">
+                <div className="merchant-auth-card">
+                    <h1 className="merchant-auth-title">邮件已发送</h1>
+                    <p className="merchant-auth-sub">
+                        请检查您的邮箱 <strong>{email}</strong>，按照邮件中的链接重置密码
+                    </p>
+
+                    <div className="merchant-auth-error" style={{ background: '#f8fafc', borderColor: '#e2e8f0', color: '#475569' }}>
+                        <div className="merchant-auth-help">• 邮件可能在垃圾邮件中，请注意查看</div>
+                        <div className="merchant-auth-help">• 重置链接 30 分钟内有效</div>
+                        <div className="merchant-auth-help">• 如未收到邮件，可重新提交请求</div>
                     </div>
 
-                    <div className="auth-tips">
-                        <p>• 邮件可能在垃圾邮件中，请注意查看</p>
-                        <p>• 重置链接 30 分钟内有效</p>
-                        <p>• 如未收到邮件，可重新提交请求</p>
-                    </div>
-
-                    <div className="auth-footer" style={{ marginTop: '24px' }}>
-                        <Link to="/login" className="btn btn-secondary" style={{ width: '100%' }}>
-                            返回登录
-                        </Link>
+                    <div className="merchant-auth-footer">
+                        <Link to="/login" className="merchant-auth-forgot">返回登录</Link>
                     </div>
                 </div>
             </div>
@@ -70,42 +65,33 @@ function ForgotPassword() {
     }
 
     return (
-        <div className="auth-page">
-            <div className="auth-container">
-                <div className="auth-header">
-                    <h1>忘记密码</h1>
-                    <p>输入您的注册邮箱，我们将发送重置链接</p>
-                </div>
+        <div className="merchant-auth-page">
+            <div className="merchant-auth-card">
+                <h1 className="merchant-auth-title">忘记密码</h1>
+                <p className="merchant-auth-sub">输入您的注册邮箱，我们将发送重置链接</p>
 
-                <form className="auth-form" onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="merchant-auth-form">
                     <div className="form-group">
                         <label>邮箱地址</label>
-                        <div className="input-wrapper">
-                            <FiMail className="input-icon" />
-                            <input
-                                type="email"
-                                className="input with-icon"
-                                placeholder="请输入注册邮箱"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
+                        <input
+                            type="email"
+                            placeholder="请输入注册邮箱"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
                     </div>
 
-                    <button
-                        type="submit"
-                        className="btn btn-primary btn-lg auth-btn"
-                        disabled={loading}
-                    >
+                    <button type="submit" className="merchant-auth-btn" disabled={loading}>
                         {loading ? '发送中...' : '发送重置链接'}
                     </button>
                 </form>
 
-                <div className="auth-footer">
-                    <Link to="/login" className="back-link">
-                        <FiArrowLeft /> 返回登录
+                <p className="merchant-auth-footer">
+                    <Link to="/login" className="merchant-auth-forgot">
+                        <FiArrowLeft style={{ verticalAlign: '-2px', marginRight: 4 }} />
+                        返回登录
                     </Link>
-                </div>
+                </p>
             </div>
         </div>
     )

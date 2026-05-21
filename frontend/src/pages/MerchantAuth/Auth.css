@@ -8,16 +8,16 @@
     justify-content: center;
     background: linear-gradient(135deg, #f8fafc 0%, #ede9fe 50%, #e0e7ff 100%);
     font-family: 'Inter', sans-serif;
-    padding: 20px;
+    padding: 12px;
 }
 
 .merchant-auth-card {
     width: 100%;
-    max-width: 420px;
+    max-width: 400px;
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 24px;
-    padding: 48px 40px;
+    border-radius: 18px;
+    padding: 24px 24px 22px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.03);
 }
 
@@ -52,17 +52,17 @@
 }
 
 .merchant-auth-title {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 800;
     color: #0f172a;
-    margin: 0 0 8px;
+    margin: 0 0 4px;
     letter-spacing: -0.5px;
 }
 
 .merchant-auth-sub {
     font-size: 14px;
     color: #64748b;
-    margin: 0 0 32px;
+    margin: 0 0 14px;
 }
 
 .merchant-auth-error {
@@ -72,35 +72,41 @@
     padding: 12px 16px;
     border-radius: 10px;
     font-size: 13px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .merchant-auth-form {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 9px;
 }
 
 .merchant-auth-form .form-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
+}
+
+.merchant-auth-meta {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2px;
 }
 
 .merchant-auth-form label {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     color: #475569;
 }
 
 .merchant-auth-form input {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 12px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     color: #1e293b;
-    font-size: 15px;
+    font-size: 14px;
     font-family: 'Inter', sans-serif;
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -117,9 +123,20 @@
     background: #ffffff;
 }
 
+.merchant-auth-forgot {
+    font-size: 12px;
+    color: #6366f1;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.merchant-auth-forgot:hover {
+    text-decoration: underline;
+}
+
 .merchant-auth-btn {
     width: 100%;
-    padding: 14px;
+    padding: 11px 14px;
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
     border: none;
     border-radius: 12px;
@@ -129,7 +146,7 @@
     font-family: 'Inter', sans-serif;
     cursor: pointer;
     transition: opacity 0.2s, transform 0.15s;
-    margin-top: 6px;
+    margin-top: 2px;
     letter-spacing: 0.2px;
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
 }
@@ -146,7 +163,7 @@
 
 .merchant-auth-footer {
     text-align: center;
-    margin-top: 24px;
+    margin-top: 12px;
     font-size: 14px;
     color: #64748b;
 }
@@ -159,4 +176,66 @@
 
 .merchant-auth-footer a:hover {
     text-decoration: underline;
+}
+
+.merchant-auth-otp-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.merchant-auth-otp-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.merchant-auth-otp-row button {
+    white-space: nowrap;
+    min-width: 96px;
+    padding: 10px 10px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.merchant-auth-help {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+    .merchant-auth-page {
+        padding: 10px;
+        align-items: flex-start;
+    }
+
+    .merchant-auth-card {
+        padding: 20px 14px 16px;
+        border-radius: 16px;
+    }
+
+    .merchant-auth-title {
+        font-size: 20px;
+    }
+
+    .merchant-auth-sub {
+        margin-bottom: 12px;
+    }
+
+    .merchant-auth-form {
+        gap: 8px;
+    }
+
+    .merchant-auth-form input,
+    .merchant-auth-btn,
+    .merchant-auth-otp-row button {
+        min-height: 44px;
+    }
+
+    .merchant-auth-meta {
+        margin-top: 0;
+    }
 }

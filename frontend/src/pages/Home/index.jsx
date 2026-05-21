@@ -52,7 +52,7 @@ function Home() {
                         <div className="card-glow"></div>
                         <div className="card-content">
                             <span className="card-icon">💎</span>
-                            <span className="card-text">HaoDongXi</span>
+                            <span className="card-text">Vmart</span>
                         </div>
                     </div>
                 </div>

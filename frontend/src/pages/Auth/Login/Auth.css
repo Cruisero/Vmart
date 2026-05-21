@@ -4,40 +4,46 @@
     justify-content: center;
     align-items: center;
     min-height: calc(100vh - 200px);
-    padding: 40px 20px;
+    padding: 28px 20px;
 }
 
 .auth-container {
     width: 100%;
-    max-width: 420px;
+    max-width: 460px;
 }
 
 .auth-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 20px;
 }
 
 .auth-header h1 {
-    font-size: 2rem;
+    font-size: 1.9rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+    line-height: 1.15;
 }
 
 .auth-header p {
     color: var(--text-secondary);
+    font-size: 0.95rem;
 }
 
-/* 表单样式 */
 .auth-form {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 32px;
+    border-radius: 20px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .form-group {
-    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .form-group label {
@@ -45,11 +51,15 @@
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--text-primary);
-    margin-bottom: 10px;
 }
 
 .input-wrapper {
     position: relative;
+}
+
+.input-wrapper .input {
+    width: 100%;
+    min-height: 52px;
 }
 
 .input-icon {
@@ -82,7 +92,6 @@
     color: var(--text-primary);
 }
 
-/* 表单选项 */
 .form-options {
     display: flex;
     justify-content: space-between;
@@ -120,25 +129,25 @@
 
 .auth-btn {
     width: 100%;
+    min-height: 52px;
+    margin-top: 6px;
 }
 
-/* 页脚 */
 .auth-footer {
     text-align: center;
-    margin-top: 24px;
+    margin-top: 18px;
     color: var(--text-secondary);
+    font-size: 0.95rem;
 }
 
 .auth-footer a {
-    /* color: var(--primary-light); */
     font-weight: 500;
 }
 
-/* 分隔线 */
 .auth-divider {
     display: flex;
     align-items: center;
-    margin: 24px 0;
+    margin: 16px 0;
 }
 
 .auth-divider::before,
@@ -155,7 +164,6 @@
     font-size: 0.85rem;
 }
 
-/* 游客选项 */
 .guest-option {
     text-align: center;
 }
@@ -164,65 +172,36 @@
     width: 100%;
 }
 
-/* 演示账号 */
-/* .demo-account {
-    margin-top: 20px;
-    text-align: center;
-    padding: 12px;
-    background: rgba(239, 68, 68, 0.1);
-    border-radius: var(--radius-sm);
-} */
+@media (max-width: 600px) {
+    .auth-page {
+        padding: 18px 12px;
+        align-items: flex-start;
+    }
 
-.demo-account p {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
+    .auth-container {
+        max-width: 100%;
+    }
 
-/* 成功图标 */
-.success-icon {
-    width: 64px;
-    height: 64px;
-    background: var(--gradient-primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-    color: white;
-    font-size: 2rem;
-}
+    .auth-header {
+        margin-bottom: 14px;
+    }
 
-.error-icon {
-    font-size: 3rem;
-    margin-bottom: 16px;
-}
+    .auth-header h1 {
+        font-size: 1.6rem;
+    }
 
-/* 返回链接 */
-.back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-size: 0.95rem;
-    transition: color var(--transition-fast);
-}
+    .auth-form {
+        padding: 20px 16px;
+        gap: 12px;
+        border-radius: 16px;
+    }
 
-.back-link:hover {
-    color: var(--primary-light);
-}
+    .input-wrapper .input,
+    .auth-btn {
+        min-height: 48px;
+    }
 
-/* 提示信息 */
-.auth-tips {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 16px 20px;
-    margin-top: 20px;
-}
-
-.auth-tips p {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin: 6px 0;
+    .auth-divider {
+        margin: 12px 0;
+    }
 }

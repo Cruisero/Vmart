@@ -7,7 +7,7 @@ set -e
 
 # 配置
 SERVER="root@159.195.71.45"
-REMOTE_PATH="/var/www/haodongxi"
+REMOTE_PATH="/var/www/vmart"
 COMPOSE_FILE="docker-compose.prod.yml"
 
 # 颜色
@@ -124,7 +124,7 @@ main() {
     esac
     
     echo ""
-    info "部署地址: https://haodongxi.shop"
+    info "部署地址: https://vmart.cc"
     echo ""
 }
 

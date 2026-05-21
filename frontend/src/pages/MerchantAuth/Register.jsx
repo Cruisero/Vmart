@@ -115,7 +115,7 @@ export default function MerchantRegister() {
                     {otpRequired && (
                         <div className="form-group">
                             <label>{L('merchantAuth.emailVerification')}</label>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div className="merchant-auth-otp-row">
                                 <input
                                     name="otpCode"
                                     value={form.otpCode}
@@ -123,7 +123,6 @@ export default function MerchantRegister() {
                                     placeholder={L('merchantAuth.codePlaceholder')}
                                     maxLength={6}
                                     inputMode="numeric"
-                                    style={{ flex: 1 }}
                                     required
                                 />
                                 <button
@@ -131,18 +130,13 @@ export default function MerchantRegister() {
                                     onClick={handleSendOtp}
                                     disabled={sendingOtp || otpCooldown > 0 || !form.email}
                                     style={{
-                                        padding: '10px 16px',
-                                        border: '1px solid #d1d5db',
                                         background: otpCooldown > 0 ? '#f3f4f6' : '#fff',
                                         color: otpCooldown > 0 ? '#9ca3af' : '#374151',
-                                        borderRadius: 8,
-                                        fontSize: '0.85rem',
-                                        cursor: (sendingOtp || otpCooldown > 0 || !form.email) ? 'not-allowed' : 'pointer',
-                                        whiteSpace: 'nowrap'
+                                        cursor: (sendingOtp || otpCooldown > 0 || !form.email) ? 'not-allowed' : 'pointer'
                                     }}
-                                >
-                                    {sendingOtp ? L('merchantAuth.sending') : otpCooldown > 0 ? `${otpCooldown}s` : L('merchantAuth.sendCode')}
-                                </button>
+                            >
+                                {sendingOtp ? L('merchantAuth.sending') : otpCooldown > 0 ? `${otpCooldown}s` : L('merchantAuth.sendCode')}
+                            </button>
                             </div>
                         </div>
                     )}

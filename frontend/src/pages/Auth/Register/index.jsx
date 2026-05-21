@@ -101,14 +101,14 @@ function Register() {
 
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>{t('auth.email')}</label>
+                        <label>店铺名称</label>
                         <div className="input-wrapper">
                             <FiUser className="input-icon" />
                             <input
                                 type="text"
                                 name="username"
                                 className="input with-icon"
-                                placeholder={t('auth.emailPlaceholder')}
+                                placeholder="给你的商城起个名字"
                                 value={formData.username}
                                 onChange={handleChange}
                             />
@@ -133,7 +133,7 @@ function Register() {
                     {otp.enabled && (
                         <div className="form-group">
                             <label>OTP</label>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div className="otp-row">
                                 <input
                                     type="text"
                                     className="input"
@@ -142,20 +142,18 @@ function Register() {
                                     onChange={(e) => otp.setCode(e.target.value.replace(/\D/g, ''))}
                                     maxLength={6}
                                     inputMode="numeric"
-                                    style={{ flex: 1 }}
                                 />
                                 <button
                                     type="button"
                                     onClick={otp.sendCode}
                                     disabled={otp.sending || otp.cooldown > 0 || !formData.email}
                                     className="btn btn-secondary"
-                                    style={{ whiteSpace: 'nowrap', minWidth: 110 }}
                                 >
                                     {otp.sending ? '...' : otp.cooldown > 0 ? `${otp.cooldown}s` : 'Send Code'}
                                 </button>
                             </div>
-                            {otp.error && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: 4 }}>{otp.error}</div>}
-                            {otp.info && <div style={{ color: '#10b981', fontSize: '0.78rem', marginTop: 4 }}>{otp.info}</div>}
+                            {otp.error && <div className="otp-feedback" style={{ color: '#ef4444' }}>{otp.error}</div>}
+                            {otp.info && <div className="otp-feedback" style={{ color: '#10b981' }}>{otp.info}</div>}
                         </div>
                     )}
 

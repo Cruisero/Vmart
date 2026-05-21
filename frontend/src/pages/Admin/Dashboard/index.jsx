@@ -5545,7 +5545,7 @@ function SettingsPage() {
     // 默认设置
     const [settings, setSettings] = useState({
         // 基本设置
-        siteName: 'HaoDongXi',
+        siteName: 'Vmart',
         siteDescription: 'Virtual goods auto-delivery platform',
         frontend_skin: 'classic',
         siteLogo: '',
