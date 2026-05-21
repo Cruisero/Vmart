@@ -64,9 +64,9 @@ function loadCustomTheme(key) {
 function NoticeBanner({ text, slug }) {
     const location = useLocation()
     if (!text) return null
-    // 仅首页显示（/v/:slug 或 /v/:slug/）
+    // 仅首页显示（/v/:slug 或 自定义域名根路径 /）
     const path = location.pathname.replace(/\/+$/, '')
-    if (path !== `/v/${slug}`) return null
+    if (path !== `/v/${slug}` && path !== '') return null
     return (
         <div className="sf-notice-bar">
             <span>{text}</span>
@@ -82,8 +82,9 @@ function Footer({ shopName }) {
     )
 }
 
-export default function MerchantStorefront() {
-    const { slug } = useParams()
+export default function MerchantStorefront({ propSlug }) {
+    const { slug: paramSlug } = useParams()
+    const slug = propSlug || paramSlug
     const [shop, setShop] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -104,7 +105,15 @@ export default function MerchantStorefront() {
     // 设置商户的 favicon 和标题
     useEffect(() => {
         if (!shop) return
-        if (shop.shopName) document.title = shop.shopName
+        
+        // 自动文字：如果是自定义域名，默认使用域名；否则使用商城名称
+        const host = window.location.hostname
+        const mainDomains = ['localhost', '127.0.0.1', 'vmart.cc', 'www.vmart.cc', 'fallback.vmart.cc']
+        const isCustom = !mainDomains.includes(host)
+        const autoTitle = isCustom ? host : (shop.shopName || document.title)
+        
+        document.title = shop.shopBookmarkTitle || autoTitle
+
         if (shop.shopFavicon) {
             let link = document.querySelector("link[rel~='icon']")
             if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
@@ -161,6 +170,7 @@ export default function MerchantStorefront() {
         shopLogo: shop.shopLogo,
         shopSkin: skin,
         shopNotice: shop.shopNotice,
+        shopBookmarkTitle: shop.shopBookmarkTitle,
         featureCard: shop.featureCard || null,
         agreements: shop.agreements || null,
         language: shop.language || 'zh',

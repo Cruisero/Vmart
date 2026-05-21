@@ -262,17 +262,43 @@
     gap: 0;
 }
 
+.ts-pay-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ts-pay-config-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--primary-light);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    font-family: inherit;
+}
+
+.ts-pay-config-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: rgba(239, 68, 68, 0.04);
+}
+
 .ts-toggle {
     display: flex;
     align-items: center;
     gap: 14px;
     cursor: pointer;
     user-select: none;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--border-color);
 }
-
-.ts-toggle:last-child { border-bottom: none; }
 
 .ts-toggle input { display: none; }
 
@@ -311,6 +337,29 @@
     font-size: 0.9rem;
     color: var(--text-primary);
     font-weight: 500;
+}
+
+/* Accordion Accord wrapper */
+.ts-pay-config-wrapper {
+    margin-top: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-tertiary);
+    animation: ts-slide-down 0.2s ease-out;
+}
+
+@keyframes ts-slide-down {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.ts-pay-config-wrapper .ts-pay-fields {
+    margin-top: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 16px;
 }
 
 /* Payment config fields */

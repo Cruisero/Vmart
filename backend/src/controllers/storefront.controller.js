@@ -1,6 +1,31 @@
 // 代理分站前台控制器（公开 API）
 const prisma = require('../config/database')
 
+// 获取租户或全局的库存计算模式
+async function getStockMode(tenantId) {
+    if (tenantId) {
+        try {
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId }
+            })
+            if (tenantSetting && tenantSetting.paymentConfig) {
+                const config = JSON.parse(tenantSetting.paymentConfig)
+                if (config && config.stock_mode) {
+                    return config.stock_mode
+                }
+            }
+        } catch (e) {
+            console.error('Failed to get tenant stockMode:', e)
+        }
+    }
+    try {
+        const globalSetting = await prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        return globalSetting?.value || 'auto'
+    } catch (e) {
+        return 'auto'
+    }
+}
+
 // 获取分站信息
 exports.getStorefront = async (req, res, next) => {
     try {
@@ -40,7 +65,7 @@ exports.getStorefrontProducts = async (req, res, next) => {
 
         const agent = await prisma.agent.findUnique({
             where: { shopSlug: slug },
-            select: { id: true, status: true }
+            select: { id: true, status: true, tenantId: true }
         })
 
         if (!agent || agent.status !== 'ACTIVE') {
@@ -74,8 +99,7 @@ exports.getStorefrontProducts = async (req, res, next) => {
             .filter(ap => !categoryId || ap.product.categoryId === categoryId)
 
         // 获取库存模式
-        const stockModeSetting = await prisma.setting.findUnique({ where: { key: 'stockMode' } })
-        const stockMode = stockModeSetting?.value || 'auto'
+        const stockMode = await getStockMode(agent.tenantId)
 
         const result = products.map(ap => {
             const p = ap.product
@@ -138,7 +162,7 @@ exports.getStorefrontProduct = async (req, res, next) => {
 
         const agent = await prisma.agent.findUnique({
             where: { shopSlug: slug },
-            select: { id: true, status: true }
+            select: { id: true, status: true, tenantId: true }
         })
 
         if (!agent || agent.status !== 'ACTIVE') {
@@ -172,8 +196,7 @@ exports.getStorefrontProduct = async (req, res, next) => {
         const basePrice = parseFloat(p.price)
         const agentPrice = basePrice + parseFloat(agentProduct.markup)
 
-        const stockModeSetting = await prisma.setting.findUnique({ where: { key: 'stockMode' } })
-        const stockMode = stockModeSetting?.value || 'auto'
+        const stockMode = await getStockMode(agent.tenantId)
 
         let stock = stockMode === 'manual' ? p.stock : p.cards.length
         if (p.variants.length > 0 && stockMode !== 'manual') {
@@ -240,7 +263,7 @@ exports.getTenantProducts = async (req, res, next) => {
         if (categoryId) where.categoryId = categoryId
         if (search) where.name = { contains: search }
 
-        const [products, stockModeSetting] = await Promise.all([
+        const [products, stockMode] = await Promise.all([
             prisma.product.findMany({
                 where,
                 include: {
@@ -255,10 +278,8 @@ exports.getTenantProducts = async (req, res, next) => {
                 skip: (page - 1) * Number(limit),
                 take: Number(limit)
             }),
-            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+            getStockMode(req.tenantId)
         ])
-
-        const stockMode = stockModeSetting?.value || 'auto'
 
         const categoriesMap = new Map()
         const result = products.map(p => {
@@ -292,7 +313,7 @@ exports.getTenantProduct = async (req, res, next) => {
         if (!req.tenantId) return res.status(404).json({ error: '商城不存在' })
 
         const { productId } = req.params
-        const [product, stockModeSetting] = await Promise.all([
+        const [product, stockMode] = await Promise.all([
             prisma.product.findFirst({
                 where: { id: productId, tenantId: req.tenantId, status: 'ACTIVE' },
                 include: {
@@ -304,12 +325,8 @@ exports.getTenantProduct = async (req, res, next) => {
                     }
                 }
             }),
-            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+            getStockMode(req.tenantId)
         ])
-
-        if (!product) return res.status(404).json({ error: '商品不存在' })
-
-        const stockMode = stockModeSetting?.value || 'auto'
         let stock = stockMode === 'manual' ? product.stock : product.cards.length
         if (product.variants.length > 0 && stockMode !== 'manual') {
             stock = product.variants.reduce((sum, v) => sum + v.cards.length, 0)
@@ -363,8 +380,13 @@ exports.getMerchantStorefront = async (req, res, next) => {
         })
 
         let shopFavicon = null
+        let shopBookmarkTitle = null
         if (shop?.settings) {
-            try { shopFavicon = JSON.parse(shop.settings)?.favicon || null } catch {}
+            try {
+                const parsedSettings = JSON.parse(shop.settings)
+                shopFavicon = parsedSettings?.favicon || null
+                shopBookmarkTitle = parsedSettings?.bookmarkTitle || null
+            } catch {}
         }
 
         // 读取 tenant_settings.system_settings.featureCard
@@ -411,6 +433,7 @@ exports.getMerchantStorefront = async (req, res, next) => {
                 shopSkin: tenant.shopSkin || shop?.skin || 'fresh',
                 shopNotice: tenant.shopNotice || shop?.notice || null,
                 shopFavicon,
+                shopBookmarkTitle,
                 featureCard,
                 agreements,
                 language,
@@ -436,7 +459,7 @@ exports.getMerchantProducts = async (req, res, next) => {
         if (categoryId) where.categoryId = categoryId
         if (search) where.name = { contains: search }
 
-        const [products, stockModeSetting] = await Promise.all([
+        const [products, stockMode] = await Promise.all([
             prisma.product.findMany({
                 where,
                 include: {
@@ -451,10 +474,8 @@ exports.getMerchantProducts = async (req, res, next) => {
                 skip: (page - 1) * Number(limit),
                 take: Number(limit)
             }),
-            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+            getStockMode(tenant.id)
         ])
-
-        const stockMode = stockModeSetting?.value || 'auto'
 
         const categoriesMap = new Map()
         const result = products.map(p => {
@@ -490,7 +511,7 @@ exports.getMerchantProduct = async (req, res, next) => {
             return res.status(404).json({ error: '商城不存在' })
         }
 
-        const [product, stockModeSetting] = await Promise.all([
+        const [product, stockMode] = await Promise.all([
             prisma.product.findFirst({
                 where: { id: productId, tenantId: tenant.id, status: 'ACTIVE' },
                 include: {
@@ -502,12 +523,8 @@ exports.getMerchantProduct = async (req, res, next) => {
                     }
                 }
             }),
-            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+            getStockMode(tenant.id)
         ])
-
-        if (!product) return res.status(404).json({ error: '商品不存在' })
-
-        const stockMode = stockModeSetting?.value || 'auto'
         let stock = stockMode === 'manual' ? product.stock : product.cards.length
         if (product.variants.length > 0 && stockMode !== 'manual') {
             stock = product.variants.reduce((sum, v) => sum + v.cards.length, 0)

@@ -48,7 +48,8 @@ export default function ZenOrderResult() {
                 totalAmount: parseFloat(o.totalAmount) || 0,
                 paymentMethod: o.paymentMethod === 'alipay' ? 'Alipay' :
                     o.paymentMethod === 'wechat' ? 'WeChat Pay' :
-                    o.paymentMethod === 'bsc_usdt' ? 'USDT-BEP20' : o.paymentMethod,
+                    o.paymentMethod === 'bsc_usdt' ? 'USDT-BEP20' :
+                    o.paymentMethod === 'yipay' ? '在线支付' : o.paymentMethod,
                 createdAt: o.createdAt ? new Date(o.createdAt).toLocaleString() : '',
                 paidAt: o.paidAt ? new Date(o.paidAt).toLocaleString() : null,
                 cards: (o.cards || []).map((c, i) => ({ id: i + 1, content: c.content || c })),
@@ -114,6 +115,7 @@ export default function ZenOrderResult() {
             if (order.paymentMethod === 'WeChat Pay') method = 'wechat'
             else if (['USDT-TRC20','usdt'].includes(order.paymentMethod)) method = 'usdt'
             else if (['USDT-BEP20','bsc_usdt'].includes(order.paymentMethod)) method = 'bsc_usdt'
+            else if (['在线支付','yipay'].includes(order.paymentMethod)) method = 'yipay'
 
             const res = await fetch('/api/payment/create', {
                 method: 'POST',

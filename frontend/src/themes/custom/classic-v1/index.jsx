@@ -28,7 +28,7 @@ function NoticeBanner({ text, slug }) {
     const location = useLocation()
     if (!text) return null
     const path = location.pathname.replace(/\/+$/, '')
-    if (path !== `/v/${slug}`) return null
+    if (path !== `/v/${slug}` && path !== '') return null
     return (
         <div className="sf-notice-bar">
             <span>{text}</span>

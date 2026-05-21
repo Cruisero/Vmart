@@ -2,6 +2,7 @@ const { spawn, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
+const cloudflareService = require('../services/cloudflareService')
 
 const ACME_SH = process.env.ACME_SH_PATH || path.join(os.homedir(), '.acme.sh', 'acme.sh')
 const SSL_DIR = process.env.SSL_DIR || '/etc/nginx/ssl'
@@ -21,6 +22,52 @@ exports.applyStep1 = async (req, res) => {
         }
         const cleanDomain = domain.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/.*$/, '')
 
+        // 优先使用 Cloudflare 方案
+        if (cloudflareService.isConfigured()) {
+            // 向 Cloudflare 注册/查询自定义域名
+            await cloudflareService.createCustomHostname(cleanDomain)
+            const status = await cloudflareService.getCustomHostnameStatus(cleanDomain)
+
+            // 提取 Cloudflare 要求的 TXT 验证记录
+            const records = []
+            if (status.ownershipValidation && status.ownershipValidation.type === 'txt') {
+                records.push({
+                    host: status.ownershipValidation.name,
+                    value: status.ownershipValidation.value
+                })
+            }
+            if (status.sslValidationRecords && status.sslValidationRecords.length > 0) {
+                status.sslValidationRecords.forEach(r => {
+                    records.push({
+                        host: r.name,
+                        value: r.value
+                    })
+                })
+            }
+
+            if (records.length === 0) {
+                // 如果域名和 SSL 都已经在 Cloudflare 中完成验证和激活
+                if (status.status === 'active' && status.sslStatus === 'active') {
+                    return res.json({
+                        success: true,
+                        domain: cleanDomain,
+                        records: [],
+                        message: '🎉 该域名所有权及 SSL 证书已在云端成功激活，无需任何额外验证配置！'
+                    })
+                }
+                return res.status(500).json({ error: '无法从 Cloudflare 获取验证记录，请确认该域名没有与其他 Cloudflare 账户冲突。' })
+            }
+
+            pendingChallenges.set(cleanDomain, { domain: cleanDomain, records, startedAt: Date.now() })
+            return res.json({
+                success: true,
+                domain: cleanDomain,
+                records,
+                message: '已成功向云端网关发起域名注册。请在您的 DNS 面板添加以上 TXT 记录，并点击"验证并颁发"来进行状态同步。'
+            })
+        }
+
+        // 降级兜底方案：本地 acme.sh 脚本运行 (原有逻辑)
         if (!checkAcmeInstalled()) {
             return res.status(500).json({ error: 'acme.sh 未安装，请先在服务器上运行：curl https://get.acme.sh | sh' })
         }
@@ -60,6 +107,41 @@ exports.applyStep2 = async (req, res) => {
     res.flushHeaders()
 
     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`)
+
+    // 优先使用 Cloudflare 方案
+    if (cloudflareService.isConfigured()) {
+        send({ type: 'log', msg: `🔄 开始向 Cloudflare 查询域名 ${cleanDomain} 的最新激活状态...` })
+
+        try {
+            const status = await cloudflareService.getCustomHostnameStatus(cleanDomain)
+            if (!status.exists) {
+                send({ type: 'error', msg: '该域名在 Cloudflare 中不存在，请重新执行 Step 1 注册。' })
+                return res.end()
+            }
+
+            send({ type: 'log', msg: `📡 域名所有权校验状态: [${status.status}]` })
+            send({ type: 'log', msg: `🔒 SSL 证书签发状态: [${status.sslStatus}]` })
+
+            if (status.status === 'active' && status.sslStatus === 'active') {
+                send({ type: 'log', msg: '✅ 恭喜！Cloudflare 验证完全通过，SSL 证书已部署就绪。' })
+                send({ type: 'done', msg: `🎉 证书申请成功！*.${cleanDomain} 证书已在云端生效，Nginx 兜底层已无需重启。` })
+            } else {
+                send({ type: 'log', msg: '⏱️ Cloudflare 验证仍在进行中，尚未完全激活。' })
+                if (status.status !== 'active') {
+                    send({ type: 'log', msg: '👉 请检查您是否正确添加了 TXT 记录，或直接将 CNAME 记录指向回源站。' })
+                }
+                if (status.sslStatus !== 'active') {
+                    send({ type: 'log', msg: '👉 SSL 证书目前正在初始化/签发中，通常需要 2-5 分钟。' })
+                }
+                send({ type: 'error', msg: '激活尚未完成，请确认 DNS 解析已全球生效，并在几分钟后再次重试。' })
+            }
+        } catch (err) {
+            send({ type: 'error', msg: `请求 Cloudflare API 失败: ${err.message}` })
+        }
+        return res.end()
+    }
+
+    // 降级兜底方案：本地 acme.sh 脚本运行 (原有逻辑)
     send({ type: 'log', msg: `🔄 开始验证域名 ${cleanDomain}...` })
 
     const args = [ACME_SH, '--renew', '--dns', '--yes-I-know-dns-manual-mode-enough-go-ahead-please', '-d', cleanDomain, '-d', `*.${cleanDomain}`]
@@ -100,6 +182,37 @@ exports.getStatus = async (req, res) => {
     if (!domain) return res.status(400).json({ error: '缺少域名' })
     const cleanDomain = domain.trim().toLowerCase()
 
+    // 优先使用 Cloudflare 方案
+    if (cloudflareService.isConfigured()) {
+        try {
+            const status = await cloudflareService.getCustomHostnameStatus(cleanDomain)
+            if (!status.exists) {
+                return res.json({
+                    domain: cleanDomain,
+                    hasCert: false,
+                    hasKey: false,
+                    expireDate: null,
+                    cloudflareStatus: 'none',
+                    acmeInstalled: true // 跳过前端 acme.sh 缺失警告
+                })
+            }
+
+            const active = status.status === 'active' && status.sslStatus === 'active'
+            return res.json({
+                domain: cleanDomain,
+                hasCert: active,
+                hasKey: active,
+                expireDate: active ? 'Cloudflare 自动签发托管 (无需手动维护)' : '等待 DNS 记录验证及 SSL 证书签发部署',
+                cloudflareStatus: status.status,
+                sslStatus: status.sslStatus,
+                acmeInstalled: true
+            })
+        } catch (err) {
+            return res.status(500).json({ error: err.message })
+        }
+    }
+
+    // 降级兜底方案：本地文件查询 (原有逻辑)
     const certPath = path.join(SSL_DIR, `${cleanDomain}.fullchain.pem`)
     const keyPath = path.join(SSL_DIR, `${cleanDomain}.key`)
     const hasCert = fs.existsSync(certPath)

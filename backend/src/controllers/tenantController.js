@@ -1,6 +1,7 @@
 const prisma = require('../config/database')
 const dns = require('dns').promises
 const { execSync } = require('child_process')
+const cloudflareService = require('../services/cloudflareService')
 
 // 获取当前用户的租户信息
 exports.getMe = async (req, res) => {
@@ -9,6 +10,12 @@ exports.getMe = async (req, res) => {
             where: { userId: req.user.id },
             include: { domains: true, settings: true }
         })
+        if (tenant) {
+            const shop = await prisma.shop.findUnique({
+                where: { slug: tenant.shopSlug }
+            })
+            tenant.shop = shop
+        }
         res.json({ tenant })
     } catch (err) {
         res.status(500).json({ error: err.message })
@@ -106,7 +113,43 @@ exports.addDomain = async (req, res) => {
             update: {}
         })
 
-        // 获取服务器 IP 供用户配置 DNS
+        // 判断 Cloudflare 服务是否已配置
+        if (cloudflareService.isConfigured()) {
+            try {
+                // 向 Cloudflare 注册自定义域名
+                await cloudflareService.createCustomHostname(domain)
+            } catch (cfErr) {
+                console.error('注册 Cloudflare 自定义域名失败:', cfErr)
+                // 即使 Cloudflare API 报错，我们也允许在数据库先建立记录，但在 DNS 指南中友好提示
+            }
+
+            // 智能提取主机记录 (例如: shop.abc.com -> shop; abc.com -> @)
+            const getHostRecord = (domainName) => {
+                if (!domainName) return '@'
+                const parts = domainName.split('.')
+                if (parts.length <= 2) return '@'
+                const lastTwo = parts.slice(-2).join('.')
+                const secondSuffixes = ['com.cn', 'net.cn', 'org.cn', 'co.uk', 'org.uk', 'com.tw', 'com.hk']
+                if (secondSuffixes.includes(lastTwo) && parts.length === 3) return '@'
+                if (secondSuffixes.includes(lastTwo)) return parts.slice(0, -3).join('.')
+                return parts.slice(0, -2).join('.')
+            }
+
+            const computedHost = getHostRecord(domain)
+            const fallbackOrigin = cloudflareService.FALLBACK_ORIGIN
+            return res.json({
+                domain: record,
+                dnsGuide: {
+                    type: 'CNAME',
+                    host: computedHost,
+                    value: fallbackOrigin,
+                    ttl: 'Auto 或 600',
+                    tip: `请在您的 DNS 服务商（如 Cloudflare / 腾讯云 / 阿里云）将主机记录为「 ${computedHost} 」的 CNAME 记录指向 ${fallbackOrigin}。如果您也使用 Cloudflare 作为解析商，强烈建议您【开启代理状态（即橙色云朵 ☁️）】并将 TTL 设为【Auto】以获得最佳的边缘网络和防护体验。`
+                }
+            })
+        }
+
+        // 降级兜底方案：获取服务器 IP 供用户配置 DNS (原有逻辑)
         let serverIp = process.env.SERVER_IP || '待配置'
 
         res.json({
@@ -136,6 +179,57 @@ exports.verifyDns = async (req, res) => {
         })
         if (!domainRecord) return res.status(404).json({ error: '域名未添加' })
 
+        // 如果配置了 Cloudflare，通过 Cloudflare 接口验证域名状态与 SSL 状态
+        if (cloudflareService.isConfigured()) {
+            const status = await cloudflareService.getCustomHostnameStatus(domain)
+
+            if (!status.exists) {
+                // 如果在 CF 中不存在（可能被误删），重新尝试创建
+                await cloudflareService.createCustomHostname(domain)
+                return res.json({
+                    verified: false,
+                    message: '正在向域名接入网关重新发起注册，请在 10 秒后重新尝试验证。'
+                })
+            }
+
+            const dnsVerified = status.status === 'active'
+            const sslIssued = status.sslStatus === 'active'
+            const verified = dnsVerified && sslIssued
+
+            // 只要有状态变更，就同步数据库
+            if (domainRecord.dnsVerified !== dnsVerified || domainRecord.sslIssued !== sslIssued) {
+                await prisma.tenantDomain.update({
+                    where: { id: domainRecord.id },
+                    data: {
+                        dnsVerified: dnsVerified,
+                        sslIssued: sslIssued,
+                        verifiedAt: dnsVerified ? new Date() : domainRecord.verifiedAt
+                    }
+                })
+            }
+
+            let msg = ''
+            if (verified) {
+                msg = '🎉 域名解析及 SSL 安全证书已完全生效！您的商城已支持安全访问。'
+            } else if (!dnsVerified) {
+                msg = `⏱️ 域名解析尚未生效。Cloudflare 正在等待您的 DNS 记录指向 ${cloudflareService.FALLBACK_ORIGIN}。若您刚刚修改了解析，可能需要 5-10 分钟生效。`
+            } else {
+                msg = `🔄 域名所有权已通过验证，但 SSL 证书正在签发部署中（当前状态: ${status.sslStatus}）。通常需要 2-5 分钟，请稍后刷新重试。`
+            }
+
+            return res.json({
+                verified,
+                cloudflareStatus: {
+                    status: status.status,
+                    sslStatus: status.sslStatus,
+                    ownershipValidation: status.ownershipValidation,
+                    sslValidationRecords: status.sslValidationRecords
+                },
+                message: msg
+            })
+        }
+
+        // 降级兜底方案：本地 DNS 检查 (原有逻辑)
         const serverIp = process.env.SERVER_IP
         if (!serverIp) return res.status(500).json({ error: '服务器未配置 SERVER_IP 环境变量' })
 
@@ -162,6 +256,42 @@ exports.verifyDns = async (req, res) => {
                 ? 'DNS 验证成功！可以继续申请 SSL 证书'
                 : `DNS 尚未生效。检测到 ${domain} 指向 ${resolved.join(', ')}，期望 ${serverIp}`
         })
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+}
+
+// 删除域名
+exports.deleteDomain = async (req, res) => {
+    try {
+        const { domain } = req.body
+        if (!domain) {
+            return res.status(400).json({ error: '缺少域名参数' })
+        }
+
+        const tenant = await prisma.tenant.findUnique({ where: { userId: req.user.id } })
+        if (!tenant) return res.status(404).json({ error: '租户不存在' })
+
+        const domainRecord = await prisma.tenantDomain.findFirst({
+            where: { domain, tenantId: tenant.id }
+        })
+        if (!domainRecord) return res.status(404).json({ error: '域名记录不存在或不属于该商户' })
+
+        // 如果配置了 Cloudflare，尝试从 Cloudflare 删除该自定义域名映射
+        if (cloudflareService.isConfigured()) {
+            try {
+                await cloudflareService.deleteCustomHostname(domain)
+            } catch (cfErr) {
+                console.error('从 Cloudflare 删除自定义域名失败 (继续删除本地记录):', cfErr)
+            }
+        }
+
+        // 从数据库删除域名记录
+        await prisma.tenantDomain.delete({
+            where: { id: domainRecord.id }
+        })
+
+        res.json({ success: true, message: '域名已成功解绑和删除' })
     } catch (err) {
         res.status(500).json({ error: err.message })
     }

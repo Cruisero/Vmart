@@ -2,6 +2,7 @@
 const AlipaySdk = require('alipay-sdk').default
 const AlipayFormData = require('alipay-sdk/lib/form').default
 const logger = require('../utils/logger')
+const prisma = require('../config/database')
 
 // 延迟初始化支付宝SDK（避免在配置缺失时崩溃）
 let alipaySdk = null
@@ -42,6 +43,63 @@ function buildTenantSdk({ appId, privateKey, alipayPublicKey, gateway }) {
     })
 }
 
+// 从数据库 PlatformSetting 载入平台支付配置，若无则降级为环境变量配置
+async function getPlatformAlipayConfig() {
+    try {
+        const keys = ['alipay_app_id', 'alipay_private_key', 'alipay_public_key', 'alipay_gateway']
+        const settings = await prisma.platformSetting.findMany({
+            where: { key: { in: keys } }
+        })
+        const map = {}
+        settings.forEach(s => {
+            if (s.value) map[s.key] = s.value
+        })
+
+        if (map.alipay_app_id && map.alipay_private_key && map.alipay_public_key) {
+            return {
+                appId: map.alipay_app_id,
+                privateKey: map.alipay_private_key,
+                alipayPublicKey: map.alipay_public_key,
+                gateway: map.alipay_gateway || 'https://openapi.alipay.com/gateway.do'
+            }
+        }
+    } catch (error) {
+        logger.error('获取平台支付宝配置失败:', error)
+    }
+
+    const appId = process.env.ALIPAY_APP_ID
+    if (appId) {
+        return {
+            appId,
+            privateKey: process.env.ALIPAY_PRIVATE_KEY,
+            alipayPublicKey: process.env.ALIPAY_PUBLIC_KEY,
+            gateway: process.env.ALIPAY_GATEWAY || 'https://openapi.alipay.com/gateway.do'
+        }
+    }
+    return null
+}
+
+// 动态构建当前有效的 SDK 实例
+async function getActiveSdk(tenantConfig = null) {
+    if (tenantConfig) {
+        return buildTenantSdk(tenantConfig)
+    }
+
+    const platformConfig = await getPlatformAlipayConfig()
+    if (!platformConfig) {
+        return null
+    }
+
+    return new AlipaySdk({
+        appId: platformConfig.appId,
+        privateKey: platformConfig.privateKey,
+        alipayPublicKey: platformConfig.alipayPublicKey,
+        gateway: platformConfig.gateway,
+        timeout: 5000,
+        camelcase: true
+    })
+}
+
 /**
  * 生成当面付二维码（扫码支付）
  * @param {Object} order - 订单信息
@@ -50,15 +108,15 @@ function buildTenantSdk({ appId, privateKey, alipayPublicKey, gateway }) {
  * @param {string} order.productName - 商品名称
  * @returns {Promise<Object>} 包含二维码URL的结果
  */
-async function createQrCodePayment(order, tenantConfig = null) {
+async function createQrCodePayment(order, tenantConfig = null, notifyUrl = null) {
     try {
-        const sdk = tenantConfig ? buildTenantSdk(tenantConfig) : getAlipaySdk()
+        const sdk = await getActiveSdk(tenantConfig)
         if (!sdk) {
             throw new Error('支付宝未配置')
         }
 
         const result = await sdk.exec('alipay.trade.precreate', {
-            notifyUrl: process.env.ALIPAY_NOTIFY_URL,
+            notifyUrl: notifyUrl || process.env.ALIPAY_NOTIFY_URL,
             bizContent: {
                 outTradeNo: order.orderNo,
                 totalAmount: parseFloat(order.totalAmount).toFixed(2),
@@ -89,12 +147,12 @@ async function createQrCodePayment(order, tenantConfig = null) {
  * @param {Object} order - 订单信息
  * @returns {Promise<string>} 支付页面URL
  */
-async function createPagePayment(order) {
+async function createPagePayment(order, tenantConfig = null, notifyUrl = null, returnUrl = null) {
     const formData = new AlipayFormData()
 
     formData.setMethod('get')
-    formData.addField('returnUrl', process.env.ALIPAY_RETURN_URL)
-    formData.addField('notifyUrl', process.env.ALIPAY_NOTIFY_URL)
+    formData.addField('returnUrl', returnUrl || process.env.ALIPAY_RETURN_URL)
+    formData.addField('notifyUrl', notifyUrl || process.env.ALIPAY_NOTIFY_URL)
 
     formData.addField('bizContent', {
         outTradeNo: order.orderNo,
@@ -105,7 +163,7 @@ async function createPagePayment(order) {
     })
 
     try {
-        const sdk = getAlipaySdk()
+        const sdk = await getActiveSdk(tenantConfig)
         if (!sdk) {
             throw new Error('支付宝未配置')
         }
@@ -129,12 +187,12 @@ async function createPagePayment(order) {
  * @param {Object} order - 订单信息
  * @returns {Promise<string>} 支付页面URL
  */
-async function createWapPayment(order) {
+async function createWapPayment(order, tenantConfig = null, notifyUrl = null, returnUrl = null) {
     const formData = new AlipayFormData()
 
     formData.setMethod('get')
-    formData.addField('returnUrl', process.env.ALIPAY_RETURN_URL)
-    formData.addField('notifyUrl', process.env.ALIPAY_NOTIFY_URL)
+    formData.addField('returnUrl', returnUrl || process.env.ALIPAY_RETURN_URL)
+    formData.addField('notifyUrl', notifyUrl || process.env.ALIPAY_NOTIFY_URL)
 
     formData.addField('bizContent', {
         outTradeNo: order.orderNo,
@@ -142,11 +200,11 @@ async function createWapPayment(order) {
         totalAmount: parseFloat(order.totalAmount).toFixed(2),
         subject: order.productName || '商品购买',
         body: `订单号: ${order.orderNo}`,
-        quitUrl: process.env.ALIPAY_RETURN_URL
+        quitUrl: returnUrl || process.env.ALIPAY_RETURN_URL
     })
 
     try {
-        const sdk = getAlipaySdk()
+        const sdk = await getActiveSdk(tenantConfig)
         if (!sdk) {
             throw new Error('支付宝未配置')
         }
@@ -168,11 +226,12 @@ async function createWapPayment(order) {
 /**
  * 验证支付宝异步通知签名
  * @param {Object} params - 回调参数
- * @returns {boolean} 验证结果
+ * @param {Object} [tenantConfig] - 可选的商户端专属支付宝配置
+ * @returns {Promise<boolean>} 验证结果
  */
-function verifyCallback(params) {
+async function verifyCallback(params, tenantConfig = null) {
     try {
-        const sdk = getAlipaySdk()
+        const sdk = await getActiveSdk(tenantConfig)
         if (!sdk) {
             return false
         }
@@ -191,7 +250,7 @@ function verifyCallback(params) {
  */
 async function queryOrder(orderNo) {
     try {
-        const sdk = getAlipaySdk()
+        const sdk = await getActiveSdk()
         if (!sdk) {
             throw new Error('支付宝未配置')
         }
@@ -216,7 +275,7 @@ async function queryOrder(orderNo) {
  */
 async function closeOrder(orderNo) {
     try {
-        const sdk = getAlipaySdk()
+        const sdk = await getActiveSdk()
         if (!sdk) {
             throw new Error('支付宝未配置')
         }

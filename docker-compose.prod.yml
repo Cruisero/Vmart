@@ -27,6 +27,7 @@ services:
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/backups:/app/backups
+      - ./backend/.env:/app/.env
     environment:
       - NODE_ENV=production
       - PORT=8080

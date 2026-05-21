@@ -10,26 +10,28 @@
  * 中间内容由 routes 自动按当前 URL 渲染。
  */
 import { Link, useLocation } from 'react-router-dom'
+import { useStorefrontPath } from '../../../store/storefrontStore'
 import './styles.css'
 
 export default function DarkLuxuryTheme({ shop, slug, routes }) {
     const location = useLocation()
-    const isHome = location.pathname.replace(/\/+$/, '') === `/v/${slug}`
+    const { prefix, withPrefix } = useStorefrontPath()
+    const isHome = location.pathname.replace(/\/+$/, '') === prefix
 
     return (
         <div className="dl-root">
             <header className="dl-header">
                 <div className="dl-container dl-header-inner">
-                    <Link to={`/v/${slug}`} className="dl-brand">
+                    <Link to={withPrefix('/')} className="dl-brand">
                         {shop.shopLogo
                             ? <img src={shop.shopLogo} alt={shop.shopName} />
                             : <span>{shop.shopName}</span>}
                     </Link>
                     <nav className="dl-nav">
-                        <Link to={`/v/${slug}`}>首页</Link>
-                        <Link to={`/v/${slug}/order-query`}>订单查询</Link>
-                        <Link to={`/v/${slug}/user`}>个人中心</Link>
-                        <Link to={`/v/${slug}/cart`} className="dl-cart">购物车</Link>
+                        <Link to={withPrefix('/')}>首页</Link>
+                        <Link to={withPrefix('/order-query')}>订单查询</Link>
+                        <Link to={withPrefix('/user')}>个人中心</Link>
+                        <Link to={withPrefix('/cart')} className="dl-cart">购物车</Link>
                     </nav>
                 </div>
             </header>

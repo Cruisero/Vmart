@@ -8,11 +8,8 @@ const logger = require('../utils/logger')
 // 自动取消超时未支付订单
 const cancelExpiredOrders = async () => {
     try {
-        // 获取设置中的超时时间（默认15分钟）
-        const setting = await prisma.setting.findUnique({
-            where: { key: 'orderTimeout' }
-        })
-        const timeoutMinutes = parseInt(setting?.value) || 15
+        // 订单超时时间固定为 15 分钟
+        const timeoutMinutes = 15
 
         const expireTime = new Date(Date.now() - timeoutMinutes * 60 * 1000)
 

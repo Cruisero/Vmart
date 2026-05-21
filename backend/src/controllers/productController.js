@@ -1,6 +1,31 @@
 // 商品控制器
 const prisma = require('../config/database')
 
+// 获取租户或全局的库存计算模式
+async function getStockMode(tenantId) {
+    if (tenantId) {
+        try {
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId }
+            })
+            if (tenantSetting && tenantSetting.paymentConfig) {
+                const config = JSON.parse(tenantSetting.paymentConfig)
+                if (config && config.stock_mode) {
+                    return config.stock_mode
+                }
+            }
+        } catch (e) {
+            console.error('Failed to get tenant stockMode:', e)
+        }
+    }
+    try {
+        const globalSetting = await prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        return globalSetting?.value || 'auto'
+    } catch (e) {
+        return 'auto'
+    }
+}
+
 // 获取商品列表
 exports.getProducts = async (req, res, next) => {
     try {
@@ -70,7 +95,7 @@ exports.getProducts = async (req, res, next) => {
             orderBy.createdAt = order
         }
 
-        const [products, total, stockModeSetting] = await Promise.all([
+        const [products, total] = await Promise.all([
             prisma.product.findMany({
                 where,
                 include: {
@@ -89,22 +114,31 @@ exports.getProducts = async (req, res, next) => {
                 skip: (page - 1) * pageSize,
                 take: parseInt(pageSize)
             }),
-            prisma.product.count({ where }),
-            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+            prisma.product.count({ where })
         ])
-        const stockMode = stockModeSetting?.value || 'auto'
+
+        const tenantStockModes = {}
+        const getCachedStockMode = async (tenantId) => {
+            if (!tenantId) return 'auto'
+            if (tenantStockModes[tenantId] !== undefined) return tenantStockModes[tenantId]
+            tenantStockModes[tenantId] = await getStockMode(tenantId)
+            return tenantStockModes[tenantId]
+        }
+
+        const mappedProducts = await Promise.all(products.map(async p => {
+            const { _count, ...productData } = p
+            const sMode = await getCachedStockMode(p.tenantId)
+            return {
+                ...productData,
+                price: parseFloat(productData.price),
+                originalPrice: productData.originalPrice ? parseFloat(productData.originalPrice) : null,
+                stock: sMode === 'auto' ? _count.cards : productData.stock,
+                tags: productData.tags || []
+            }
+        }))
 
         res.json({
-            products: products.map(p => {
-                const { _count, ...productData } = p
-                return {
-                    ...productData,
-                    price: parseFloat(productData.price),
-                    originalPrice: productData.originalPrice ? parseFloat(productData.originalPrice) : null,
-                    stock: stockMode === 'auto' ? _count.cards : productData.stock,
-                    tags: productData.tags || []
-                }
-            }),
+            products: mappedProducts,
             total,
             page: parseInt(page),
             pageSize: parseInt(pageSize),
@@ -120,39 +154,46 @@ exports.getHotProducts = async (req, res, next) => {
     try {
         const { limit = 8 } = req.query
 
-        const [products, stockModeSetting] = await Promise.all([
-            prisma.product.findMany({
-                where: { status: 'ACTIVE' },
-                orderBy: { weight: 'desc' },
-                take: parseInt(limit),
-                include: {
-                    category: {
-                        select: { id: true, name: true }
-                    },
-                    _count: {
-                        select: { cards: { where: { status: 'AVAILABLE' } } }
-                    },
-                    variants: {
-                        where: { status: 'ACTIVE' },
-                        orderBy: { sortOrder: 'asc' }
-                    }
+        const products = await prisma.product.findMany({
+            where: { status: 'ACTIVE' },
+            orderBy: { weight: 'desc' },
+            take: parseInt(limit),
+            include: {
+                category: {
+                    select: { id: true, name: true }
+                },
+                _count: {
+                    select: { cards: { where: { status: 'AVAILABLE' } } }
+                },
+                variants: {
+                    where: { status: 'ACTIVE' },
+                    orderBy: { sortOrder: 'asc' }
                 }
-            }),
-            prisma.setting.findUnique({ where: { key: 'stockMode' } })
-        ])
-        const stockMode = stockModeSetting?.value || 'auto'
+            }
+        })
+
+        const tenantStockModes = {}
+        const getCachedStockMode = async (tenantId) => {
+            if (!tenantId) return 'auto'
+            if (tenantStockModes[tenantId] !== undefined) return tenantStockModes[tenantId]
+            tenantStockModes[tenantId] = await getStockMode(tenantId)
+            return tenantStockModes[tenantId]
+        }
+
+        const mappedProducts = await Promise.all(products.map(async p => {
+            const { _count, ...productData } = p
+            const sMode = await getCachedStockMode(p.tenantId)
+            return {
+                ...productData,
+                price: parseFloat(productData.price),
+                originalPrice: productData.originalPrice ? parseFloat(productData.originalPrice) : null,
+                stock: sMode === 'auto' ? _count.cards : productData.stock,
+                tags: productData.tags || []
+            }
+        }))
 
         res.json({
-            products: products.map(p => {
-                const { _count, ...productData } = p
-                return {
-                    ...productData,
-                    price: parseFloat(productData.price),
-                    originalPrice: productData.originalPrice ? parseFloat(productData.originalPrice) : null,
-                    stock: stockMode === 'auto' ? _count.cards : productData.stock,
-                    tags: productData.tags || []
-                }
-            })
+            products: mappedProducts
         })
     } catch (error) {
         next(error)
@@ -189,10 +230,7 @@ exports.getProductById = async (req, res, next) => {
         }).catch(() => { })
 
         // 查询库存计算模式设置
-        const stockModeSetting = await prisma.setting.findUnique({
-            where: { key: 'stockMode' }
-        })
-        const stockMode = stockModeSetting?.value || 'auto'
+        const stockMode = await getStockMode(product.tenantId || req.tenantId)
 
         let baseStock, variantsWithStock
 

@@ -54,7 +54,8 @@ function OrderResult() {
                     totalAmount: parseFloat(orderData.totalAmount) || 0,
                     paymentMethod: orderData.paymentMethod === 'alipay' ? 'Alipay' :
                         orderData.paymentMethod === 'wechat' ? 'WeChat Pay' :
-                            orderData.paymentMethod === 'bsc_usdt' ? 'USDT-BEP20' : orderData.paymentMethod,
+                            orderData.paymentMethod === 'bsc_usdt' ? 'USDT-BEP20' :
+                                orderData.paymentMethod === 'yipay' ? '在线支付' : orderData.paymentMethod,
                     createdAt: orderData.createdAt ? new Date(orderData.createdAt).toLocaleString() : '',
                     paidAt: orderData.paidAt ? new Date(orderData.paidAt).toLocaleString() : null,
                     cards: (orderData.cards || []).map((c, idx) => ({
@@ -176,6 +177,8 @@ function OrderResult() {
                 paymentMethod = 'usdt'
             } else if (order.paymentMethod === 'USDT-BEP20' || order.paymentMethod === 'bsc_usdt') {
                 paymentMethod = 'bsc_usdt'
+            } else if (order.paymentMethod === '在线支付' || order.paymentMethod === 'yipay') {
+                paymentMethod = 'yipay'
             }
 
             const res = await fetch('/api/payment/create', {

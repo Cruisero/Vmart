@@ -32,21 +32,7 @@ export default function FreshNavbar() {
                 {displayLogo ? (
                     <img src={displayLogo} alt={displayName || 'Logo'} className="fn-logo-img" />
                 ) : (
-                    <>
-                        <svg className="fn-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <linearGradient id="fn-g" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                                    <stop offset="0%" stopColor="#EF4444"/>
-                                    <stop offset="100%" stopColor="#F43F5E"/>
-                                </linearGradient>
-                            </defs>
-                            <path d="M13 16c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="url(#fn-g)" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-                            <rect x="9" y="16" width="18" height="13" rx="3" fill="url(#fn-g)"/>
-                            <circle cx="15" cy="22.5" r="1.3" fill="white"/>
-                            <circle cx="21" cy="22.5" r="1.3" fill="white"/>
-                        </svg>
-                        <span className="fn-logo-text">{displayName ? displayName : <>V<span className="fn-logo-accent">mart</span></>}</span>
-                    </>
+                    <span className="fn-logo-text">{displayName ? displayName : <>V<span className="fn-logo-accent">mart</span></>}</span>
                 )}
             </Link>
 

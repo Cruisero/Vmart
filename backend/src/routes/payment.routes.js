@@ -15,6 +15,10 @@ router.post('/alipay/notify', paymentController.alipayCallback) // 别名路由
 // 支付回调 - 微信
 router.post('/callback/wechat', paymentController.wechatCallback)
 
+// 支付回调 - 易支付 (支持 GET 跳转和 POST 异步通知)
+router.get('/callback/yipay', paymentController.yipayCallback)
+router.post('/callback/yipay', paymentController.yipayCallback)
+
 // 查询支付状态
 router.get('/status/:orderNo', paymentController.getPaymentStatus)
 

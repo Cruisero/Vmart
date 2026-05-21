@@ -11,30 +11,36 @@ const PUBLIC_SKINS = ['fresh', 'zen', 'class']
 exports.listThemes = async (req, res) => {
     try {
         const themes = await prisma.customTheme.findMany({
-            orderBy: { createdAt: 'desc' },
-            include: {
-                assignments: {
-                    select: { tenantId: true, createdAt: true }
-                }
-            }
+            orderBy: { createdAt: 'desc' }
         })
+        const assignments = await prisma.customThemeAssignment.findMany()
 
-        // 反查 tenant 信息
-        const tenantIds = [...new Set(themes.flatMap(t => t.assignments.map(a => a.tenantId)))]
+        const assignmentsMap = {}
+        for (const a of assignments) {
+            if (!assignmentsMap[a.themeId]) {
+                assignmentsMap[a.themeId] = []
+            }
+            assignmentsMap[a.themeId].push({ tenantId: a.tenantId, createdAt: a.createdAt })
+        }
+
+        const tenantIds = [...new Set(assignments.map(a => a.tenantId))]
         const tenants = tenantIds.length ? await prisma.tenant.findMany({
             where: { id: { in: tenantIds } },
             select: { id: true, shopName: true, shopSlug: true, user: { select: { email: true } } }
         }) : []
         const tenantMap = Object.fromEntries(tenants.map(t => [t.id, t]))
 
-        const result = themes.map(t => ({
-            ...t,
-            assignments: t.assignments.map(a => ({
-                tenantId: a.tenantId,
-                tenant: tenantMap[a.tenantId] || null,
-                createdAt: a.createdAt
-            }))
-        }))
+        const result = themes.map(t => {
+            const themeAssignments = assignmentsMap[t.id] || []
+            return {
+                ...t,
+                assignments: themeAssignments.map(a => ({
+                    tenantId: a.tenantId,
+                    tenant: tenantMap[a.tenantId] || null,
+                    createdAt: a.createdAt
+                }))
+            }
+        })
 
         res.json({ themes: result })
     } catch (e) {
@@ -166,10 +172,16 @@ exports.getAvailableThemes = async (req, res) => {
     try {
         if (!req.tenantId) return res.json({ public: PUBLIC_SKINS, custom: [] })
 
-        const assignments = await prisma.customThemeAssignment.findMany({
-            where: { tenantId: req.tenantId, theme: { status: 'ACTIVE' } },
-            include: { theme: true }
+        const activeThemes = await prisma.customTheme.findMany({
+            where: { status: 'ACTIVE' }
         })
+
+        const assignments = await prisma.customThemeAssignment.findMany({
+            where: { tenantId: req.tenantId }
+        })
+
+        const assignedThemeIds = new Set(assignments.map(a => a.themeId))
+        const assignedActiveThemes = activeThemes.filter(t => assignedThemeIds.has(t.id))
 
         // 基础公共主题，按套餐过滤（沿用现有 plan_config.skins 逻辑）
         const tenant = await prisma.tenant.findUnique({
@@ -200,10 +212,10 @@ exports.getAvailableThemes = async (req, res) => {
 
         res.json({
             public: publicSkins,
-            custom: assignments.map(a => ({
-                key: a.theme.key,
-                name: a.theme.name,
-                description: a.theme.description
+            custom: assignedActiveThemes.map(t => ({
+                key: t.key,
+                name: t.name,
+                description: t.description
             }))
         })
     } catch (e) {
@@ -218,14 +230,20 @@ exports.canUseSkin = async (tenantId, skin) => {
     if (PUBLIC_SKINS.includes(skin)) return true
     if (skin.startsWith('custom:')) {
         const themeKey = skin.split(':')[1]
-        const allowed = await prisma.customTheme.findFirst({
+        const theme = await prisma.customTheme.findFirst({
             where: {
                 key: themeKey,
-                status: 'ACTIVE',
-                assignments: { some: { tenantId } }
+                status: 'ACTIVE'
             }
         })
-        return !!allowed
+        if (!theme) return false
+        const assigned = await prisma.customThemeAssignment.findFirst({
+            where: {
+                themeId: theme.id,
+                tenantId
+            }
+        })
+        return !!assigned
     }
     return false
 }

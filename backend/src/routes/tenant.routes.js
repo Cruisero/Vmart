@@ -13,6 +13,7 @@ router.post('/setup', tenantController.setup)
 // 域名管理
 router.post('/domain', tenantController.addDomain)
 router.post('/domain/verify', tenantController.verifyDns)
+router.delete('/domain', tenantController.deleteDomain)
 
 // 提交审核
 router.post('/submit', tenantController.submitReview)

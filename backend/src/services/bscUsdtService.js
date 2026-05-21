@@ -43,11 +43,41 @@ async function getMainConfig() {
 
 async function getConfig() { return getMainConfig() }
 
+// 获取平台（商户后台）BSC USDT配置
+async function getPlatformConfig() {
+    try {
+        const walletSetting = await prisma.platformSetting.findUnique({ where: { key: 'bsc_usdt_wallet' } })
+        const rateSetting = await prisma.platformSetting.findUnique({ where: { key: 'bsc_usdt_rate' } })
+        if (walletSetting?.value) {
+            return {
+                ...DEFAULT_CONFIG,
+                tenantId: null,
+                WALLET_ADDRESS: walletSetting.value,
+                EXCHANGE_RATE: rateSetting?.value ? parseFloat(rateSetting.value) || 7.2 : 7.2,
+                ENABLED: true,
+                API_KEY: ''
+            }
+        }
+    } catch (error) {
+        logger.error('获取平台BSC USDT配置失败:', error)
+    }
+    return null
+}
+
 // ─── 收集所有开启的钱包组 ─────────────────────────────────
 async function getAllWalletGroups() {
     const groups = []
     const main = await getMainConfig()
     if (main.ENABLED && main.WALLET_ADDRESS) groups.push(main)
+
+    // 平台商户后台（商户升级套餐、买包，订单没有 tenantId）
+    const platform = await getPlatformConfig()
+    if (platform && platform.WALLET_ADDRESS) {
+        const alreadyAdded = groups.some(g => g.WALLET_ADDRESS === platform.WALLET_ADDRESS && g.tenantId === null)
+        if (!alreadyAdded) {
+            groups.push(platform)
+        }
+    }
 
     const tenantSettings = await prisma.tenantSetting.findMany({
         where: { bscUsdtEnabled: true },
@@ -309,6 +339,10 @@ async function processBscUsdtPaymentSuccess(order, txHash, usdtAmount) {
     // 邮件资源包：跳过卡密分发逻辑
     const { processEmailPackIfNeeded } = require('../utils/emailPackHandler')
     if (await processEmailPackIfNeeded(order)) return
+
+    // 平台套餐自动激活
+    const { processPlanOrderIfNeeded } = require('../utils/planOrderHandler')
+    if (await processPlanOrderIfNeeded(order)) return
 
     let cards = []
     try {

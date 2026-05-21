@@ -4,7 +4,7 @@ import { FiSearch, FiShoppingCart, FiUser, FiMenu, FiX, FiTrendingUp, FiHeart, F
 import { useBuyerL } from '../../../hooks/useBuyerL'
 import { useCartStore } from '../../../store/cartStore'
 import { useAuthStore } from '../../../store/authStore'
-import { useStorefront } from '../../../store/storefrontStore'
+import { useStorefront, useStorefrontPath } from '../../../store/storefrontStore'
 import { useThemeStore } from '../../../store/themeStore'
 import { formatPrice } from '../../../utils/currencyFormat'
 import LanguageToggle from '../../../components/common/LanguageToggle'
@@ -31,7 +31,7 @@ export default function OriginNavbar({ shop, slug, onSearchFocus }) {
     const debounceRef = useRef(null)
 
     const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
-    const prefix = `/v/${slug}`
+    const { prefix } = useStorefrontPath()
 
     const apiProductsUrl = storefront?._tenantMode && storefront?.slug
         ? `/api/v/${storefront.slug}/products`

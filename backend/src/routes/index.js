@@ -98,6 +98,32 @@ router.get('/settings/public', async (req, res) => {    try {
         res.json({ settings: {} })
     }
 })
+ 
+// 公开免认证接口：根据自定义域名解析商户的 shopSlug 与 tenantId
+router.get('/tenant/resolve-by-domain', async (req, res) => {
+    try {
+        const { domain } = req.query
+        if (!domain) return res.status(400).json({ error: '缺少域名参数' })
+
+        const cleanDomain = domain.trim().toLowerCase()
+        const domainRecord = await prisma.tenantDomain.findUnique({
+            where: { domain: cleanDomain },
+            include: { tenant: true }
+        })
+
+        if (!domainRecord || domainRecord.tenant.status !== 'ACTIVE') {
+            return res.status(404).json({ error: '自定义域名未激活或不存在' })
+        }
+
+        res.json({
+            success: true,
+            slug: domainRecord.tenant.shopSlug,
+            tenantId: domainRecord.tenantId
+        })
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
 
 // 认证路由
 router.use('/auth', authRoutes)

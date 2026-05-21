@@ -1,5 +1,30 @@
 // 订单控制器
 const prisma = require('../config/database')
+
+// 获取租户或全局的库存计算模式
+async function getStockMode(tenantId) {
+    if (tenantId) {
+        try {
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId }
+            })
+            if (tenantSetting && tenantSetting.paymentConfig) {
+                const config = JSON.parse(tenantSetting.paymentConfig)
+                if (config && config.stock_mode) {
+                    return config.stock_mode
+                }
+            }
+        } catch (e) {
+            console.error('Failed to get tenant stockMode:', e)
+        }
+    }
+    try {
+        const globalSetting = await prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        return globalSetting?.value || 'auto'
+    } catch (e) {
+        return 'auto'
+    }
+}
 const { nanoid } = require('nanoid')
 
 // 根据数量匹配批发单价
@@ -108,10 +133,7 @@ exports.createOrder = async (req, res, next) => {
         }
 
         // 查询库存计算模式设置
-        const stockModeSetting = await prisma.setting.findUnique({
-            where: { key: 'stockMode' }
-        })
-        const stockMode = stockModeSetting?.value || 'auto'
+        const stockMode = await getStockMode(product.tenantId)
 
         let availableStock
         if (stockMode === 'manual') {

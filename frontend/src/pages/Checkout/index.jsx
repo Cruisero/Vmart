@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { FiCreditCard, FiMail, FiArrowLeft, FiCheck, FiEdit3 } from 'react-icons/fi'
+import { FiCreditCard, FiMail, FiArrowLeft, FiCheck, FiEdit3, FiEye, FiEyeOff } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
@@ -15,15 +15,18 @@ const paymentIcons = {
     alipay: '💳',
     wechat: '💚',
     usdt: '💰',
-    bsc_usdt: '🟡'
+    bsc_usdt: '🟡',
+    yipay: '⚡'
 }
 
 const paymentColors = {
     alipay: '#1677ff',
     wechat: '#07c160',
     usdt: '#26a17b',
-    bsc_usdt: '#f3ba2f'
+    bsc_usdt: '#f3ba2f',
+    yipay: '#1890ff'
 }
+
 
 function Checkout() {
     const { t } = useTranslation()
@@ -41,6 +44,7 @@ function Checkout() {
 
     const [email, setEmail] = useState(user?.email || '')
     const [queryPassword, setQueryPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState('alipay')
     const [loading, setLoading] = useState(false)
     const [agreed, setAgreed] = useState(true) // checked by default
@@ -317,16 +321,27 @@ function Checkout() {
                         {!isAuthenticated && (
                             <>
                                 <p className="section-desc" style={{ marginTop: 12 }}>{t('checkout.queryPasswordDesc')}</p>
-                                <input
-                                    type="password"
-                                    className="input"
-                                    placeholder={t('checkout.queryPasswordPlaceholder')}
-                                    value={queryPassword}
-                                    onChange={(e) => setQueryPassword(e.target.value)}
-                                    minLength={4}
-                                    maxLength={20}
-                                    required
-                                />
+                                <div className="password-input-wrapper">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        className="input"
+                                        placeholder={t('checkout.queryPasswordPlaceholder')}
+                                        value={queryPassword}
+                                        onChange={(e) => setQueryPassword(e.target.value)}
+                                        minLength={4}
+                                        maxLength={20}
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        className="password-toggle-btn"
+                                        onClick={() => setShowPassword(prev => !prev)}
+                                        tabIndex={-1}
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                    >
+                                        {showPassword ? <FiEyeOff /> : <FiEye />}
+                                    </button>
+                                </div>
                             </>
                         )}
                     </div>

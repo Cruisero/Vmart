@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import ForgotPassword from './pages/Auth/ForgotPassword'
@@ -21,7 +21,16 @@ import Landing from './pages/Landing'
 import AdminDashboardWithProvider from './pages/Admin/Dashboard'
 import MerchantStorefront from './pages/MerchantStorefront'
 
+const isCustomDomain = () => {
+    const host = window.location.hostname
+    const mainDomains = ['localhost', '127.0.0.1', 'vmart.cc', 'www.vmart.cc', 'fallback.vmart.cc']
+    return !mainDomains.includes(host)
+}
+
 function App() {
+    const [resolvedSlug, setResolvedSlug] = useState(null)
+    const [resolvingDomain, setResolvingDomain] = useState(isCustomDomain())
+    const [domainError, setDomainError] = useState(null)
     const initTheme = useThemeStore((state) => state.initTheme)
     const { isAuthenticated, token, user, updateUser, logout } = useAuthStore()
     const { fetchSkin, skinReady, siteName, siteFavicon } = useSkinStore()
@@ -29,9 +38,10 @@ function App() {
     useEffect(() => { initTheme() }, [initTheme])
     useEffect(() => { fetchSkin() }, [])
 
-    // 动态设置页面标题（仅在非店面页面，店面会自己覆盖）
+    // 动态设置页面标题（仅在非店面、管理后台、代理后台与招商落地页）
     useEffect(() => {
-        if (siteName && !/^\/v\//.test(window.location.pathname)) {
+        const path = window.location.pathname
+        if (siteName && !/^\/(v|s|Man|man|agent|admin)\b/.test(path) && path !== '/') {
             document.title = siteName
         }
     }, [siteName])
@@ -85,7 +95,71 @@ function App() {
         }
     }, [isAuthenticated, token, user?.role])
 
+    // 解析自定义域名所关联的租户店面
+    useEffect(() => {
+        if (isCustomDomain()) {
+            setResolvingDomain(true)
+            fetch(`/api/tenant/resolve-by-domain?domain=${window.location.hostname}`)
+                .then(r => {
+                    if (!r.ok) throw new Error('自定义域名未绑定、未激活，或者解析配置尚未完成')
+                    return r.json()
+                })
+               .then(data => {
+                    if (data.slug) {
+                        setResolvedSlug(data.slug)
+                    } else {
+                        throw new Error('自定义域名未关联有效店铺')
+                    }
+                })
+                .catch(err => {
+                    setDomainError(err.message)
+                })
+                .finally(() => {
+                    setResolvingDomain(false)
+                })
+        }
+    }, [])
+
+    if (resolvingDomain) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F3F4F6' }}>
+                <div style={{ width: '40px', height: '40px', border: '3px solid #E5E7EB', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        )
+    }
+
+    if (domainError) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F9FAFB', fontFamily: 'system-ui, -apple-system, sans-serif', padding: 24, textAlign: 'center' }}>
+                <div style={{ fontSize: '4rem', marginBottom: 16 }}>🌐</div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#111827', marginBottom: 8 }}>域名未生效或配置错误</h2>
+                <p style={{ color: '#6B7280', maxWidth: '380px', lineHeight: '1.5', marginBottom: 24 }}>{domainError}</p>
+                <a href="https://vmart.cc" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 20px', background: '#2563EB', color: '#FFF', fontWeight: '500', borderRadius: '8px', textDecoration: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    访问平台主站
+                </a>
+            </div>
+        )
+    }
+
     if (!skinReady) return null
+
+    if (resolvedSlug) {
+        return (
+            <Router>
+                <div className="app">
+                    <Routes>
+                        {/* 自定义域名下的商户后台入口 www.custom.com/admin */}
+                        <Route path="/admin/*" element={<ShopAdminWrapper resolvedSlug={resolvedSlug} />} />
+
+                        {/* 自定义域名下的独立店铺主页与其它商品页 www.custom.com/ */}
+                        <Route path="/*" element={<MerchantStorefront propSlug={resolvedSlug} />} />
+                    </Routes>
+                    <Toaster position="top-center" />
+                </div>
+            </Router>
+        )
+    }
 
     return (
         <Router>
@@ -141,13 +215,14 @@ function App() {
 }
 
 // ShopAdmin 路由包装器（商户后台，需要 TENANT_ADMIN/ADMIN 角色）
-function ShopAdminWrapper() {
-    const { slug } = useParams()
+function ShopAdminWrapper({ resolvedSlug }) {
+    const { slug: paramSlug } = useParams()
+    const slug = resolvedSlug || paramSlug
     const role = useAuthStore((s) => s.user?.role)
     if (!['TENANT_ADMIN', 'SUPER_ADMIN', 'ADMIN'].includes(role)) {
         return <NotFound />
     }
-    return <AdminDashboardWithProvider basePath={`/v/${slug}/admin`} />
+    return <AdminDashboardWithProvider basePath={resolvedSlug ? '/admin' : `/v/${slug}/admin`} />
 }
 
 export default App

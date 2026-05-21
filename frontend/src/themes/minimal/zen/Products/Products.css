@@ -27,6 +27,7 @@
 .zp-card-bottom { display: flex; align-items: baseline; gap: 8px; }
 .zp-price { font-size: 0.95rem; font-weight: 700; color: #C45D3E; }
 .zp-price-orig { font-size: 0.78rem; color: #bbb; text-decoration: line-through; }
+.zp-sold { font-size: 0.75rem; color: #9ca3af; margin-left: auto; font-weight: 400; }
 .zp-empty {
   grid-column: 1 / -1; text-align: center; padding: 80px 0;
   color: #bbb; font-size: 0.9rem;

@@ -71,8 +71,11 @@ async function getTenantEmailConfig(tenantId) {
     // 免费试用与专业版同权限：FREE 视同 PRO 读取邮件额度
     const effectivePlanKey = shop.plan === 'FREE' ? 'PRO' : shop.plan
 
+    // 兜底默认值：未配置过的套餐或已配置但缺字段的，按默认额度处理
+    const fallbackQuota = { FREE: 5000, BASIC: 0, STANDARD: 2000, PRO: 5000 }
+    let emailLimit = fallbackQuota[effectivePlanKey] ?? 0
+
     // 获取套餐配置中的邮件额度
-    let emailLimit = -1 // -1 = 无限（自有SMTP）或按套餐配置
     try {
         const planSetting = await prisma.platformSetting.findUnique({ where: { key: 'plan_config' } })
         if (planSetting?.value) {

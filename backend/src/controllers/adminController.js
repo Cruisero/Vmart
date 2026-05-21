@@ -4,6 +4,31 @@ const bcrypt = require('bcryptjs')
 const emailService = require('../services/emailService')
 const agentService = require('../services/agentService')
 
+// 获取租户或全局的库存计算模式
+async function getStockMode(tenantId) {
+    if (tenantId) {
+        try {
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId }
+            })
+            if (tenantSetting && tenantSetting.paymentConfig) {
+                const config = JSON.parse(tenantSetting.paymentConfig)
+                if (config && config.stock_mode) {
+                    return config.stock_mode
+                }
+            }
+        } catch (e) {
+            console.error('Failed to get tenant stockMode:', e)
+        }
+    }
+    try {
+        const globalSetting = await prisma.setting.findUnique({ where: { key: 'stockMode' } })
+        return globalSetting?.value || 'auto'
+    } catch (e) {
+        return 'auto'
+    }
+}
+
 // 检查租户的当前套餐是否允许代理系统
 async function isAgentSystemAllowed(tenantId) {
     try {
@@ -236,7 +261,9 @@ exports.getDashboard = async (req, res, next) => {
                 _sum: { totalAmount: true }
             }),
             prisma.product.count({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}) } }),
-            prisma.user.count(),
+            req.tenantId
+                ? prisma.customer.count({ where: { tenantId: req.tenantId } })
+                : prisma.user.count(),
             prisma.order.count({
                 where: {
                 ...(req.tenantId ? { tenantId: req.tenantId } : {}),
@@ -273,11 +300,11 @@ exports.getDashboard = async (req, res, next) => {
                  orderBy: { createdAt: 'desc' },
                  take: 20
              }),
-             prisma.siteVisit ? prisma.siteVisit.aggregate({ _sum: { visits: true } }).catch(() => ({ _sum: { visits: 0 } })) : Promise.resolve({ _sum: { visits: 0 } }),
-             prisma.siteVisit ? prisma.siteVisit.findUnique({ where: { date: today } }).catch(() => null) : Promise.resolve(null),
-             prisma.setting.findUnique({ where: { key: 'stockMode' } })
+             !req.tenantId && prisma.siteVisit ? prisma.siteVisit.aggregate({ _sum: { visits: true } }).catch(() => ({ _sum: { visits: 0 } })) : Promise.resolve({ _sum: { visits: 0 } }),
+             !req.tenantId && prisma.siteVisit ? prisma.siteVisit.findUnique({ where: { date: today } }).catch(() => null) : Promise.resolve(null),
+             getStockMode(req.tenantId)
         ])
-        const stockMode = stockModeSetting?.value || 'auto'
+        const stockMode = stockModeSetting || 'auto'
 
         const todayRevenue = await prisma.order.aggregate({
             where: {
@@ -306,7 +333,7 @@ exports.getDashboard = async (req, res, next) => {
             const alertIds = alertSetting?.value ? JSON.parse(alertSetting.value) : []
             if (alertIds.length > 0) {
                 const alertProducts = await prisma.product.findMany({
-                    where: { id: { in: alertIds } },
+                    where: { id: { in: alertIds }, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
                     select: {
                         id: true,
                         name: true,
@@ -422,16 +449,26 @@ exports.getDashboardTrend = async (req, res, next) => {
                 },
                 select: { createdAt: true, totalAmount: true }
             }),
-            prisma.user.findMany({
-                where: {
-                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
-                createdAt: {
-                        gte: startDate,
-                        lte: today
-                    }
-                },
-                select: { createdAt: true }
-            }),
+            req.tenantId
+                ? prisma.customer.findMany({
+                    where: {
+                        tenantId: req.tenantId,
+                        createdAt: {
+                            gte: startDate,
+                            lte: today
+                        }
+                    },
+                    select: { createdAt: true }
+                })
+                : prisma.user.findMany({
+                    where: {
+                        createdAt: {
+                            gte: startDate,
+                            lte: today
+                        }
+                    },
+                    select: { createdAt: true }
+                }),
             prisma.product.findMany({
                 where: {
                 ...(req.tenantId ? { tenantId: req.tenantId } : {}),
@@ -442,7 +479,7 @@ exports.getDashboardTrend = async (req, res, next) => {
                 },
                 select: { createdAt: true }
             }),
-            prisma.siteVisit ? prisma.siteVisit.findMany({
+            !req.tenantId && prisma.siteVisit ? prisma.siteVisit.findMany({
                 where: {
                     date: {
                         gte: startDate,
@@ -524,9 +561,9 @@ if (status) where.status = status.toUpperCase()
                 take: parseInt(pageSize)
             }),
             prisma.product.count({ where }),
-            prisma.setting.findUnique({ where: { key: 'stockMode' } })
+            getStockMode(req.tenantId)
         ])
-        const stockMode = stockModeSetting?.value || 'auto'
+        const stockMode = stockModeSetting || 'auto'
 
         res.json({
             products: products.map(p => ({
@@ -767,16 +804,24 @@ exports.updateProduct = async (req, res, next) => {
                         await tx.productVariant.deleteMany({
                             where: { productId: id }
                         })
-                        const remainingStock = await tx.card.count({
-                            where: {
-                                productId: id,
-                                status: 'AVAILABLE'
-                            }
-                        })
-                        await tx.product.update({
-                            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
-                            data: { stock: remainingStock }
-                        })
+                        const stockMode = await getStockMode(req.tenantId)
+                        if (stockMode === 'manual') {
+                            await tx.product.update({
+                                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+                                data: { stock: stock !== undefined ? parseInt(stock) || 0 : 0 }
+                            })
+                        } else {
+                            const remainingStock = await tx.card.count({
+                                where: {
+                                    productId: id,
+                                    status: 'AVAILABLE'
+                                }
+                            })
+                            await tx.product.update({
+                                where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+                                data: { stock: remainingStock }
+                            })
+                        }
                     }
                 }
             }
@@ -1516,11 +1561,15 @@ exports.createEmailPackOrder = async (req, res, next) => {
         if (paymentMethod === 'alipay') {
             const alipayService = require('../services/alipayService')
             try {
+                const frontendUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`
+                const base = frontendUrl.endsWith('/') ? frontendUrl.slice(0, -1) : frontendUrl
+                const notifyUrl = `${base}/api/payment/alipay/notify`
+
                 const result = await alipayService.createQrCodePayment({
                     orderNo,
                     totalAmount: pack.price,
                     productName: `Vmart 邮件资源包 ${pack.count}封`
-                })
+                }, null, notifyUrl)
                 paymentData = { paymentType: 'qrcode', qrCode: result.qrCode, orderNo }
             } catch (e) {
                 return res.status(500).json({ error: '支付宝支付暂不可用，请选择其他方式' })
@@ -1531,7 +1580,11 @@ exports.createEmailPackOrder = async (req, res, next) => {
             if (!walletSetting?.value) {
                 return res.status(400).json({ error: 'USDT 收款地址未配置，请联系平台' })
             }
-            const exchangeRate = 7.2
+            
+            const rateKey = paymentMethod === 'usdt' ? 'usdt_rate' : 'bsc_usdt_rate'
+            const rateSetting = await prisma.platformSetting.findUnique({ where: { key: rateKey } })
+            const exchangeRate = rateSetting?.value ? parseFloat(rateSetting.value) || 7.2 : 7.2
+
             const usdtAmount = parseFloat((pack.price / exchangeRate).toFixed(2))
             const uniqueAmount = usdtAmount + parseFloat((Math.random() * 0.09 + 0.01).toFixed(2))
             const updateData = paymentMethod === 'usdt'
@@ -1570,7 +1623,7 @@ exports.checkEmailPackOrder = async (req, res, next) => {
             return res.status(400).json({ error: '订单类型不符' })
         }
         return res.json({
-            status: order.status === 'COMPLETED' ? 'paid' : (order.status === 'CANCELLED' ? 'cancelled' : 'pending')
+            status: ['COMPLETED', 'PAID'].includes(order.status) ? 'paid' : (order.status === 'CANCELLED' ? 'cancelled' : 'pending')
         })
     } catch (error) {
         next(error)
@@ -1616,7 +1669,10 @@ exports.getEmailUsage = async (req, res, next) => {
         })
 
         const effectivePlanKey = shop?.plan === 'FREE' ? 'PRO' : shop?.plan
-        let emailLimit = 0
+        // 兜底默认值：未配置过的套餐或已配置但缺字段的，按默认额度处理
+        const fallbackQuota = { FREE: 5000, BASIC: 0, STANDARD: 2000, PRO: 5000 }
+        let emailLimit = fallbackQuota[effectivePlanKey] ?? 0
+
         const setting = await prisma.platformSetting.findUnique({ where: { key: 'plan_config' } })
         if (setting?.value) {
             try {
@@ -1680,6 +1736,10 @@ exports.getPlanLimits = async (req, res, next) => {
             const fallback = { FREE: 10, BASIC: 0, STANDARD: 2, PRO: 10 }
             limits.maxSubAdmins = fallback[shop.plan] ?? 0
         }
+        if (typeof limits.emailNotifications !== 'number') {
+            const fallback = { FREE: 5000, BASIC: 0, STANDARD: 2000, PRO: 5000 }
+            limits.emailNotifications = fallback[shop.plan] ?? 0
+        }
         if (typeof limits.support !== 'boolean') {
             limits.support = !planConfigured // 已配置过的套餐缺该字段 = 关闭
         }
@@ -1710,6 +1770,19 @@ exports.getSettings = async (req, res, next) => {
                     console.error('Failed to parse tenant systemSettings:', e);
                 }
             }
+            if (tenantSetting && tenantSetting.paymentConfig) {
+                try {
+                    const payConfig = JSON.parse(tenantSetting.paymentConfig);
+                    settingsObj.stockMode = payConfig.stock_mode || 'auto';
+                    settingsObj.orderTimeout = payConfig.order_timeout || 15;
+                } catch (e) {}
+            }
+            if (!settingsObj.stockMode) {
+                settingsObj.stockMode = 'auto';
+            }
+            if (!settingsObj.orderTimeout) {
+                settingsObj.orderTimeout = 15;
+            }
             
             const admins = await prisma.user.findMany({
                 where: { tenant: { id: req.tenantId }, role: { in: ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN'] } },
@@ -1734,6 +1807,18 @@ exports.getSettings = async (req, res, next) => {
 
             // 加上当前商户是否允许代理系统的标记，前端用于禁用/隐藏 toggle
             settingsObj._planAllowsAgent = await isAgentSystemAllowed(req.tenantId);
+
+            // 获取超管后台控制的商户支付渠道开关，并拼接到设置中
+            try {
+                const channelSettings = await prisma.platformSetting.findMany({
+                    where: { key: { startsWith: 'channel_' } }
+                });
+                channelSettings.forEach(s => {
+                    settingsObj[s.key] = s.value;
+                });
+            } catch (e) {
+                console.error('Failed to load platform channel settings:', e);
+            }
             
         } else {            // Global settings
             const [settings, admins] = await Promise.all([

@@ -33,17 +33,68 @@ async function platformAuth(req, res, next) {
         return res.status(401).json({ error: '请先登录' })
     }
 
+    let payload = null
+    let isMerchantToken = false
+
+    // 1. 尝试以平台商户 token 验证
     try {
-        const payload = jwt.verify(token, PLATFORM_JWT_SECRET)
-        const merchant = await prisma.merchant.findUnique({
-            where: { id: payload.mid },
-            include: { shop: true }
-        })
-        if (!merchant) return res.status(401).json({ error: '账号不存在' })
-        req.merchant = merchant
-        next()
-    } catch {
+        payload = jwt.verify(token, PLATFORM_JWT_SECRET)
+        if (payload && payload.mid) {
+            isMerchantToken = true
+        }
+    } catch (err) {
+        // 如果 PLATFORM_JWT_SECRET 与 JWT_SECRET 不同，用 JWT_SECRET 再试一次
+        if (process.env.JWT_SECRET && process.env.JWT_SECRET !== PLATFORM_JWT_SECRET) {
+            try {
+                payload = jwt.verify(token, process.env.JWT_SECRET)
+            } catch (e) {
+                const msg = e.name === 'TokenExpiredError' ? 'Token 已过期，请重新登录' : 'Token 无效或已过期'
+                return res.status(401).json({ error: msg })
+            }
+        } else {
+            // 两个 secret 相同，只需一次验证就够了，失败即终止
+            const msg = err.name === 'TokenExpiredError' ? 'Token 已过期，请重新登录' : 'Token 无效或已过期'
+            return res.status(401).json({ error: msg })
+        }
+    }
+
+    if (!payload) {
         return res.status(401).json({ error: 'Token 无效或已过期' })
+    }
+
+    try {
+        if (isMerchantToken) {
+            const merchant = await prisma.merchant.findUnique({
+                where: { id: payload.mid },
+                include: { shop: true }
+            })
+            if (!merchant) return res.status(401).json({ error: '账号不存在' })
+            req.merchant = merchant
+            return next()
+        } else if (payload.id) {
+            // 这是普通租户管理 token (来自 useAuthStore)
+            const user = await prisma.user.findUnique({
+                where: { id: payload.id }
+            })
+            if (!user) return res.status(401).json({ error: '用户不存在' })
+
+            if (user.role !== 'TENANT_ADMIN' && user.role !== 'SUPER_ADMIN') {
+                return res.status(403).json({ error: '权限不足，无法执行该操作' })
+            }
+
+            const merchant = await prisma.merchant.findUnique({
+                where: { email: user.email },
+                include: { shop: true }
+            })
+            if (!merchant) return res.status(401).json({ error: '商户账号不存在或未关联' })
+
+            req.merchant = merchant
+            return next()
+        } else {
+            return res.status(401).json({ error: 'Token 无效或已过期' })
+        }
+    } catch (error) {
+        return res.status(401).json({ error: '验证 Token 失败: ' + error.message })
     }
 }
 

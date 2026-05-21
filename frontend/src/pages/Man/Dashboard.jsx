@@ -422,9 +422,15 @@ function PlatformSettings({ token }) {
                                 </label>
                             </div>
                             {settings.usdt_enabled === 'true' && (
-                                <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
-                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>TRC20 收款钱包地址</label>
-                                    <input value={settings.usdt_wallet || ''} onChange={e => setSettings(s => ({ ...s, usdt_wallet: e.target.value }))} placeholder="T..." style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', fontFamily: 'monospace' }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>TRC20 收款钱包地址</label>
+                                        <input value={settings.usdt_wallet || ''} onChange={e => setSettings(s => ({ ...s, usdt_wallet: e.target.value }))} placeholder="T..." style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', fontFamily: 'monospace' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>USDT-TRC20 折算汇率 (1 USDT = ? 元人民币，默认 7.2)</label>
+                                        <input value={settings.usdt_rate || ''} onChange={e => setSettings(s => ({ ...s, usdt_rate: e.target.value }))} placeholder="7.2" type="number" step="0.01" style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none' }} />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -444,9 +450,15 @@ function PlatformSettings({ token }) {
                                 </label>
                             </div>
                             {settings.bsc_usdt_enabled === 'true' && (
-                                <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
-                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>BEP20 收款钱包地址</label>
-                                    <input value={settings.bsc_usdt_wallet || ''} onChange={e => setSettings(s => ({ ...s, bsc_usdt_wallet: e.target.value }))} placeholder="0x..." style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', fontFamily: 'monospace' }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>BEP20 收款钱包地址</label>
+                                        <input value={settings.bsc_usdt_wallet || ''} onChange={e => setSettings(s => ({ ...s, bsc_usdt_wallet: e.target.value }))} placeholder="0x..." style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', fontFamily: 'monospace' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>USDT-BEP20 折算汇率 (1 USDT = ? 元人民币，默认 7.2)</label>
+                                        <input value={settings.bsc_usdt_rate || ''} onChange={e => setSettings(s => ({ ...s, bsc_usdt_rate: e.target.value }))} placeholder="7.2" type="number" step="0.01" style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none' }} />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -461,10 +473,11 @@ function PlatformSettings({ token }) {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {[
-                                { key: 'channel_alipay', name: '支付宝当面付', desc: '商户配置自己的支付宝 App ID 和密钥收款' },
-                                { key: 'channel_wechat', name: '微信支付', desc: '商户配置微信支付商户号收款' },
-                                { key: 'channel_usdt_trc20', name: 'USDT-TRC20', desc: '商户配置 TRC20 钱包地址收款' },
-                                { key: 'channel_usdt_bep20', name: 'USDT-BEP20 (BSC)', desc: '商户配置 BEP20 钱包地址收款' },
+                                { key: 'channel_alipay', name: '支付宝当面付', desc: '商户配置自己的支付宝 App ID 和密钥收款', defaultDomestic: true, defaultInternational: false },
+                                { key: 'channel_wechat', name: '微信支付', desc: '商户配置微信支付商户号收款', defaultDomestic: true, defaultInternational: false },
+                                { key: 'channel_usdt_trc20', name: 'USDT-TRC20', desc: '商户配置 TRC20 钱包地址收款', defaultDomestic: false, defaultInternational: true },
+                                { key: 'channel_usdt_bep20', name: 'USDT-BEP20 (BSC)', desc: '商户配置 BEP20 钱包地址收款', defaultDomestic: false, defaultInternational: true },
+                                { key: 'channel_yipay', name: '在线支付 (易支付)', desc: '商户配置易支付通道收款', defaultDomestic: true, defaultInternational: false },
                             ].map(ch => (
                                 <div key={ch.key} style={{
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -476,12 +489,38 @@ function PlatformSettings({ token }) {
                                         <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>{ch.name}</div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{ch.desc}</div>
                                     </div>
-                                    <label style={{ position: 'relative', width: 42, height: 24, cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={settings[ch.key] !== 'false'} onChange={e => setSettings(s => ({ ...s, [ch.key]: e.target.checked ? 'true' : 'false' }))} style={{ display: 'none' }} />
-                                        <span style={{ position: 'absolute', inset: 0, borderRadius: 12, background: settings[ch.key] !== 'false' ? 'var(--success)' : 'var(--border-color)', transition: 'background 0.2s' }}>
-                                            <span style={{ position: 'absolute', top: 3, left: settings[ch.key] !== 'false' ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-                                        </span>
-                                    </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={settings[`${ch.key}_is_domestic`] !== undefined 
+                                                        ? settings[`${ch.key}_is_domestic`] === 'true' 
+                                                        : ch.defaultDomestic}
+                                                    onChange={e => setSettings(s => ({ ...s, [`${ch.key}_is_domestic`]: e.target.checked ? 'true' : 'false' }))}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                🇨🇳 国内
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={settings[`${ch.key}_is_international`] !== undefined 
+                                                        ? settings[`${ch.key}_is_international`] === 'true' 
+                                                        : ch.defaultInternational}
+                                                    onChange={e => setSettings(s => ({ ...s, [`${ch.key}_is_international`]: e.target.checked ? 'true' : 'false' }))}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                🌐 国际
+                                            </label>
+                                        </div>
+                                        <label style={{ position: 'relative', width: 42, height: 24, cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={settings[ch.key] !== 'false'} onChange={e => setSettings(s => ({ ...s, [ch.key]: e.target.checked ? 'true' : 'false' }))} style={{ display: 'none' }} />
+                                            <span style={{ position: 'absolute', inset: 0, borderRadius: 12, background: settings[ch.key] !== 'false' ? 'var(--success)' : 'var(--border-color)', transition: 'background 0.2s' }}>
+                                                <span style={{ position: 'absolute', top: 3, left: settings[ch.key] !== 'false' ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                                            </span>
+                                        </label>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -2887,12 +2926,32 @@ function ThemeAssignModal({ token, theme, onClose, onSaved }) {
 
 export default function ManDashboard() {
     const navigate = useNavigate()
+    const location = useLocation()
     const { token, merchant, logout, isSuperAdmin } = useMerchantStore()
 
     useEffect(() => {
         if (!token || !merchant) { navigate('/Man/login'); return }
         if (!merchant.isSuperAdmin) { navigate('/login'); return }
     }, [token, merchant, navigate])
+
+    useEffect(() => {
+        const items = [
+            { path: '/Man/dashboard', label: '数据概览' },
+            { path: '/Man/merchants', label: '商户管理' },
+            { path: '/Man/plan-config', label: '套餐管理' },
+            { path: '/Man/plan-orders', label: '所有订单' },
+            { path: '/Man/shop-orders', label: '商户订单' },
+            { path: '/Man/risk-control', label: '风控管理' },
+            { path: '/Man/custom-themes', label: '主题管理' },
+            { path: '/Man/announcements', label: '公告管理' },
+            { path: '/Man/support-tickets', label: '商户工单' },
+            { path: '/Man/backup', label: '数据备份' },
+            { path: '/Man/settings', label: '平台设置' },
+        ]
+        const matched = items.find(item => location.pathname.toLowerCase().startsWith(item.path.toLowerCase()))
+        const subTitle = matched ? matched.label : '平台管理后台'
+        document.title = `${subTitle} - Vmart 平台管理后台`
+    }, [location.pathname])
 
     const handleLogout = () => { logout(); navigate('/Man/login') }
 

@@ -9,7 +9,7 @@ SERVER="root@159.195.71.45"
 REMOTE_PATH="/var/www/vmart"
 COMPOSE_FILE="docker-compose.prod.yml"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SSH_OPTS="-o ServerAliveInterval=15 -o StrictHostKeyChecking=no"
+SSH_OPTS="-o ServerAliveInterval=15 -o StrictHostKeyChecking=no -o ControlMaster=auto -o ControlPath=/tmp/ssh-vmart-%r@%h:%p -o ControlPersist=10m"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,10 +22,6 @@ success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
-prepare_remote_workspace() {
-    info "准备远端工作区..."
-    ssh ${SSH_OPTS} ${SERVER} "mkdir -p ${REMOTE_PATH}/backend/uploads ${REMOTE_PATH}/backend/backups && chown -R root:root ${REMOTE_PATH}"
-}
 
 backup_database() {
     local timestamp backup_file
@@ -75,9 +71,8 @@ restore_server_schema() {
 }
 
 deploy_frontend() {
-    prepare_remote_workspace
     info "同步前端文件到服务器..."
-    rsync -avz --delete \
+    rsync -avz --delete -e "ssh ${SSH_OPTS}" \
         --exclude 'node_modules' \
         --exclude '.git' \
         --exclude 'dist' \
@@ -93,12 +88,11 @@ deploy_frontend() {
 }
 
 deploy_backend() {
-    prepare_remote_workspace
     backup_database
     preserve_server_schema
 
     info "同步后端文件到服务器..."
-    rsync -avz --delete \
+    rsync -avz --delete -e "ssh ${SSH_OPTS}" \
         --exclude 'node_modules' \
         --exclude '.git' \
         --exclude 'uploads' \
@@ -119,12 +113,11 @@ deploy_backend() {
 }
 
 deploy_all() {
-    prepare_remote_workspace
     backup_database
     preserve_server_schema
 
     info "同步所有文件到服务器..."
-    rsync -avz --delete \
+    rsync -avz --delete -e "ssh ${SSH_OPTS}" \
         --exclude 'node_modules' \
         --exclude '.git' \
         --exclude 'dist' \
@@ -160,7 +153,7 @@ deploy_migrate() {
     local_schema="${SCRIPT_DIR}/backend/prisma/schema.prisma"
     remote_schema_tmp="/tmp/remote_schema_$(date +%s).prisma"
 
-    scp ${SERVER}:${REMOTE_PATH}/backend/prisma/schema.prisma "${remote_schema_tmp}" 2>/dev/null
+    scp ${SSH_OPTS} ${SERVER}:${REMOTE_PATH}/backend/prisma/schema.prisma "${remote_schema_tmp}" 2>/dev/null
     if [ -f "${remote_schema_tmp}" ]; then
         diff_output=$(diff --color=always "${remote_schema_tmp}" "${local_schema}" 2>/dev/null || true)
         if [ -z "${diff_output}" ]; then
@@ -189,7 +182,7 @@ deploy_migrate() {
     backup_database
 
     info "上传本地 Schema 到服务器..."
-    scp "${local_schema}" ${SERVER}:${REMOTE_PATH}/backend/prisma/schema.prisma
+    scp ${SSH_OPTS} "${local_schema}" ${SERVER}:${REMOTE_PATH}/backend/prisma/schema.prisma
 
     info "重新构建后端镜像..."
     ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build --no-cache backend"

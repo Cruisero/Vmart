@@ -9,8 +9,8 @@ import { formatPrice } from '../../../../utils/currencyFormat'
 import toast from 'react-hot-toast'
 import './Checkout.css'
 
-const paymentIcons = { alipay: '💳', wechat: '💚', usdt: '💰', bsc_usdt: '🟡' }
-const paymentColors = { alipay: '#1677ff', wechat: '#07c160', usdt: '#26a17b', bsc_usdt: '#f3ba2f' }
+const paymentIcons = { alipay: '💳', wechat: '💚', usdt: '💰', bsc_usdt: '🟡', yipay: '⚡' }
+const paymentColors = { alipay: '#1677ff', wechat: '#07c160', usdt: '#26a17b', bsc_usdt: '#f3ba2f', yipay: '#1890ff' }
 
 export default function FreshCheckout() {
     const L = useBuyerL()

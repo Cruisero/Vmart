@@ -37,7 +37,7 @@ services:
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - REDIS_URL=redis://redis:6379
       - PLATFORM_ADMIN_EMAIL=admin@vmart.cc
-      - PLATFORM_ADMIN_PASSWORD=Vmart@2026!
+      - PLATFORM_ADMIN_PASSWORD=Pure314159
       - PLATFORM_ADMIN_SHOP_NAME=Vmart Platform
     depends_on:
       mysql:

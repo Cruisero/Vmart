@@ -69,6 +69,7 @@ function ProductCard({ product, linkPrefix }) {
                 <div className="zp-card-bottom">
                     <span className="zp-price">{formatPrice(product.price, currency)}</span>
                     {product.originalPrice && <span className="zp-price-orig">{formatPrice(product.originalPrice, currency)}</span>}
+                    <span className="zp-sold">{L('products.sales')} {product.sold}</span>
                 </div>
             </div>
         </Link>

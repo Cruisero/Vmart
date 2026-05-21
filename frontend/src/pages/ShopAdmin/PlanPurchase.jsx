@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useMerchantStore } from '../../store/merchantStore'
+import { useAuthStore } from '../../store/authStore'
 import './PlanPurchase.css'
 
 const PLAN_LABELS = { FREE: '免费试用', BASIC: '基础版', STANDARD: '标准版', PRO: '专业版' }
@@ -11,7 +12,9 @@ const STATUS_MAP = {
 }
 
 export default function PlanPurchase() {
-    const { token } = useMerchantStore()
+    const { token: mToken } = useMerchantStore()
+    const { token: aToken } = useAuthStore()
+    const token = aToken || mToken
     const [step, setStep] = useState('select')
     const [plans, setPlans] = useState([])
     const [selectedPlan, setSelectedPlan] = useState('STANDARD')
@@ -210,7 +213,7 @@ export default function PlanPurchase() {
                         <div className="pp2-pay-addr">
                             <label>请使用支付宝扫描二维码支付</label>
                             <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                                <img src={paymentInfo.qrCode} alt="支付二维码" style={{ maxWidth: 200, borderRadius: 8 }} />
+                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentInfo.qrCode)}`} alt="支付二维码" style={{ maxWidth: 200, borderRadius: 8 }} />
                             </div>
                         </div>
                     )}

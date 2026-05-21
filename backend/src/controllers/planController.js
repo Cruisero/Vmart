@@ -143,11 +143,15 @@ exports.createPlanOrder = async (req, res) => {
         if (paymentMethod === 'alipay') {
             const alipayService = require('../services/alipayService')
             try {
+                const frontendUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`
+                const base = frontendUrl.endsWith('/') ? frontendUrl.slice(0, -1) : frontendUrl
+                const notifyUrl = `${base}/api/payment/alipay/notify`
+
                 const result = await alipayService.createQrCodePayment({
                     orderNo,
                     totalAmount: amount,
                     productName: `Vmart ${planInfo.name} ${months}个月`
-                })
+                }, null, notifyUrl)
                 paymentData = { paymentType: 'qrcode', qrCode: result.qrCode, orderNo }
             } catch (e) {
                 logger.error('[planOrder] 支付宝二维码生成失败:', e.message)
@@ -157,7 +161,9 @@ exports.createPlanOrder = async (req, res) => {
             const walletSetting = await prisma.platformSetting.findUnique({ where: { key: 'usdt_wallet' } })
             if (!walletSetting?.value) return res.status(400).json({ error: 'USDT-TRC20 收款地址未配置，请联系平台管理员' })
 
-            const exchangeRate = 7.2
+            const rateSetting = await prisma.platformSetting.findUnique({ where: { key: 'usdt_rate' } })
+            const exchangeRate = rateSetting?.value ? parseFloat(rateSetting.value) || 7.2 : 7.2
+
             const usdtAmount = parseFloat((amount / exchangeRate).toFixed(2))
             // 加随机尾数避免重复
             const uniqueAmount = usdtAmount + parseFloat((Math.random() * 0.09 + 0.01).toFixed(2))
@@ -176,7 +182,9 @@ exports.createPlanOrder = async (req, res) => {
             const walletSetting = await prisma.platformSetting.findUnique({ where: { key: 'bsc_usdt_wallet' } })
             if (!walletSetting?.value) return res.status(400).json({ error: 'USDT-BEP20 收款地址未配置，请联系平台管理员' })
 
-            const exchangeRate = 7.2
+            const rateSetting = await prisma.platformSetting.findUnique({ where: { key: 'bsc_usdt_rate' } })
+            const exchangeRate = rateSetting?.value ? parseFloat(rateSetting.value) || 7.2 : 7.2
+
             const usdtAmount = parseFloat((amount / exchangeRate).toFixed(2))
             const uniqueAmount = usdtAmount + parseFloat((Math.random() * 0.09 + 0.01).toFixed(2))
 
@@ -238,6 +246,10 @@ exports.checkPlanPayment = async (req, res) => {
                 await prisma.shop.update({
                     where: { id: planOrder.shopId },
                     data: { plan: planOrder.plan, planExpiresAt: newExpiry, status: 'ACTIVE' }
+                })
+                await prisma.order.update({
+                    where: { id: order.id },
+                    data: { status: 'COMPLETED', completedAt: new Date() }
                 })
 
                 logger.info(`[planPayment] 套餐自动激活: ${merchant.email} → ${planOrder.plan}, 到期 ${newExpiry.toISOString()}`)

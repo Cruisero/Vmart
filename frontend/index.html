@@ -25,6 +25,15 @@
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'light');
       }
+
+      // 如果是自定义域名，立即将标题设为域名，避免在接口加载完成前闪烁显示平台默认的“打造你的专属数字商城”
+      try {
+        var host = window.location.hostname;
+        var mainDomains = ['localhost', '127.0.0.1', 'vmart.cc', 'www.vmart.cc', 'fallback.vmart.cc'];
+        if (!mainDomains.includes(host)) {
+          document.title = host;
+        }
+      } catch (e) {}
     })();
   </script>
 </head>

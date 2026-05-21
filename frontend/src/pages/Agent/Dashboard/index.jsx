@@ -21,6 +21,22 @@ function AgentDashboard() {
         fetchAgent()
     }, [])
 
+    useEffect(() => {
+        if (!agent) return
+        const items = [
+            { path: '/agent/products', label: '商品管理' },
+            { path: '/agent/orders', label: '订单列表' },
+            { path: '/agent/customers', label: '用户管理' },
+            { path: '/agent/withdraw', label: '提现管理' },
+            { path: '/agent/settings', label: '店铺设置' },
+            { path: '/agent', label: '仪表盘' },
+        ]
+        const matched = items.find(item => location.pathname.toLowerCase().startsWith(item.path.toLowerCase()))
+        const subTitle = matched ? matched.label : '代理后台'
+        const shopPrefix = agent.shopName ? `${agent.shopName} - ` : ''
+        document.title = `${shopPrefix}${subTitle} - 代理分站管理`
+    }, [location.pathname, agent])
+
     const fetchAgent = async () => {
         try {
             const res = await fetch('/api/agent/profile', {
