@@ -10,6 +10,7 @@ REMOTE_PATH="${REMOTE_PATH:-/var/www/vmart}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_URL="${REPO_URL:-$(git -C "$SCRIPT_DIR" remote get-url origin)}"
+SERVER_REPO_URL="${SERVER_REPO_URL:-${REPO_URL}}"
 DEFAULT_BRANCH="$(git -C "$SCRIPT_DIR" branch --show-current)"
 BRANCH="${2:-${BRANCH:-${DEFAULT_BRANCH:-main}}}"
 MODE="${1:-all}"
@@ -28,6 +29,20 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 shell_quote() {
     printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+normalize_server_repo_url() {
+    case "$1" in
+        git@github-cruisero-443:*)
+            printf '%s\n' "git@github.com:${1#*:}"
+            ;;
+        ssh://git@github-cruisero-443/*)
+            printf '%s\n' "ssh://git@github.com/${1#ssh://git@github-cruisero-443/}"
+            ;;
+        *)
+            printf '%s\n' "$1"
+            ;;
+    esac
 }
 
 auto_commit_and_push() {
@@ -66,15 +81,16 @@ remote_git_update() {
     remote_branch="$(shell_quote "$BRANCH")"
     remote_path="$(shell_quote "$REMOTE_PATH")"
     remote_compose="$(shell_quote "$COMPOSE_FILE")"
+    remote_server_repo="$(shell_quote "$(normalize_server_repo_url "$SERVER_REPO_URL")")"
 
     info "通过 git 更新服务器代码: ${REPO_URL} @ ${BRANCH}"
 
-    ssh ${SSH_OPTS} "${SERVER}" "REPO_URL=${remote_repo} BRANCH=${remote_branch} REMOTE_PATH=${remote_path} COMPOSE_FILE=${remote_compose} bash -s" <<'EOF'
+    ssh ${SSH_OPTS} "${SERVER}" "REPO_URL=${remote_repo} SERVER_REPO_URL=${remote_server_repo} BRANCH=${remote_branch} REMOTE_PATH=${remote_path} COMPOSE_FILE=${remote_compose} bash -s" <<'EOF'
 set -e
 
 if [ -d "$REMOTE_PATH/.git" ]; then
     cd "$REMOTE_PATH"
-    git remote set-url origin "$REPO_URL"
+    git remote set-url origin "$SERVER_REPO_URL"
     git fetch origin "$BRANCH"
     git reset --hard "origin/$BRANCH"
 else
@@ -88,7 +104,7 @@ else
     done
 
     find "$REMOTE_PATH" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-    git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$REMOTE_PATH"
+    git clone --branch "$BRANCH" --single-branch "$SERVER_REPO_URL" "$REMOTE_PATH"
 
     for path in backend/uploads backend/backups .env backend/.env; do
         if [ -e "$preserve_tmp/$path" ]; then
