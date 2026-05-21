@@ -14,24 +14,23 @@ model User {
   username          String?
   role              Role      @default(USER)
   avatar            String?
-  emailVerified     Boolean   @default(false) @map("email_verified")
-  verificationToken String?   @map("verification_token")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
+  emailVerified     Boolean   @default(false) @map("email_verified")
   resetToken        String?   @map("reset_token")
   resetTokenExpiry  DateTime? @map("reset_token_expiry")
+  verificationToken String?   @map("verification_token")
+  referralAgentId   String?   @map("referral_agent_id")
   tenantId          String?   @map("tenant_id")
   permissions       String?   @db.LongText
-  orders            Order[]
-  tickets           Ticket[]
-  ticketMessages    TicketMessage[]
   agent             Agent?
+  orders            Order[]
   tenant            Tenant?
-  referralAgentId   String?   @map("referral_agent_id")
+  tickets           Ticket[]
   referralAgent     Agent?    @relation("ReferredUsers", fields: [referralAgentId], references: [id])
 
   @@index([referralAgentId])
-  @@index([tenantId], map: "users_tenant_id_idx")
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -42,9 +41,9 @@ model Category {
   icon        String?
   sortOrder   Int       @default(0) @map("sort_order")
   status      Status    @default(ACTIVE)
-  tenantId    String?   @map("tenant_id")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  tenantId    String?   @map("tenant_id")
   products    Product[]
 
   @@map("categories")
@@ -55,28 +54,28 @@ model Product {
   categoryId      String?          @map("category_id")
   name            String
   description     String?          @db.Text
-  fullDescription String?          @map("full_description") @db.Text
   price           Decimal          @db.Decimal(10, 2)
   originalPrice   Decimal?         @map("original_price") @db.Decimal(10, 2)
   stock           Int              @default(0)
   soldCount       Int              @default(0) @map("sold_count")
   image           String?
   images          Json?
-  tags            Json?
   status          Status           @default(ACTIVE)
   sortOrder       Int              @default(0) @map("sort_order")
-  weight          Int              @default(0)
-  viewCount       Int              @default(0) @map("view_count")
-  deliveryNote    String?          @map("delivery_note") @db.Text
-  wholesalePrices Json?            @map("wholesale_prices")
-  tenantId        String?          @map("tenant_id")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
+  deliveryNote    String?          @map("delivery_note") @db.Text
+  fullDescription String?          @map("full_description") @db.Text
+  tags            Json?
+  viewCount       Int              @default(0) @map("view_count")
+  weight          Int              @default(0)
+  wholesalePrices Json?            @map("wholesale_prices")
+  tenantId        String?          @map("tenant_id")
+  agentProducts   AgentProduct[]
   cards           Card[]
   orders          Order[]
   variants        ProductVariant[]
   category        Category?        @relation(fields: [categoryId], references: [id])
-  agentProducts   AgentProduct[]
   tenant          Tenant?          @relation(fields: [tenantId], references: [id])
 
   @@index([categoryId], map: "idx_category")
@@ -153,19 +152,19 @@ model Order {
   queryPassword String?     @map("query_password")
   tenantId      String?     @map("tenant_id")
   customerId    String?     @map("customer_id")
+  agentOrder    AgentOrder?
   cards         Card[]
-  product       Product     @relation(fields: [productId], references: [id])
-  user          User?       @relation(fields: [userId], references: [id])
   customer      Customer?   @relation(fields: [customerId], references: [id])
+  product       Product     @relation(fields: [productId], references: [id])
+  tenant        Tenant?     @relation(fields: [tenantId], references: [id])
+  user          User?       @relation(fields: [userId], references: [id])
   payment       Payment?
   tickets       Ticket[]
-  agentOrder    AgentOrder?
-  tenant        Tenant?     @relation(fields: [tenantId], references: [id])
 
   @@index([productId], map: "orders_product_id_fkey")
   @@index([userId], map: "orders_user_id_fkey")
   @@index([tenantId], map: "orders_tenant_id_fkey")
-  @@index([customerId], map: "orders_customer_id_idx")
+  @@index([customerId])
   @@map("orders")
 }
 
@@ -196,32 +195,32 @@ model Setting {
 }
 
 model Ticket {
-  id               String       @id @default(uuid())
-  ticketNo         String       @unique @map("ticket_no")
-  userId           String?      @map("user_id")
-  customerId       String?      @map("customer_id")
-  orderId          String?      @map("order_id")
-  orderNo          String?      @map("order_no")
+  id               String          @id @default(uuid())
+  ticketNo         String          @unique @map("ticket_no")
+  userId           String?         @map("user_id")
+  orderId          String?         @map("order_id")
+  orderNo          String?         @map("order_no")
   type             TicketType
   subject          String
-  status           TicketStatus @default(OPEN)
-  userUnreadCount  Int          @default(0) @map("user_unread_count")
-  adminUnreadCount Int          @default(0) @map("admin_unread_count")
-  userLastReadAt   DateTime?    @map("user_last_read_at")
-  adminLastReadAt  DateTime?    @map("admin_last_read_at")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
-  closedAt         DateTime?    @map("closed_at")
-  tenantId         String?      @map("tenant_id")
-  user             User?        @relation(fields: [userId], references: [id])
-  customer         Customer?    @relation(fields: [customerId], references: [id])
-  order            Order?       @relation(fields: [orderId], references: [id])
+  status           TicketStatus    @default(OPEN)
+  userUnreadCount  Int             @default(0) @map("user_unread_count")
+  adminUnreadCount Int             @default(0) @map("admin_unread_count")
+  userLastReadAt   DateTime?       @map("user_last_read_at")
+  adminLastReadAt  DateTime?       @map("admin_last_read_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  closedAt         DateTime?       @map("closed_at")
+  customerId       String?         @map("customer_id")
+  tenantId         String?         @map("tenant_id")
   messages         TicketMessage[]
+  customer         Customer?       @relation(fields: [customerId], references: [id])
+  order            Order?          @relation(fields: [orderId], references: [id])
+  user             User?           @relation(fields: [userId], references: [id])
 
   @@index([userId], map: "tickets_user_id_fkey")
-  @@index([customerId], map: "tickets_customer_id_idx")
+  @@index([customerId])
   @@index([orderId], map: "tickets_order_id_fkey")
-  @@index([tenantId], map: "tickets_tenant_id_idx")
+  @@index([tenantId])
   @@map("tickets")
 }
 
@@ -234,7 +233,6 @@ model TicketMessage {
   images    Json?
   createdAt DateTime @default(now()) @map("created_at")
   ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  sender    User?    @relation(fields: [senderId], references: [id])
 
   @@index([ticketId], map: "ticket_messages_ticket_id_fkey")
   @@index([senderId], map: "ticket_messages_sender_id_fkey")
@@ -251,7 +249,6 @@ model SiteVisit {
   @@map("site_visits")
 }
 
-// 搜索关键词（按 tenant 分组聚合，count 累加用于热门搜索榜）
 model SearchLog {
   id         String   @id @default(uuid())
   tenantId   String?  @map("tenant_id")
@@ -265,18 +262,15 @@ model SearchLog {
   @@map("search_logs")
 }
 
-// 商户工单（商户 → 平台客服）
 model MerchantTicket {
-  id         String   @id @default(uuid())
-  ticketNo   String   @unique @map("ticket_no")
-  merchantId String   @map("merchant_id")
-  subject    String   @db.VarChar(200)
-  status     String   @default("OPEN") @db.VarChar(20) // OPEN, IN_PROGRESS, CLOSED
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id         String    @id @default(uuid())
+  ticketNo   String    @unique(map: "ticket_no") @map("ticket_no")
+  merchantId String    @map("merchant_id")
+  subject    String    @db.VarChar(200)
+  status     String    @default("OPEN") @db.VarChar(20)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
   closedAt   DateTime? @map("closed_at")
-  merchant   Merchant @relation(fields: [merchantId], references: [id])
-  messages   MerchantTicketMessage[]
 
   @@index([merchantId], map: "idx_merchant")
   @@index([status], map: "idx_status")
@@ -286,22 +280,20 @@ model MerchantTicket {
 model MerchantTicketMessage {
   id         String   @id @default(uuid())
   ticketId   String   @map("ticket_id")
-  senderType String   @default("MERCHANT") @map("sender_type") @db.VarChar(20) // MERCHANT, ADMIN
+  senderType String   @default("MERCHANT") @map("sender_type") @db.VarChar(20)
   content    String   @db.Text
   images     Json?
   createdAt  DateTime @default(now()) @map("created_at")
-  ticket     MerchantTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId], map: "idx_ticket")
   @@map("merchant_ticket_messages")
 }
 
-// 邮箱 OTP 验证码（注册等场景）
 model EmailOtp {
   id        String   @id @default(uuid())
   email     String   @db.VarChar(180)
   code      String   @db.VarChar(8)
-  scope     String   @db.VarChar(40) // merchant_register | customer_register
+  scope     String   @db.VarChar(40)
   tenantId  String?  @map("tenant_id")
   expiresAt DateTime @map("expires_at")
   attempts  Int      @default(0)
@@ -313,7 +305,252 @@ model EmailOtp {
   @@map("email_otps")
 }
 
-// ==================== Enums ====================
+model Agent {
+  id               String         @id @default(uuid())
+  userId           String         @unique @map("user_id")
+  shopName         String         @map("shop_name")
+  shopSlug         String         @unique @map("shop_slug")
+  shopLogo         String?        @map("shop_logo")
+  shopSkin         String         @default("zen") @map("shop_skin")
+  status           AgentStatus    @default(PENDING)
+  balance          Decimal        @default(0.00) @db.Decimal(10, 2)
+  totalEarnings    Decimal        @default(0.00) @map("total_earnings") @db.Decimal(10, 2)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  applyDescription String?        @map("apply_description") @db.Text
+  contactEmail     String?        @map("contact_email")
+  contactInfo      String?        @map("contact_info")
+  shopNotice       String?        @map("shop_notice")
+  withdrawAccounts String?        @map("withdraw_accounts") @db.Text
+  emailNotify      Boolean        @default(true) @map("email_notify")
+  notifyEmail      String?        @map("notify_email")
+  orders           AgentOrder[]
+  products         AgentProduct[]
+  user             User           @relation(fields: [userId], references: [id])
+  referredUsers    User[]         @relation("ReferredUsers")
+  withdrawals      Withdrawal[]
+
+  @@map("agents")
+}
+
+model AgentProduct {
+  id        String   @id @default(uuid())
+  agentId   String   @map("agent_id")
+  productId String   @map("product_id")
+  markup    Decimal  @db.Decimal(10, 2)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, productId])
+  @@index([productId], map: "agent_products_product_id_fkey")
+  @@map("agent_products")
+}
+
+model AgentOrder {
+  id        String   @id @default(uuid())
+  agentId   String   @map("agent_id")
+  orderId   String   @unique @map("order_id")
+  costPrice Decimal  @map("cost_price") @db.Decimal(10, 2)
+  sellPrice Decimal  @map("sell_price") @db.Decimal(10, 2)
+  profit    Decimal  @db.Decimal(10, 2)
+  settled   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  @@index([agentId], map: "agent_orders_agent_id_fkey")
+  @@map("agent_orders")
+}
+
+model Withdrawal {
+  id          String           @id @default(uuid())
+  agentId     String           @map("agent_id")
+  amount      Decimal          @db.Decimal(10, 2)
+  method      String
+  account     String
+  status      WithdrawalStatus @default(PENDING)
+  processedAt DateTime?        @map("processed_at")
+  remark      String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  agent       Agent            @relation(fields: [agentId], references: [id])
+
+  @@index([agentId], map: "withdrawals_agent_id_fkey")
+  @@map("withdrawals")
+}
+
+model Tenant {
+  id           String         @id @default(uuid())
+  userId       String         @unique @map("user_id")
+  shopName     String         @map("shop_name")
+  shopSlug     String         @unique @map("shop_slug")
+  shopSkin     String         @default("zen") @map("shop_skin")
+  shopLogo     String?        @map("shop_logo")
+  shopNotice   String?        @map("shop_notice")
+  contactEmail String?        @map("contact_email")
+  contactInfo  String?        @map("contact_info")
+  status       TenantStatus   @default(PENDING)
+  reviewNote   String?        @map("review_note") @db.Text
+  planId       String?        @map("plan_id")
+  expireAt     DateTime?      @map("expire_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  orders       Order[]
+  products     Product[]
+  domains      TenantDomain[]
+  settings     TenantSetting?
+  user         User           @relation(fields: [userId], references: [id])
+
+  @@map("tenants")
+}
+
+model TenantDomain {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  domain      String    @unique
+  dnsVerified Boolean   @default(false) @map("dns_verified")
+  sslIssued   Boolean   @default(false) @map("ssl_issued")
+  isPrimary   Boolean   @default(false) @map("is_primary")
+  verifiedAt  DateTime? @map("verified_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "tenant_domains_tenant_id_fkey")
+  @@map("tenant_domains")
+}
+
+model TenantSetting {
+  id                  String   @id @default(uuid())
+  tenantId            String   @unique @map("tenant_id")
+  alipayEnabled       Boolean  @default(false) @map("alipay_enabled")
+  wechatEnabled       Boolean  @default(false) @map("wechat_enabled")
+  usdtEnabled         Boolean  @default(false) @map("usdt_enabled")
+  bscUsdtEnabled      Boolean  @default(false) @map("bsc_usdt_enabled")
+  paymentConfig       String?  @map("payment_config") @db.Text
+  notificationEnabled Boolean  @default(false) @map("notification_enabled")
+  notificationText    String?  @map("notification_text")
+  notificationLink    String?  @map("notification_link")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  systemSettings      String?  @map("system_settings") @db.LongText
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+model Customer {
+  id                String    @id @default(uuid())
+  tenantId          String    @map("tenant_id")
+  email             String
+  password          String
+  username          String?
+  avatar            String?
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  verificationToken String?   @map("verification_token")
+  resetToken        String?   @map("reset_token")
+  resetTokenExpiry  DateTime? @map("reset_token_expiry")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  orders            Order[]
+  tickets           Ticket[]
+
+  @@unique([tenantId, email], map: "customers_tenant_email_unique")
+  @@index([tenantId])
+  @@map("customers")
+}
+
+model Merchant {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  password     String
+  shopName     String      @map("shop_name")
+  isSuperAdmin Boolean     @default(false) @map("is_super_admin")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  planOrders   PlanOrder[]
+  shop         Shop?
+
+  @@map("merchants")
+}
+
+model Shop {
+  id            String      @id @default(uuid())
+  slug          String      @unique
+  name          String
+  merchantId    String      @unique @map("merchant_id")
+  plan          ShopPlan    @default(FREE)
+  trialEndsAt   DateTime    @map("trial_ends_at")
+  planExpiresAt DateTime?   @map("plan_expires_at")
+  status        ShopStatus  @default(ACTIVE)
+  customDomain  String?     @map("custom_domain")
+  logo          String?
+  notice        String?
+  skin          String      @default("classic")
+  contactEmail  String?     @map("contact_email")
+  settings      String?     @db.LongText
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  planOrders    PlanOrder[]
+  merchant      Merchant    @relation(fields: [merchantId], references: [id])
+
+  @@map("shops")
+}
+
+model PlanOrder {
+  id            String    @id @default(uuid())
+  merchantId    String    @map("merchant_id")
+  shopId        String    @map("shop_id")
+  plan          ShopPlan
+  months        Int
+  amount        Decimal   @db.Decimal(10, 2)
+  paymentMethod String?   @map("payment_method")
+  paymentStatus String    @default("PENDING") @map("payment_status")
+  tradeNo       String?   @map("trade_no")
+  paidAt        DateTime? @map("paid_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  merchant      Merchant  @relation(fields: [merchantId], references: [id])
+  shop          Shop      @relation(fields: [shopId], references: [id])
+
+  @@index([merchantId], map: "plan_orders_merchant_id_fkey")
+  @@index([shopId], map: "plan_orders_shop_id_fkey")
+  @@map("plan_orders")
+}
+
+model PlatformSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String?  @db.Text
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
+}
+
+model CustomTheme {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  name         String
+  description  String?  @db.Text
+  componentDir String   @map("component_dir")
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("custom_themes")
+}
+
+model CustomThemeAssignment {
+  id        String   @id @default(uuid())
+  themeId   String   @map("theme_id")
+  tenantId  String   @map("tenant_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([themeId, tenantId])
+  @@map("custom_theme_assignments")
+}
 
 enum Role {
   USER
@@ -387,244 +624,6 @@ enum TenantStatus {
   REJECTED
 }
 
-// ==================== 代理分站系统 ====================
-
-model Agent {
-  id               String      @id @default(uuid())
-  userId           String      @unique @map("user_id")
-  shopName         String      @map("shop_name")
-  shopSlug         String      @unique @map("shop_slug")
-  shopLogo         String?     @map("shop_logo")
-  shopSkin         String      @default("zen") @map("shop_skin")
-  shopNotice       String?     @map("shop_notice")
-  contactEmail     String?     @map("contact_email")
-  contactInfo      String?     @map("contact_info")
-  applyDescription String?     @map("apply_description") @db.Text
-  status           AgentStatus @default(PENDING)
-  balance          Decimal     @default(0) @db.Decimal(10, 2)
-  totalEarnings    Decimal     @default(0) @map("total_earnings") @db.Decimal(10, 2)
-  withdrawAccounts String?     @map("withdraw_accounts") @db.Text
-  emailNotify      Boolean     @default(true) @map("email_notify")
-  notifyEmail      String?     @map("notify_email")
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
-
-  user             User        @relation(fields: [userId], references: [id])
-  products         AgentProduct[]
-  orders           AgentOrder[]
-  withdrawals      Withdrawal[]
-  referredUsers    User[]      @relation("ReferredUsers")
-
-  @@map("agents")
-}
-
-model AgentProduct {
-  id        String   @id @default(uuid())
-  agentId   String   @map("agent_id")
-  productId String   @map("product_id")
-  markup    Decimal  @db.Decimal(10, 2)
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([agentId, productId])
-  @@map("agent_products")
-}
-
-model AgentOrder {
-  id        String   @id @default(uuid())
-  agentId   String   @map("agent_id")
-  orderId   String   @unique @map("order_id")
-  costPrice Decimal  @map("cost_price") @db.Decimal(10, 2)
-  sellPrice Decimal  @map("sell_price") @db.Decimal(10, 2)
-  profit    Decimal  @db.Decimal(10, 2)
-  settled   Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  agent     Agent    @relation(fields: [agentId], references: [id])
-  order     Order    @relation(fields: [orderId], references: [id])
-
-  @@map("agent_orders")
-}
-
-model Withdrawal {
-  id          String           @id @default(uuid())
-  agentId     String           @map("agent_id")
-  amount      Decimal          @db.Decimal(10, 2)
-  method      String
-  account     String
-  status      WithdrawalStatus @default(PENDING)
-  processedAt DateTime?        @map("processed_at")
-  remark      String?
-  createdAt   DateTime         @default(now()) @map("created_at")
-
-  agent       Agent            @relation(fields: [agentId], references: [id])
-
-  @@map("withdrawals")
-}
-
-// ==================== 多租户 SaaS 系统 ====================
-
-model Tenant {
-  id           String       @id @default(uuid())
-  userId       String       @unique @map("user_id")
-  shopName     String       @map("shop_name")
-  shopSlug     String       @unique @map("shop_slug")
-  shopSkin     String       @default("zen") @map("shop_skin")
-  shopLogo     String?      @map("shop_logo")
-  shopNotice   String?      @map("shop_notice")
-  contactEmail String?      @map("contact_email")
-  contactInfo  String?      @map("contact_info")
-  status       TenantStatus @default(PENDING)
-  reviewNote   String?      @map("review_note") @db.Text
-  planId       String?      @map("plan_id")
-  expireAt     DateTime?    @map("expire_at")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
-
-  user         User         @relation(fields: [userId], references: [id])
-  domains      TenantDomain[]
-  products     Product[]
-  orders       Order[]
-  customers    Customer[]
-  settings     TenantSetting?
-
-  @@map("tenants")
-}
-
-model TenantDomain {
-  id          String    @id @default(uuid())
-  tenantId    String    @map("tenant_id")
-  domain      String    @unique
-  dnsVerified Boolean   @default(false) @map("dns_verified")
-  sslIssued   Boolean   @default(false) @map("ssl_issued")
-  isPrimary   Boolean   @default(false) @map("is_primary")
-  verifiedAt  DateTime? @map("verified_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId], map: "tenant_domains_tenant_id_fkey")
-  @@map("tenant_domains")
-}
-
-model TenantSetting {
-  id                  String   @id @default(uuid())
-  tenantId            String   @unique @map("tenant_id")
-  alipayEnabled       Boolean  @default(false) @map("alipay_enabled")
-  wechatEnabled       Boolean  @default(false) @map("wechat_enabled")
-  usdtEnabled         Boolean  @default(false) @map("usdt_enabled")
-  bscUsdtEnabled      Boolean  @default(false) @map("bsc_usdt_enabled")
-  paymentConfig       String?  @map("payment_config") @db.Text
-  notificationEnabled Boolean  @default(false) @map("notification_enabled")
-  notificationText    String?  @map("notification_text")
-  notificationLink    String?  @map("notification_link")
-  systemSettings      String?  @map("system_settings") @db.LongText
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-
-  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("tenant_settings")
-}
-
-// 店面顾客（每个 tenant 独立维护，类似 Shopify Customer）
-model Customer {
-  id                String    @id @default(uuid())
-  tenantId          String    @map("tenant_id")
-  email             String
-  password          String
-  username          String?
-  avatar            String?
-  emailVerified     Boolean   @default(false) @map("email_verified")
-  verificationToken String?   @map("verification_token")
-  resetToken        String?   @map("reset_token")
-  resetTokenExpiry  DateTime? @map("reset_token_expiry")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-
-  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orders            Order[]
-  tickets           Ticket[]
-
-  @@unique([tenantId, email], map: "customers_tenant_email_unique")
-  @@index([tenantId], map: "customers_tenant_id_idx")
-  @@map("customers")
-}
-
-// ==================== SaaS 商户系统 ====================
-
-model Merchant {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  password     String
-  shopName     String    @map("shop_name")
-  isSuperAdmin Boolean   @default(false) @map("is_super_admin")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  shop         Shop?
-  planOrders   PlanOrder[]
-  tickets      MerchantTicket[]
-
-  @@map("merchants")
-}
-
-model Shop {
-  id            String     @id @default(uuid())
-  slug          String     @unique
-  name          String
-  merchantId    String     @unique @map("merchant_id")
-  merchant      Merchant   @relation(fields: [merchantId], references: [id])
-  plan          ShopPlan   @default(FREE)
-  trialEndsAt   DateTime   @map("trial_ends_at")
-  planExpiresAt DateTime?  @map("plan_expires_at")
-  status        ShopStatus @default(ACTIVE)
-  customDomain  String?    @map("custom_domain")
-  logo          String?
-  notice        String?
-  skin          String     @default("classic")
-  contactEmail  String?    @map("contact_email")
-  settings      String?    @db.LongText
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
-  planOrders    PlanOrder[]
-
-  @@map("shops")
-}
-
-model PlanOrder {
-  id            String    @id @default(uuid())
-  merchantId    String    @map("merchant_id")
-  shopId        String    @map("shop_id")
-  merchant      Merchant  @relation(fields: [merchantId], references: [id])
-  shop          Shop      @relation(fields: [shopId], references: [id])
-  plan          ShopPlan
-  months        Int
-  amount        Decimal   @db.Decimal(10, 2)
-  paymentMethod String?   @map("payment_method")
-  paymentStatus String    @default("PENDING") @map("payment_status")
-  tradeNo       String?   @map("trade_no")
-  paidAt        DateTime? @map("paid_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-
-  @@map("plan_orders")
-}
-
-// 平台全局配置（键值对，存储试用时长、支付配置等）
-model PlatformSetting {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  value       String?  @db.Text
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  @@map("platform_settings")
-}
-
 enum ShopPlan {
   FREE
   BASIC
@@ -636,31 +635,4 @@ enum ShopStatus {
   ACTIVE
   EXPIRED
   SUSPENDED
-}
-
-// 定制主题（平台为特定商户开发的私有主题）
-model CustomTheme {
-  id           String                  @id @default(uuid())
-  key          String                  @unique // 主题代码标识，如 luxury-watch
-  name         String // 显示名称，如 "奢华手表风"
-  description  String?                 @db.Text
-  componentDir String                  @map("component_dir") // 对应 frontend/src/themes/custom/<dir>
-  status       String                  @default("ACTIVE") // ACTIVE / DRAFT
-  createdAt    DateTime                @default(now()) @map("created_at")
-  updatedAt    DateTime                @updatedAt @map("updated_at")
-  assignments  CustomThemeAssignment[]
-
-  @@map("custom_themes")
-}
-
-// 定制主题分配（哪些 tenant 可使用某个定制主题）
-model CustomThemeAssignment {
-  id        String      @id @default(uuid())
-  themeId   String      @map("theme_id")
-  tenantId  String      @map("tenant_id")
-  createdAt DateTime    @default(now()) @map("created_at")
-  theme     CustomTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
-
-  @@unique([themeId, tenantId])
-  @@map("custom_theme_assignments")
 }

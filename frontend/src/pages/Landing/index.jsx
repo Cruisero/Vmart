@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMerchantStore } from '../../store/merchantStore'
 import { useBuyerL } from '../../hooks/useBuyerL'
 import LanguageToggle from '../../components/common/LanguageToggle'
+import logoImg from '../../assets/logo.png'
 import './Landing.css'
 
 const featureItems = [
@@ -37,6 +38,10 @@ export default function Landing() {
     const isLoggedIn = !!token
 
     const [plans, setPlans] = useState(FALLBACK_PLANS)
+
+    useEffect(() => {
+        document.title = L('打造你的专属数字商城', 'Build your digital storefront')
+    }, [L])
 
     useEffect(() => {
         fetch('/api/platform/plans')
@@ -115,8 +120,7 @@ export default function Landing() {
             <nav className="landing-nav">
                 <div className="nav-inner">
                     <div className="nav-brand">
-                        <span className="nav-logo">V</span>
-                        <span className="nav-name">Vmart</span>
+                        <img src={logoImg} alt="Vmart" className="nav-logo-image" />
                     </div>
                     <div className="nav-actions">
                         <LanguageToggle alwaysShow />
@@ -131,7 +135,7 @@ export default function Landing() {
 
             {/* Hero */}
             <section className="landing-hero">
-                <div className="hero-badge">{L('landing.hero.badge')}</div>
+            
                 <h1 className="hero-title">
                     {L('landing.hero.titleLine1')}<br />
                     <span className="hero-gradient">{L('landing.hero.titleHighlight')}</span>
@@ -261,8 +265,7 @@ export default function Landing() {
             <footer className="landing-footer">
                 <div className="footer-inner">
                     <div className="footer-brand">
-                        <span className="nav-logo" style={{width:28,height:28,fontSize:14}}>V</span>
-                        <span style={{fontWeight:700,color:'#1e293b'}}>Vmart</span>
+                        <img src={logoImg} alt="Vmart" className="nav-logo-image" style={{ height: '28px' }} />
                     </div>
                     <div className="footer-links">
 
