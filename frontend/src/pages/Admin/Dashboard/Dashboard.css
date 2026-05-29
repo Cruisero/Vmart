@@ -468,14 +468,27 @@
 }
 
 .stat-card {
+    position: relative;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    overflow: hidden;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+    z-index: 2;
 }
 
 .stat-card:hover {
@@ -499,12 +512,24 @@
     margin-bottom: 14px;
 }
 
-/* 彩色顶部边框 */
-.stat-card.accent-orders  { border-top: 3px solid #f87171; }
-.stat-card.accent-revenue { border-top: 3px solid #34d399; }
-.stat-card.accent-products{ border-top: 3px solid #fbbf24; }
-.stat-card.accent-users   { border-top: 3px solid #60a5fa; }
-.stat-card.accent-visits  { border-top: 3px solid #a78bfa; }
+/* 彩色顶部指示条 */
+.stat-card.accent-orders::before  { background: #f87171; }
+.stat-card.accent-revenue::before { background: #34d399; }
+.stat-card.accent-products::before{ background: #fbbf24; }
+.stat-card.accent-users::before   { background: #60a5fa; }
+.stat-card.accent-visits::before  { background: #a78bfa; }
+
+/* 选中状态 (Expanded) */
+.stat-card.expanded {
+    background: var(--bg-secondary);
+    transform: translateY(-3px);
+}
+
+.stat-card.expanded.accent-orders  { border-color: #f87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15), 0 8px 20px -6px rgba(248, 113, 113, 0.2); }
+.stat-card.expanded.accent-revenue { border-color: #34d399; box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15), 0 8px 20px -6px rgba(52, 211, 153, 0.2); }
+.stat-card.expanded.accent-products{ border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15), 0 8px 20px -6px rgba(251, 191, 36, 0.2); }
+.stat-card.expanded.accent-users   { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15), 0 8px 20px -6px rgba(96, 165, 250, 0.2); }
+.stat-card.expanded.accent-visits  { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15), 0 8px 20px -6px rgba(167, 139, 250, 0.2); }
 
 .full-trend-panel {
     width: 100%;
@@ -1079,6 +1104,11 @@
 .action-btn.refund-complete {
     background: rgba(249, 115, 22, 0.15);
     color: #ea580c;
+}
+
+.action-btn.refund-cancel {
+    background: rgba(148, 163, 184, 0.15);
+    color: #64748b;
 }
 
 .action-btn:hover {
@@ -3483,7 +3513,7 @@
 
 .ship-modal {
     width: 100%;
-    max-width: 420px;
+    max-width: 620px;
     max-height: calc(100vh - 40px);
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     border-radius: 16px;
@@ -4357,6 +4387,123 @@
     line-height: 1.6;
     white-space: pre-wrap;
     font-size: 0.95rem;
+}
+
+/* Scoped Ticket Message Styles (aligns with front-end user TicketDetail view) */
+.ticket-messages .messages-container {
+    padding: 0 0 24px 0;
+}
+
+.ticket-messages .message-item {
+    display: flex;
+    margin: 20px;
+    padding: 0;
+    background: transparent;
+    border-left: none;
+    border-radius: 0;
+}
+
+.ticket-messages .message-item:last-child {
+    margin-bottom: 0;
+}
+
+.ticket-messages .message-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.ticket-messages .message-item.admin .message-avatar {
+    background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+    color: white;
+}
+
+.ticket-messages .message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.ticket-messages .message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.ticket-messages .message-sender {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.ticket-messages .message-item.user .message-sender {
+    color: #475569;
+}
+
+.ticket-messages .message-item.admin .message-sender {
+    color: #8b5cf6;
+}
+
+.ticket-messages .message-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.ticket-messages .message-text {
+    padding: 16px 20px;
+    border-radius: 12px;
+    border-top-left-radius: 4px;
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-left: 3px solid;
+    margin: 0;
+}
+
+.ticket-messages .message-item.user .message-text {
+    background: var(--bg-secondary);
+    border-left-color: #94a3b8;
+}
+
+.ticket-messages .message-item.admin .message-text {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(217, 70, 239, 0.08) 100%);
+    border-left-color: #8b5cf6;
+}
+
+.ticket-messages .message-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.ticket-messages .message-image-link {
+    display: inline-flex;
+    text-decoration: none;
+}
+
+.ticket-messages .message-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.ticket-messages .message-image:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* 回复区域 */

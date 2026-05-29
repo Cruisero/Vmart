@@ -73,14 +73,11 @@ function Login({ headerTitle, headerSubtitle } = {}) {
             toast.success(t('auth.loginSuccess'))
 
             const role = data.user.role
-            if (!storefront?._tenantMode && ['ADMIN', 'TENANT_ADMIN', 'SUPER_ADMIN'].includes(role)) {
-                const tenantPath = await getTenantAdminPath(data.token)
-                if (tenantPath) {
-                    navigate(tenantPath, { replace: true })
-                } else if (role === 'SUPER_ADMIN') {
+            if (['ADMIN', 'TENANT_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+                if (role === 'SUPER_ADMIN' && !storefront?._tenantMode) {
                     navigate('/Man/dashboard', { replace: true })
                 } else {
-                    navigate(withPrefix('/'))
+                    navigate(withPrefix('/admin'), { replace: true })
                 }
             } else {
                 navigate(withPrefix('/'))
@@ -135,6 +132,9 @@ function Login({ headerTitle, headerSubtitle } = {}) {
                             >
                                 {showPassword ? <FiEyeOff /> : <FiEye />}
                             </button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                            <Link to={withPrefix('/forgot-password')} className="forgot-password" style={{ fontSize: '0.8rem' }}>{t('忘记密码？', 'Forgot Password?')}</Link>
                         </div>
                     </div>
 

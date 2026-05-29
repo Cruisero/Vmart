@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import { useNavigate, Routes, Route, Link, useLocation, Navigate, useSearchParams } from 'react-router-dom'
 import { useMerchantStore } from '../../store/merchantStore'
 import ManSupportTickets from './ManSupportTickets'
+import KycAudit from './KycAudit'
+import WithdrawManage from './WithdrawManage'
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import './Man.css'
 
 function Sidebar({ onLogout }) {
@@ -9,6 +12,8 @@ function Sidebar({ onLogout }) {
     const items = [
         { path: '/Man/dashboard', icon: '📊', label: '数据概览' },
         { path: '/Man/merchants', icon: '🏪', label: '商户管理' },
+        { path: '/Man/kyc-audit', icon: '🛡️', label: '实名审核' },
+        { path: '/Man/withdrawals', icon: '💳', label: '提现审核' },
         { path: '/Man/plan-config', icon: '📦', label: '套餐管理' },
         { path: '/Man/plan-orders', icon: '💳', label: '所有订单' },
         { path: '/Man/shop-orders', icon: '🛒', label: '商户订单' },
@@ -50,44 +55,237 @@ function Sidebar({ onLogout }) {
 function Overview({ token }) {
     const [stats, setStats] = useState(null)
     const [trend, setTrend] = useState([])
+    const [expandedCard, setExpandedCard] = useState(null)
+    const [trendDays, setTrendDays] = useState(7)
+    const [trendData, setTrendData] = useState({})
+    const [trendLoading, setTrendLoading] = useState(false)
+    const [rankingRange, setRankingRange] = useState('all')
+    const [rankingLoading, setRankingLoading] = useState(false)
+
+    const cards = [
+        { key: 'total', label: '商城总数', value: stats?.total ?? '—', color: '#6366f1', metric: 'merchants' },
+        { key: 'active', label: '活跃商城', value: stats?.active ?? '—', color: '#10b981', metric: 'merchants' },
+        { key: 'todayNew', label: '今日新增', value: stats?.todayNew ?? '—', color: '#f59e0b', metric: 'merchants' },
+        { key: 'expiring', label: '7天内到期', value: stats?.expiringIn7Days ?? '—', color: '#ef4444' },
+        { key: 'monthRev', label: '本月收入', value: stats?.monthRevenue != null ? `¥${stats.monthRevenue}` : '—', color: '#8b5cf6', metric: 'revenue' },
+        { key: 'totalRev', label: '累计收入', value: stats?.totalRevenue != null ? `¥${stats.totalRevenue}` : '—', color: '#06b6d4', metric: 'revenue' },
+    ]
+
+    const merchantCards = [
+        { key: 'storeSales', label: '全站累计成交额 (GMV)', value: stats?.shopStats?.totalSales != null ? `¥${stats.shopStats.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—', color: '#10b981', metric: 'storeSales' },
+        { key: 'storeOrders', label: '商户总订单量', value: stats?.shopStats?.totalOrders != null ? `${stats.shopStats.totalOrders.toLocaleString()} 笔` : '—', color: '#6366f1', metric: 'storeOrders' },
+        { key: 'storeProducts', label: '全站商品总量', value: stats?.shopStats?.totalProducts != null ? `${stats.shopStats.totalProducts.toLocaleString()} 件` : '—', color: '#f59e0b', metric: 'storeProducts' },
+        { key: 'storeCustomers', label: '全站会员总数', value: stats?.shopStats?.totalCustomers != null ? `${stats.shopStats.totalCustomers.toLocaleString()} 人` : '—', color: '#ec4899', metric: 'storeCustomers' },
+        { key: 'storeVisits', label: '全站总访问量', value: stats?.shopStats?.totalVisits != null ? `${stats.shopStats.totalVisits.toLocaleString()} 次` : '—', color: '#06b6d4', metric: 'storeVisits' },
+    ]
+
+    const allCards = [...cards, ...merchantCards]
 
     useEffect(() => {
-        fetch('/api/man/stats', { headers: { 'Authorization': `Bearer ${token}` } })
-            .then(r => r.json()).then(d => setStats(d)).catch(() => {})
+        setRankingLoading(true)
+        fetch(`/api/man/stats?rankingRange=${rankingRange}`, { headers: { 'Authorization': `Bearer ${token}` } })
+            .then(r => r.json())
+            .then(d => {
+                setStats(d)
+                setRankingLoading(false)
+            })
+            .catch(() => {
+                setRankingLoading(false)
+            })
+    }, [token, rankingRange])
+
+    useEffect(() => {
         fetch('/api/man/trend?days=14', { headers: { 'Authorization': `Bearer ${token}` } })
             .then(r => r.json()).then(d => setTrend(d.trend || [])).catch(() => {})
     }, [token])
 
-    const cards = [
-        { label: '商城总数', value: stats?.total ?? '—', color: '#6366f1' },
-        { label: '活跃商城', value: stats?.active ?? '—', color: '#10b981' },
-        { label: '今日新增', value: stats?.todayNew ?? '—', color: '#f59e0b' },
-        { label: '7天内到期', value: stats?.expiringIn7Days ?? '—', color: '#ef4444' },
-        { label: '本月收入', value: stats?.monthRevenue != null ? `¥${stats.monthRevenue}` : '—', color: '#8b5cf6' },
-        { label: '累计收入', value: stats?.totalRevenue != null ? `¥${stats.totalRevenue}` : '—', color: '#06b6d4' },
-    ]
+    useEffect(() => {
+        setTrendData({})
+        setExpandedCard(null)
+        setRankingRange('all')
+    }, [token])
+
+    useEffect(() => {
+        if (!expandedCard) return
+        const selectedCard = allCards.find(c => c.key === expandedCard)
+        const activeMetric = selectedCard?.metric
+        if (!activeMetric) return
+
+        const fetchTrendData = async () => {
+            if (trendData[trendDays]) return
+            setTrendLoading(true)
+            try {
+                const res = await fetch(`/api/man/trend?days=${trendDays}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                const data = await res.json()
+                if (data.trend) {
+                    setTrendData(prev => ({ ...prev, [trendDays]: data.trend }))
+                }
+            } catch (error) {
+                console.error('获取趋势数据失败:', error)
+            } finally {
+                setTrendLoading(false)
+            }
+        }
+        fetchTrendData()
+    }, [token, expandedCard, trendDays])
+
+    const handleCardClick = (key) => {
+        setExpandedCard(prev => prev === key ? null : key)
+    }
+
+    const renderFullExpandedPanel = () => {
+        const selectedCard = allCards.find(c => c.key === expandedCard)
+        const activeMetric = selectedCard?.metric
+        if (!activeMetric) return null;
+
+        const config = {
+            merchants: { label: '新增商户趋势', color: selectedCard.color, fillId: 'colorMerchants' },
+            revenue: { label: '平台套餐收入趋势', color: selectedCard.color, fillId: 'colorRevenue' },
+            storeSales: { label: '全站累计成交额趋势', color: selectedCard.color, fillId: 'colorStoreSales' },
+            storeOrders: { label: '商户总订单量趋势', color: selectedCard.color, fillId: 'colorStoreOrders' },
+            storeProducts: { label: '全站商品总量趋势', color: selectedCard.color, fillId: 'colorStoreProducts' },
+            storeCustomers: { label: '全站会员总数趋势', color: selectedCard.color, fillId: 'colorStoreCustomers' },
+            storeVisits: { label: '全站总访问量趋势', color: selectedCard.color, fillId: 'colorStoreVisits' }
+        };
+
+        const currentConfig = config[activeMetric];
+        if (!currentConfig) return null;
+        const { label, color, fillId } = currentConfig;
+
+        return (
+            <div className="full-trend-panel" style={{ marginBottom: 24, marginTop: 16 }}>
+                <div className="full-trend-header">
+                    <div className="full-trend-title" style={{ fontSize: '1rem', fontWeight: 600 }}>{label} ({selectedCard.label})</div>
+                    <div className="trend-tabs" style={{ marginBottom: 0, display: 'flex', gap: 6 }}>
+                        <span className={`trend-tab ${trendDays === 7 ? 'active' : ''}`} onClick={() => setTrendDays(7)}>7天</span>
+                        <span className={`trend-tab ${trendDays === 30 ? 'active' : ''}`} onClick={() => setTrendDays(30)}>30天</span>
+                        <span className={`trend-tab ${trendDays === 90 ? 'active' : ''}`} onClick={() => setTrendDays(90)}>90天</span>
+                    </div>
+                </div>
+                {trendLoading && !trendData[trendDays] ? (
+                    <div style={{ padding: '20px', color: 'var(--text-muted)' }}>加载中...</div>
+                ) : (
+                    <div className="trend-chart-mini" style={{ width: '100%', height: 220 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={trendData[trendDays] || []} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        borderRadius: '8px', 
+                                        border: '1px solid var(--border-color)', 
+                                        background: 'var(--bg-secondary)', 
+                                        color: 'var(--text-primary)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+                                    }}
+                                    labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
+                                />
+                                <Area type="monotone" dataKey={activeMetric} stroke={color} strokeWidth={2} fillOpacity={1} fill={`url(#${fillId})`} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    const isPlatformCardSelected = cards.some(c => c.key === expandedCard)
+    const isMerchantCardSelected = merchantCards.some(c => c.key === expandedCard)
 
     return (
         <div className="man-page">
             <h1 className="man-page-title">数据概览</h1>
+            
+            {/* 平台系统统计 Grid */}
             <div className="man-stats-grid">
-                {cards.map(c => (
-                    <div key={c.label} className="man-stat-card" style={{ borderTopColor: c.color }}>
-                        <div className="man-stat-value" style={{ color: c.color }}>{c.value}</div>
-                        <div className="man-stat-label">{c.label}</div>
-                    </div>
-                ))}
+                {cards.map(c => {
+                    const isClickable = !!c.metric
+                    const isSelected = expandedCard === c.key
+                    return (
+                        <div 
+                            key={c.label} 
+                            className="man-stat-card" 
+                            style={{ 
+                                borderColor: isSelected ? c.color : 'var(--border-color)',
+                                cursor: isClickable ? 'pointer' : 'default',
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                background: isSelected ? 'var(--bg-secondary)' : 'var(--bg-card)',
+                                boxShadow: isSelected ? `0 0 0 3px ${c.color}25, 0 8px 20px -6px ${c.color}30` : 'none',
+                                transform: isSelected ? 'translateY(-3px)' : 'none'
+                            }}
+                            onClick={() => isClickable && handleCardClick(c.key)}
+                        >
+                            {/* Top accent bar */}
+                            <div 
+                                style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: '3px',
+                                    backgroundColor: c.color,
+                                    borderTopLeftRadius: 'inherit',
+                                    borderTopRightRadius: 'inherit'
+                                }}
+                            />
+                            <div className="man-stat-value" style={{ color: c.color }}>{c.value}</div>
+                            <div className="man-stat-label">{c.label}</div>
+                        </div>
+                    )
+                })}
             </div>
 
-            {/* 趋势图 */}
+            {isPlatformCardSelected && renderFullExpandedPanel()}
+
+            {/* 商户端全站交易与运营汇总 */}
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: 28, marginBottom: 16 }}>
+                📈 商户端全站交易与运营汇总
+            </h3>
+            <div className="man-stats-grid" style={{ marginBottom: 24 }}>
+                {merchantCards.map(c => {
+                    const isSelected = expandedCard === c.key
+                    return (
+                        <div 
+                            key={c.key} 
+                            className="man-stat-card" 
+                            style={{ 
+                                cursor: 'pointer',
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                background: isSelected ? 'var(--bg-secondary)' : 'var(--bg-card)',
+                                boxShadow: isSelected ? `0 0 0 3px ${c.color}25, 0 8px 20px -6px ${c.color}30` : 'none',
+                                transform: isSelected ? 'translateY(-3px)' : 'none',
+                                borderLeft: `4px solid ${c.color}`,
+                                borderTop: isSelected ? `1px solid ${c.color}` : 'none',
+                                borderRight: `1px solid ${isSelected ? c.color : 'var(--border-color)'}`,
+                                borderBottom: `1px solid ${isSelected ? c.color : 'var(--border-color)'}`
+                            }}
+                            onClick={() => handleCardClick(c.key)}
+                        >
+                            <div className="man-stat-value" style={{ color: c.color, fontSize: '1.5rem' }}>{c.value}</div>
+                            <div className="man-stat-label">{c.label}</div>
+                        </div>
+                    )
+                })}
+            </div>
+
+            {isMerchantCardSelected && renderFullExpandedPanel()}
+
+            {/* 最近 14 天趋势 */}
             {trend.length > 0 && (
                 <div style={{ marginTop: 28 }}>
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', marginBottom: 16 }}>
-                        最近 14 天趋势
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>
+                        📅 最近 14 天趋势 (系统概览)
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
-                            <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: 8 }}>新增商户</div>
+                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 16 }}>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 8 }}>新增商户</div>
                             <div style={{ display: 'flex', alignItems: 'end', gap: 3, height: 80 }}>
                                 {trend.map((d, i) => {
                                     const max = Math.max(...trend.map(t => t.merchants), 1)
@@ -103,13 +301,13 @@ function Overview({ token }) {
                                     )
                                 })}
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: '0.68rem', color: '#94a3b8' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                                 <span>{trend[0]?.date?.slice(5)}</span>
                                 <span>{trend[trend.length - 1]?.date?.slice(5)}</span>
                             </div>
                         </div>
-                        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
-                            <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: 8 }}>套餐收入 (¥)</div>
+                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 16 }}>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 8 }}>套餐收入 (¥)</div>
                             <div style={{ display: 'flex', alignItems: 'end', gap: 3, height: 80 }}>
                                 {trend.map((d, i) => {
                                     const max = Math.max(...trend.map(t => t.revenue), 1)
@@ -125,7 +323,7 @@ function Overview({ token }) {
                                     )
                                 })}
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: '0.68rem', color: '#94a3b8' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                                 <span>{trend[0]?.date?.slice(5)}</span>
                                 <span>{trend[trend.length - 1]?.date?.slice(5)}</span>
                             </div>
@@ -133,29 +331,358 @@ function Overview({ token }) {
                     </div>
                 </div>
             )}
+
+            {/* 排行榜 & 套餐版本分布 */}
+            <div className="dashboard-grid-container">
+                {/* 排行榜 */}
+                <div className="dashboard-card">
+                    <h3 className="dashboard-card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            🏆 平台业绩排行
+                        </div>
+                        <div className="ranking-tabs" style={{ display: 'flex', gap: 6 }}>
+                            {[
+                                { key: 'all', label: '全部' },
+                                { key: 'today', label: '本日' },
+                                { key: 'week', label: '本周' },
+                                { key: 'month', label: '本月' },
+                            ].map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setRankingRange(tab.key)}
+                                    style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.72rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid var(--border-color)',
+                                        background: rankingRange === tab.key ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-secondary)',
+                                        color: rankingRange === tab.key ? 'var(--primary-light)' : 'var(--text-secondary)',
+                                        borderColor: rankingRange === tab.key ? 'rgba(239, 68, 68, 0.3)' : 'var(--border-color)',
+                                        fontWeight: rankingRange === tab.key ? 600 : 400,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        outline: 'none',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 4
+                                    }}
+                                    className={rankingRange === tab.key ? 'active' : ''}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </h3>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                        gap: 24,
+                        transition: 'opacity 0.25s ease',
+                        opacity: rankingLoading ? 0.6 : 1
+                    }}>
+                        {/* 商户排行 */}
+                        <div>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                🏪 商家销量排行 Top 3 (按成交额 GMV)
+                            </h4>
+                            <div className="ranking-list">
+                                {stats?.topMerchants && stats.topMerchants.length > 0 ? (
+                                    stats.topMerchants.map((m, idx) => (
+                                        <div key={m.tenantId || idx} className="ranking-item">
+                                            <span className={`rank-badge rank-${idx + 1}`}>{idx + 1}</span>
+                                            <div className="ranking-info">
+                                                <div className="ranking-name" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    {m.shopSlug ? (
+                                                        <Link to={`/Man/merchants?search=${encodeURIComponent(m.shopSlug)}`} className="slug-link" style={{ fontWeight: 600 }}>
+                                                            {m.shopName}
+                                                        </Link>
+                                                    ) : (
+                                                        m.shopName
+                                                    )}
+                                                    {m.shopSlug && (
+                                                        <a href={`/v/${m.shopSlug}`} target="_blank" rel="noreferrer" className="slug-link" style={{ fontSize: '0.72rem', marginLeft: 4 }}>
+                                                            [店铺]
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <div className="ranking-sub">{m.orderCount} 笔已完成订单</div>
+                                            </div>
+                                            <div className="ranking-value">
+                                                ¥{m.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                <div className="ranking-value-sub">营业成交额</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: 12, textAlign: 'center' }}>暂无商户销售数据</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 商品排行 */}
+                        <div>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                🔥 热销商品排行 Top 5 (按销量)
+                            </h4>
+                            <div className="ranking-list">
+                                {stats?.topProducts && stats.topProducts.length > 0 ? (
+                                    stats.topProducts.map((p, idx) => (
+                                        <div key={p.id} className="ranking-item">
+                                            <span className={`rank-badge ${idx < 3 ? `rank-${idx + 1}` : 'rank-other'}`}>{idx + 1}</span>
+                                            <div className="ranking-info">
+                                                <div className="ranking-name" title={p.name}>{p.name}</div>
+                                                <div className="ranking-sub">
+                                                    归属店铺: {p.shopSlug ? (
+                                                        <Link to={`/Man/merchants?search=${encodeURIComponent(p.shopSlug)}`} className="slug-link">
+                                                            {p.shopName}
+                                                        </Link>
+                                                    ) : (
+                                                        p.shopName
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="ranking-value" style={{ color: 'var(--text-primary)' }}>
+                                                {p.soldCount} 件
+                                                <div className="ranking-value-sub">单价 ¥{p.price}</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: 12, textAlign: 'center' }}>暂无商品销售数据</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 商家流量排行 */}
+                        <div>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                📊 商家流量排行 Top 5 (按访问量)
+                            </h4>
+                            <div className="ranking-list">
+                                {stats?.topVisits && stats.topVisits.length > 0 ? (
+                                    stats.topVisits.map((v, idx) => (
+                                        <div key={v.tenantId || idx} className="ranking-item">
+                                            <span className={`rank-badge ${idx < 3 ? `rank-${idx + 1}` : 'rank-other'}`}>{idx + 1}</span>
+                                            <div className="ranking-info">
+                                                <div className="ranking-name" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    {v.shopSlug ? (
+                                                        <Link to={`/Man/merchants?search=${encodeURIComponent(v.shopSlug)}`} className="slug-link" style={{ fontWeight: 600 }}>
+                                                            {v.shopName}
+                                                        </Link>
+                                                    ) : (
+                                                        v.shopName
+                                                    )}
+                                                    {v.shopSlug && (
+                                                        <a href={`/v/${v.shopSlug}`} target="_blank" rel="noreferrer" className="slug-link" style={{ fontSize: '0.72rem', marginLeft: 4 }}>
+                                                            [店铺]
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <div className="ranking-sub">{v.shopSlug ? `分站 slug: ${v.shopSlug}` : '平台主站'}</div>
+                                            </div>
+                                            <div className="ranking-value" style={{ color: 'var(--text-primary)' }}>
+                                                {v.totalVisits.toLocaleString()} 次
+                                                <div className="ranking-value-sub">累计访问量</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: 12, textAlign: 'center' }}>暂无商家访问量数据</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 套餐分布 */}
+                <div className="dashboard-card">
+                    <h3 className="dashboard-card-title">📊 商家套餐版本分布</h3>
+                    <div className="plan-breakdown-container">
+                        {(() => {
+                            const planConfig = {
+                                FREE: { label: '免费试用版', color: '#94a3b8' },
+                                BASIC: { label: '基础版', color: '#3b82f6' },
+                                STANDARD: { label: '标准版', color: '#a78bfa' },
+                                PRO: { label: '专业版', color: '#fbbf24' }
+                            };
+                            const totalShops = stats?.total ?? 0;
+                            const breakdown = stats?.planBreakdown || [];
+                            
+                            const allPlans = ['FREE', 'BASIC', 'STANDARD', 'PRO'];
+                            const counts = Object.fromEntries(breakdown.map(b => [b.plan, b.count]));
+                            
+                            return allPlans.map(plan => {
+                                const count = counts[plan] || 0;
+                                const percentage = totalShops > 0 ? ((count / totalShops) * 100).toFixed(1) : 0;
+                                const conf = planConfig[plan] || { label: plan, color: '#aaa' };
+                                return (
+                                    <div key={plan} className="plan-progress-item">
+                                        <div className="plan-progress-header">
+                                            <span style={{ color: 'var(--text-primary)' }}>{conf.label}</span>
+                                            <span style={{ color: 'var(--text-muted)' }}>
+                                                {count} 家 ({percentage}%)
+                                            </span>
+                                        </div>
+                                        <div className="plan-progress-bar-bg">
+                                            <div 
+                                                className="plan-progress-bar-fill" 
+                                                style={{ 
+                                                    width: `${percentage}%`,
+                                                    backgroundColor: conf.color
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
+                    </div>
+                </div>
+            </div>
+
+            {/* 实时动态双栏 */}
+            <div className="dashboard-grid-container" style={{ marginTop: 20 }}>
+                {/* 全站交易动态 */}
+                <div className="dashboard-card">
+                    <h3 className="dashboard-card-title" style={{ justifyContent: 'space-between' }}>
+                        <span>🛒 全站店铺实时交易</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>交易流水</span>
+                    </h3>
+                    <div className="feed-container">
+                        {stats?.recentStoreOrders && stats.recentStoreOrders.length > 0 ? (
+                            stats.recentStoreOrders.map(order => {
+                                const statusColors = { PENDING: '#f59e0b', PAID: '#3b82f6', COMPLETED: '#10b981', CANCELLED: '#94a3b8', REFUNDING: '#f97316', REFUNDED: '#a78bfa' };
+                                const statusLabels = { PENDING: '待支付', PAID: '已支付', COMPLETED: '已完成', CANCELLED: '已取消', REFUNDING: '退款中', REFUNDED: '已退款' };
+                                return (
+                                    <div key={order.id} className="feed-item">
+                                        <div className="feed-header">
+                                            {order.shopSlug ? (
+                                                <Link to={`/Man/merchants?search=${encodeURIComponent(order.shopSlug)}`} className="feed-title slug-link" style={{ fontWeight: 700 }}>
+                                                    {order.shopName}
+                                                </Link>
+                                            ) : (
+                                                <span className="feed-title" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{order.shopName}</span>
+                                            )}
+                                            <span className="feed-time">{new Date(order.createdAt).toLocaleString()}</span>
+                                        </div>
+                                        <div className="feed-detail">
+                                            商品: <Link to={`/Man/shop-orders?search=${encodeURIComponent(order.orderNo)}`} className="product-order-link" style={{ fontWeight: 700 }}>{order.productName}</Link> × {order.quantity}
+                                        </div>
+                                        <div className="feed-meta">
+                                            <span className="feed-amount">¥{order.totalAmount.toFixed(2)}</span>
+                                            <span style={{ 
+                                                color: statusColors[order.status] || '#aaa',
+                                                fontSize: '0.72rem', 
+                                                fontWeight: 600,
+                                                padding: '2px 8px',
+                                                background: `${statusColors[order.status] || '#aaa'}15`,
+                                                borderRadius: 4
+                                            }}>
+                                                {statusLabels[order.status] || order.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: 20, textAlign: 'center' }}>暂无交易订单动态</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* 平台套餐订阅动态 */}
+                <div className="dashboard-card">
+                    <h3 className="dashboard-card-title" style={{ justifyContent: 'space-between' }}>
+                        <span>🔔 最近套餐订阅 & 续费</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>系统日志</span>
+                    </h3>
+                    <div className="feed-container">
+                        {stats?.recentPlanOrders && stats.recentPlanOrders.length > 0 ? (
+                            stats.recentPlanOrders.map(order => {
+                                const PLAN_LABELS = { FREE: '免费试用', BASIC: '基础版', STANDARD: '标准版', PRO: '专业版' };
+                                const planName = PLAN_LABELS[order.plan] || order.plan;
+                                const statusColors = { PAID: '#10b981', PENDING: '#f59e0b', REVIEWING: '#6366f1', REJECTED: '#ef4444' };
+                                const statusLabels = { PAID: '已支付', PENDING: '待支付', REVIEWING: '待审核', REJECTED: '已取消' };
+                                return (
+                                    <div key={order.id} className="feed-item">
+                                        <div className="feed-header">
+                                            {order.shopSlug ? (
+                                                <Link to={`/Man/merchants?search=${encodeURIComponent(order.shopSlug)}`} className="feed-title slug-link" style={{ fontWeight: 700 }}>
+                                                    {order.merchantShopName}
+                                                </Link>
+                                            ) : (
+                                                <span className="feed-title">{order.merchantShopName}</span>
+                                            )}
+                                            <span className="feed-time">{new Date(order.createdAt).toLocaleString()}</span>
+                                        </div>
+                                        <div className="feed-detail">
+                                            订购套餐: <span className="plan-chip" style={{ fontSize: '0.72rem', padding: '1px 6px' }}>{planName}</span> (邮箱: {order.merchantEmail})
+                                        </div>
+                                        <div className="feed-meta">
+                                            <span className="feed-amount">¥{order.amount.toFixed(2)}</span>
+                                            <span style={{ 
+                                                color: statusColors[order.status] || '#aaa',
+                                                fontSize: '0.72rem', 
+                                                fontWeight: 600,
+                                                padding: '2px 8px',
+                                                background: `${statusColors[order.status] || '#aaa'}15`,
+                                                borderRadius: 4
+                                            }}>
+                                                {statusLabels[order.status] || order.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: 20, textAlign: 'center' }}>暂无套餐订购动态</div>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }
 
 function Merchants({ token }) {
+    const [searchParams, setSearchParams] = useSearchParams()
+    const urlSearch = searchParams.get('search') || ''
+
     const [merchants, setMerchants] = useState([])
     const [total, setTotal] = useState(0)
     const [loading, setLoading] = useState(true)
     const [editing, setEditing] = useState(null)
     const [patchForm, setPatchForm] = useState({ plan: '', status: '', months: '' })
     const [saving, setSaving] = useState(false)
-    const [search, setSearch] = useState('')
+    const [search, setSearch] = useState(urlSearch)
+    const [viewingMerchant, setViewingMerchant] = useState(null)
+    const [previewPhoto, setPreviewPhoto] = useState(null)
+
+    // Sync input field value when URL search parameter changes
+    useEffect(() => {
+        setSearch(urlSearch)
+    }, [urlSearch])
 
     const load = () => {
         setLoading(true)
-        const params = search ? `?search=${encodeURIComponent(search)}` : ''
+        const params = urlSearch ? `?search=${encodeURIComponent(urlSearch)}` : ''
         fetch(`/api/man/merchants${params}`, { headers: { 'Authorization': `Bearer ${token}` } })
             .then(r => r.json())
             .then(d => { setMerchants(d.merchants || []); setTotal(d.total || 0) })
             .finally(() => setLoading(false))
     }
 
-    useEffect(load, [token, search])
+    useEffect(load, [token, urlSearch])
+
+    if (viewingMerchant) {
+        return (
+            <MerchantDetail
+                token={token}
+                merchant={viewingMerchant}
+                onClose={() => setViewingMerchant(null)}
+            />
+        )
+    }
 
     const openEdit = (m) => {
         setEditing(m)
@@ -179,6 +706,19 @@ function Merchants({ token }) {
     const PLAN_LABELS = { FREE: '免费试用', BASIC: '基础版', STANDARD: '标准版', PRO: '专业版' }
     const STATUS_COLORS = { ACTIVE: '#10b981', EXPIRED: '#ef4444', SUSPENDED: '#f59e0b' }
 
+    const KYC_STATUS_LABELS = {
+        UNVERIFIED: '未认证',
+        PENDING: '待审核',
+        VERIFIED: '已认证',
+        REJECTED: '已拒绝'
+    }
+    const KYC_STATUS_COLORS = {
+        UNVERIFIED: '#6b7280',
+        PENDING: '#f59e0b',
+        VERIFIED: '#10b981',
+        REJECTED: '#ef4444'
+    }
+
     return (
         <div className="man-page">
             <div className="man-page-header">
@@ -188,7 +728,17 @@ function Merchants({ token }) {
             <div style={{ marginBottom: 16 }}>
                 <input
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={e => {
+                        const val = e.target.value
+                        setSearch(val)
+                        const newParams = new URLSearchParams(searchParams)
+                        if (val) {
+                            newParams.set('search', val)
+                        } else {
+                            newParams.delete('search')
+                        }
+                        setSearchParams(newParams, { replace: true })
+                    }}
                     placeholder="搜索邮箱、店铺名或 slug..."
                     style={{
                         padding: '9px 14px', width: 280,
@@ -205,9 +755,10 @@ function Merchants({ token }) {
                             <tr>
                                 <th>邮箱</th>
                                 <th>店铺名</th>
-                                <th>商城 slug</th>
+                                <th>商城 slug / 自定义域名</th>
                                 <th>套餐</th>
                                 <th>状态</th>
+                                <th>实名认证</th>
                                 <th>到期时间</th>
                                 <th>注册时间</th>
                                 <th>操作</th>
@@ -218,17 +769,103 @@ function Merchants({ token }) {
                                 <tr key={m.id}>
                                     <td>{m.email}</td>
                                     <td>{m.shopName}</td>
-                                    <td><a href={`/v/${m.shop?.slug}`} target="_blank" rel="noreferrer" className="slug-link">{m.shop?.slug}</a></td>
+                                    <td>
+                                        <div style={{ display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <a 
+                                                href={`/v/${m.shop?.slug}`} 
+                                                target="_blank" 
+                                                rel="noreferrer" 
+                                                style={{ 
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    padding: '3px 8px',
+                                                    borderRadius: '6px',
+                                                    background: 'rgba(239, 68, 68, 0.08)',
+                                                    color: 'var(--primary-light)',
+                                                    fontSize: '0.82rem',
+                                                    fontWeight: 600,
+                                                    textDecoration: 'none',
+                                                    transition: 'all 0.15s ease',
+                                                    border: '1px solid rgba(239, 68, 68, 0.15)'
+                                                }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.14)';
+                                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                                    e.currentTarget.style.transform = 'translateY(0)';
+                                                }}
+                                            >
+                                                <span>{m.shop?.slug}</span>
+                                            </a>
+                                            {m.shop?.customDomain && (
+                                                <a 
+                                                    href={`http://${m.shop.customDomain}`} 
+                                                    target="_blank" 
+                                                    rel="noreferrer" 
+                                                    style={{ 
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        padding: '3px 8px',
+                                                        borderRadius: '6px',
+                                                        background: 'rgba(59, 130, 246, 0.08)',
+                                                        color: '#3b82f6',
+                                                        fontSize: '0.82rem',
+                                                        fontWeight: 500,
+                                                        textDecoration: 'none',
+                                                        transition: 'all 0.15s ease',
+                                                        border: '1px solid rgba(59, 130, 246, 0.15)',
+                                                        fontFamily: 'monospace'
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.background = 'rgba(59, 130, 246, 0.14)';
+                                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)';
+                                                        e.currentTarget.style.transform = 'translateY(0)';
+                                                    }}
+                                                >
+                                                    <span>{m.shop.customDomain}</span>
+                                                </a>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td><span className="plan-chip">{PLAN_LABELS[m.shop?.plan] || '—'}</span></td>
                                     <td><span style={{ color: STATUS_COLORS[m.shop?.status] || '#aaa' }}>● {m.shop?.status || '—'}</span></td>
+                                    <td>
+                                        <span style={{
+                                            display: 'inline-block',
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '500',
+                                            background: (m.kycStatus === 'VERIFIED' ? 'rgba(16,185,129,0.1)' : m.kycStatus === 'PENDING' ? 'rgba(245,158,11,0.1)' : m.kycStatus === 'REJECTED' ? 'rgba(239,68,68,0.1)' : 'rgba(107,114,128,0.1)'),
+                                            color: KYC_STATUS_COLORS[m.kycStatus] || '#6b7280'
+                                        }}>
+                                            {KYC_STATUS_LABELS[m.kycStatus] || '未认证'}
+                                        </span>
+                                    </td>
                                     <td className="time-cell">
                                         {m.shop?.planExpiresAt
                                             ? new Date(m.shop.planExpiresAt).toLocaleDateString()
                                             : (m.shop?.trialEndsAt ? `试用至 ${new Date(m.shop.trialEndsAt).toLocaleDateString()}` : '—')}
                                     </td>
                                     <td className="time-cell">{new Date(m.createdAt).toLocaleDateString()}</td>
-                                    <td>
+                                    <td style={{ display: 'flex', gap: 6 }}>
                                         <button className="man-btn-edit" onClick={() => openEdit(m)}>管理</button>
+                                        <button
+                                            className="man-btn-edit"
+                                            style={{
+                                                background: 'rgba(99, 102, 241, 0.1)',
+                                                color: '#6366f1',
+                                                borderColor: 'rgba(99, 102, 241, 0.2)'
+                                            }}
+                                            onClick={() => setViewingMerchant(m)}
+                                        >
+                                            查看
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -267,6 +904,97 @@ function Merchants({ token }) {
                                 <input type="number" min="1" value={patchForm.months} onChange={e => setPatchForm(f => ({ ...f, months: e.target.value }))} placeholder="在现有到期时间上顺延" />
                             </div>
                         </div>
+
+                        {/* KYC实名信息展示 */}
+                        {editing.kycStatus && editing.kycStatus !== 'UNVERIFIED' && (
+                            <div style={{ marginTop: 20, borderTop: '1px solid var(--border-color)', paddingTop: 16 }}>
+                                <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>🛡️</span> 实名认证信息
+                                </h4>
+                                <div className="man-modal-form" style={{ gap: '10px' }}>
+                                    <div className="form-row">
+                                        <label>实名状态</label>
+                                        <span style={{
+                                            fontWeight: '600',
+                                            color: KYC_STATUS_COLORS[editing.kycStatus] || 'var(--text-primary)'
+                                        }}>
+                                            {KYC_STATUS_LABELS[editing.kycStatus]}
+                                        </span>
+                                    </div>
+                                    <div className="form-row">
+                                        <label>真实姓名</label>
+                                        <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{editing.kycRealName || '—'}</span>
+                                    </div>
+                                    <div className="form-row">
+                                        <label>身份证号</label>
+                                        <span style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+                                            {editing.kycIdNumber ? editing.kycIdNumber.replace(/^(.{6})(?:\d+)(.{4})$/, '$1********$2') : '—'}
+                                        </span>
+                                    </div>
+                                    {editing.kycRequestedAt && (
+                                        <div className="form-row">
+                                            <label>申请时间</label>
+                                            <span style={{ fontSize: '0.8rem' }}>{new Date(editing.kycRequestedAt).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {editing.kycRejectReason && editing.kycStatus === 'REJECTED' && (
+                                        <div className="form-row">
+                                            <label>驳回原因</label>
+                                            <span style={{ color: '#ef4444' }}>{editing.kycRejectReason}</span>
+                                        </div>
+                                    )}
+                                    {editing.kycPhotoFile && (
+                                        <div className="form-row">
+                                            <label>手持合照</label>
+                                            <button 
+                                                onClick={() => setPreviewPhoto(editing.kycPhotoFile)}
+                                                style={{
+                                                    padding: '4px 10px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6',
+                                                    border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '500'
+                                                }}
+                                            >
+                                                🔎 查看照片存档
+                                            </button>
+                                        </div>
+                                    )}
+                                    
+                                    {/* 审核日志历史 */}
+                                    {editing.kycAuditLog && (() => {
+                                        try {
+                                            const logs = JSON.parse(editing.kycAuditLog)
+                                            if (Array.isArray(logs) && logs.length > 0) {
+                                                return (
+                                                    <div style={{ marginTop: 8 }}>
+                                                        <label style={{ fontSize: '0.8rem', fontWeight: '600', display: 'block', marginBottom: '6px' }}>审核历史记录：</label>
+                                                        <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '6px', maxHeight: '100px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                                                            {logs.map((log, idx) => (
+                                                                <div key={idx} style={{ fontSize: '0.72rem', borderBottom: idx < logs.length - 1 ? '1px dashed var(--border-color)' : 'none', paddingBottom: '4px', marginBottom: '4px' }}>
+                                                                    <span style={{ color: log.action === 'APPROVE' ? '#10b981' : '#ef4444', fontWeight: '600' }}>
+                                                                        [{log.action === 'APPROVE' ? '通过' : '拒绝'}]
+                                                                    </span>{' '}
+                                                                    <span style={{ color: 'var(--text-muted)' }}>
+                                                                        {new Date(log.timestamp).toLocaleString()}
+                                                                    </span>
+                                                                    {log.rejectReason && (
+                                                                        <div style={{ color: 'var(--text-secondary)', marginLeft: '8px', fontStyle: 'italic' }}>
+                                                                            原因: {log.rejectReason}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            }
+                                        } catch (e) {
+                                            console.error('Failed to parse audit log:', e)
+                                        }
+                                        return null
+                                    })()}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="man-modal-actions">
                             <button className="man-btn-cancel" onClick={() => setEditing(null)}>取消</button>
                             <button className="man-btn-save" onClick={handlePatch} disabled={saving}>{saving ? '保存中...' : '保存'}</button>
@@ -274,9 +1002,464 @@ function Merchants({ token }) {
                     </div>
                 </div>
             )}
+
+            {/* 存档照片预览 Overlay */}
+            {previewPhoto && (
+                <div 
+                    onClick={() => setPreviewPhoto(null)}
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                        background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 10000, padding: '20px'
+                    }}
+                >
+                    <div 
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: 'var(--bg-card)', padding: '24px', borderRadius: '12px',
+                            maxWidth: '700px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            border: '1px solid var(--border-color)', position: 'relative'
+                        }}
+                    >
+                        <button 
+                            onClick={() => setPreviewPhoto(null)}
+                            style={{
+                                position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none',
+                                color: 'var(--text-secondary)', fontSize: '1.2rem', cursor: 'pointer'
+                            }}
+                        >
+                            ✕
+                        </button>
+                        <h3 style={{ margin: '0 0 16px 0', color: 'var(--text-primary)' }}>证件照片归档预览 (防伪水印已覆盖)</h3>
+                        
+                        <div style={{ width: '100%', maxHeight: '60vh', overflowY: 'auto', textAlign: 'center', background: '#000', borderRadius: '6px', padding: '10px' }}>
+                            <img 
+                                src={`/api/man/kyc/file/${previewPhoto}?token=${token}`}
+                                onError={(e) => {
+                                    fetch(`/api/man/kyc/file/${previewPhoto}`, { headers: { Authorization: `Bearer ${token}` } })
+                                        .then(r => r.blob())
+                                        .then(blob => {
+                                            e.target.src = URL.createObjectURL(blob)
+                                        })
+                                        .catch(() => {
+                                            alert('图片加载失败，请确认该照片尚未被彻底销毁且网络正常')
+                                        })
+                                }}
+                                alt="Archived ID" 
+                                style={{ maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain' }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
+
+function MerchantDetail({ token, merchant, onClose }) {
+    const [stats, setStats] = useState(null)
+    const [statsLoading, setStatsLoading] = useState(true)
+    const [orders, setOrders] = useState([])
+    const [total, setTotal] = useState(0)
+    const [loading, setLoading] = useState(true)
+    const [page, setPage] = useState(1)
+    const [filters, setFilters] = useState({
+        search: '', status: '', paymentMethod: '',
+        minAmount: '', maxAmount: '', startDate: '', endDate: ''
+    })
+    const [detailOrder, setDetailOrder] = useState(null)
+
+    // Trend states
+    const [expandedCard, setExpandedCard] = useState(null)
+    const [trendData, setTrendData] = useState({})
+    const [trendDays, setTrendDays] = useState(7)
+
+    const cards = [
+        { key: 'totalRevenue', label: '累计销售额', value: stats?.totalRevenue != null ? `¥${stats.totalRevenue}` : '—', color: '#06b6d4', metric: 'revenue' },
+        { key: 'todayRevenue', label: '今日销售额', value: stats?.todayRevenue != null ? `¥${stats.todayRevenue}` : '—', color: '#8b5cf6', metric: 'revenue' },
+        { key: 'totalOrders', label: '订单总数量', value: stats?.totalOrders ?? '—', color: '#6366f1', metric: 'orders' },
+        { key: 'todayOrders', label: '今日订单量', value: stats?.todayOrders ?? '—', color: '#f59e0b', metric: 'orders' },
+        { key: 'totalProducts', label: '商品总种类', value: stats?.totalProducts ?? '—', color: '#10b981', metric: 'products' },
+        { key: 'totalUsers', label: '顾客总数', value: stats?.totalUsers ?? '—', color: '#ec4899', metric: 'users' },
+    ]
+
+    useEffect(() => {
+        setTrendData({})
+        setExpandedCard(null)
+    }, [merchant.tenantId])
+
+    useEffect(() => {
+        if (!merchant.tenantId) {
+            setStatsLoading(false)
+            return
+        }
+        setStatsLoading(true)
+        fetch(`/api/man/merchants/${merchant.tenantId}/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+            .then(r => r.json())
+            .then(d => setStats(d))
+            .catch(e => console.error(e))
+            .finally(() => setStatsLoading(false))
+    }, [token, merchant.tenantId])
+
+    useEffect(() => {
+        if (!merchant.tenantId || !expandedCard) return
+        const selectedCard = cards.find(c => c.key === expandedCard)
+        const activeMetric = selectedCard?.metric
+        if (!activeMetric) return
+
+        const fetchTrend = async () => {
+            if (trendData[trendDays]) return
+            try {
+                const res = await fetch(`/api/man/merchants/${merchant.tenantId}/trend?days=${trendDays}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                const data = await res.json()
+                if (data.trend) {
+                    setTrendData(prev => ({ ...prev, [trendDays]: data.trend }))
+                }
+            } catch (error) {
+                console.error('获取趋势数据失败:', error)
+            }
+        }
+        fetchTrend()
+    }, [token, merchant.tenantId, expandedCard, trendDays, trendData])
+
+    const loadOrders = () => {
+        if (!merchant.tenantId) {
+            setLoading(false)
+            return
+        }
+        setLoading(true)
+        const params = new URLSearchParams()
+        params.set('page', page)
+        params.set('limit', 15)
+        params.set('tenantId', merchant.tenantId)
+        if (filters.search) params.set('search', filters.search)
+        if (filters.status) params.set('status', filters.status)
+        if (filters.paymentMethod) params.set('paymentMethod', filters.paymentMethod)
+        if (filters.minAmount) params.set('minAmount', filters.minAmount)
+        if (filters.maxAmount) params.set('maxAmount', filters.maxAmount)
+        if (filters.startDate) params.set('startDate', filters.startDate)
+        if (filters.endDate) params.set('endDate', filters.endDate)
+
+        fetch(`/api/man/shop-orders?${params.toString()}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+            .then(r => r.json())
+            .then(d => {
+                setOrders(d.orders || [])
+                setTotal(d.total || 0)
+            })
+            .catch(e => console.error(e))
+            .finally(() => setLoading(false))
+    }
+
+    useEffect(loadOrders, [token, merchant.tenantId, page, filters])
+
+    const PLAN_LABELS = { FREE: '免费试用', BASIC: '基础版', STANDARD: '标准版', PRO: '专业版' }
+    const STATUS_COLORS = { ACTIVE: '#10b981', EXPIRED: '#ef4444', SUSPENDED: '#f59e0b' }
+
+    const STATUS_MAP = {
+        PENDING: { label: '待支付', color: '#f59e0b' },
+        PAID: { label: '已支付', color: '#3b82f6' },
+        COMPLETED: { label: '已完成', color: '#10b981' },
+        CANCELLED: { label: '已取消', color: '#94a3b8' },
+        REFUNDING: { label: '退款中', color: '#f97316' },
+        REFUNDED: { label: '已退款', color: '#a78bfa' }
+    }
+
+    const handleCardClick = (key) => {
+        setExpandedCard(prev => prev === key ? null : key)
+    }
+
+    const renderFullExpandedPanel = () => {
+        const selectedCard = cards.find(c => c.key === expandedCard)
+        const activeMetric = selectedCard?.metric
+        if (!activeMetric) return null;
+
+        const config = {
+            orders: { label: '订单趋势', color: selectedCard.color, fillId: 'colorOrders' },
+            revenue: { label: '收入趋势', color: selectedCard.color, fillId: 'colorRevenue' },
+            products: { label: '商品增加趋势', color: selectedCard.color, fillId: 'colorProducts' },
+            users: { label: '客户增长趋势', color: selectedCard.color, fillId: 'colorUsers' }
+        };
+
+        const currentConfig = config[activeMetric];
+        if (!currentConfig) return null;
+        const { label, color, fillId } = currentConfig;
+
+        return (
+            <div className="full-trend-panel" style={{ marginBottom: 24 }}>
+                <div className="full-trend-header">
+                    <div className="full-trend-title" style={{ fontSize: '1rem', fontWeight: 600 }}>{label} ({selectedCard.label})</div>
+                    <div className="trend-tabs" style={{ marginBottom: 0, display: 'flex', gap: 6 }}>
+                        <span className={`trend-tab ${trendDays === 7 ? 'active' : ''}`} onClick={() => setTrendDays(7)}>7天</span>
+                        <span className={`trend-tab ${trendDays === 30 ? 'active' : ''}`} onClick={() => setTrendDays(30)}>30天</span>
+                        <span className={`trend-tab ${trendDays === 90 ? 'active' : ''}`} onClick={() => setTrendDays(90)}>90天</span>
+                    </div>
+                </div>
+                {!trendData[trendDays] ? (
+                    <div style={{ padding: '20px', color: 'var(--text-muted)' }}>加载中...</div>
+                ) : (
+                    <div className="trend-chart-mini" style={{ width: '100%', height: 220 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={trendData[trendDays] || []} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        borderRadius: '8px', 
+                                        border: '1px solid var(--border-color)', 
+                                        background: 'var(--bg-secondary)', 
+                                        color: 'var(--text-primary)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+                                    }}
+                                    labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
+                                />
+                                <Area type="monotone" dataKey={activeMetric} stroke={color} strokeWidth={2} fillOpacity={1} fill={`url(#${fillId})`} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    return (
+        <div className="man-page">
+            <div className="man-page-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+                <button 
+                    className="man-btn-cancel" 
+                    onClick={onClose} 
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}
+                >
+                    ← 返回商户列表
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%' }}>
+                    <h1 className="man-page-title" style={{ margin: 0 }}>商户详情: {merchant.shopName || merchant.email}</h1>
+                    <span 
+                        className="man-total-badge" 
+                        style={{ 
+                            background: STATUS_COLORS[merchant.shop?.status] ? `rgba(${merchant.shop.status === 'ACTIVE' ? '16, 185, 129' : '239, 68, 68'}, 0.1)` : 'rgba(239, 68, 68, 0.1)', 
+                            color: STATUS_COLORS[merchant.shop?.status] || '#aaa' 
+                        }}
+                    >
+                        ● {merchant.shop?.status || '—'}
+                    </span>
+                </div>
+            </div>
+
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 20, marginBottom: 24, fontSize: '0.85rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 24px' }}>
+                    <div><strong>商户邮箱：</strong> {merchant.email}</div>
+                    <div><strong>店铺名称：</strong> {merchant.shopName}</div>
+                    <div>
+                        <strong>店铺 Slug / 域名：</strong> 
+                        <a href={`/v/${merchant.shop?.slug}`} target="_blank" rel="noreferrer" className="slug-link">{merchant.shop?.slug}</a>
+                        {merchant.shop?.customDomain && (
+                            <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>
+                                (🌐 <a href={`http://${merchant.shop.customDomain}`} target="_blank" rel="noreferrer" className="slug-link" style={{ color: 'var(--primary-light)' }}>{merchant.shop.customDomain}</a>)
+                            </span>
+                        )}
+                    </div>
+                    <div><strong>套餐级别：</strong> <span className="plan-chip">{PLAN_LABELS[merchant.shop?.plan] || '—'}</span></div>
+                    <div>
+                        <strong>到期时间：</strong> 
+                        {merchant.shop?.planExpiresAt
+                            ? new Date(merchant.shop.planExpiresAt).toLocaleDateString()
+                            : (merchant.shop?.trialEndsAt ? `试用至 ${new Date(merchant.shop.trialEndsAt).toLocaleDateString()}` : '—')}
+                    </div>
+                    <div><strong>注册时间：</strong> {new Date(merchant.createdAt).toLocaleString()}</div>
+                </div>
+            </div>
+
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>销售概览</h3>
+            {statsLoading ? <div className="man-loading">加载统计中...</div> : (
+                <>
+                    <div className="man-stats-grid" style={{ marginBottom: 24 }}>
+                        {cards.map(c => {
+                            const isSelected = expandedCard === c.key
+                            return (
+                                <div 
+                                    key={c.label} 
+                                    className="man-stat-card" 
+                                    style={{ 
+                                        borderColor: isSelected ? c.color : 'var(--border-color)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        background: isSelected ? 'var(--bg-secondary)' : 'var(--bg-card)',
+                                        boxShadow: isSelected ? `0 0 0 3px ${c.color}25, 0 8px 20px -6px ${c.color}30` : 'none',
+                                        transform: isSelected ? 'translateY(-3px)' : 'none'
+                                    }}
+                                    onClick={() => handleCardClick(c.key)}
+                                >
+                                    {/* Top accent bar */}
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: '3px',
+                                            backgroundColor: c.color,
+                                            borderTopLeftRadius: 'inherit',
+                                            borderTopRightRadius: 'inherit'
+                                        }}
+                                    />
+                                    <div className="man-stat-value" style={{ color: c.color }}>{c.value}</div>
+                                    <div className="man-stat-label">{c.label}</div>
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    {renderFullExpandedPanel()}
+                </>
+            )}
+
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>订单列表</h3>
+            <div className="so-filter-bar">
+                <div className="so-filter-row">
+                    <div className="so-filter-field">
+                        <label>搜索</label>
+                        <input
+                            value={filters.search}
+                            onChange={e => { setFilters(f => ({ ...f, search: e.target.value })); setPage(1) }}
+                            placeholder="搜索订单号、买家邮箱、商品名"
+                        />
+                    </div>
+                    <div className="so-filter-field">
+                        <label>状态</label>
+                        <select value={filters.status} onChange={e => { setFilters(f => ({ ...f, status: e.target.value })); setPage(1) }}>
+                            <option value="">全部状态</option>
+                            <option value="PENDING">待支付</option>
+                            <option value="PAID">已支付</option>
+                            <option value="COMPLETED">已完成</option>
+                            <option value="CANCELLED">已取消</option>
+                            <option value="REFUNDING">退款中</option>
+                            <option value="REFUNDED">已退款</option>
+                        </select>
+                    </div>
+                    <div className="so-filter-field">
+                        <label>支付方式</label>
+                        <select value={filters.paymentMethod} onChange={e => { setFilters(f => ({ ...f, paymentMethod: e.target.value })); setPage(1) }}>
+                            <option value="">全部</option>
+                            <option value="alipay">支付宝</option>
+                            <option value="wechat">微信</option>
+                            <option value="usdt">USDT-TRC20</option>
+                            <option value="bsc_usdt">USDT-BEP20</option>
+                        </select>
+                    </div>
+                    <div className="so-filter-field" style={{ minWidth: 200 }}>
+                        <label>金额范围 (¥)</label>
+                        <div className="so-amount-range">
+                            <input type="number" value={filters.minAmount} onChange={e => { setFilters(f => ({ ...f, minAmount: e.target.value })); setPage(1) }} placeholder="最低" />
+                            <span className="so-range-divider">—</span>
+                            <input type="number" value={filters.maxAmount} onChange={e => { setFilters(f => ({ ...f, maxAmount: e.target.value })); setPage(1) }} placeholder="最高" />
+                        </div>
+                    </div>
+                    <div className="so-filter-field">
+                        <label>下单时间</label>
+                        <div className="so-amount-range">
+                            <input type="date" value={filters.startDate} onChange={e => { setFilters(f => ({ ...f, startDate: e.target.value })); setPage(1) }} />
+                            <span className="so-range-divider">—</span>
+                            <input type="date" value={filters.endDate} onChange={e => { setFilters(f => ({ ...f, endDate: e.target.value })); setPage(1) }} />
+                        </div>
+                    </div>
+                </div>
+                <div className="so-filter-actions">
+                    <button
+                        type="button"
+                        className="so-reset-btn"
+                        onClick={() => {
+                            setFilters({ search: '', status: '', paymentMethod: '', minAmount: '', maxAmount: '', startDate: '', endDate: '' })
+                            setPage(1)
+                        }}
+                    >
+                        重置筛选
+                    </button>
+                </div>
+            </div>
+
+            {loading ? <div className="man-loading">加载订单中...</div> : orders.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#94a3b8', padding: 40, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>暂无订单</div>
+            ) : (
+                <div className="man-table-wrap">
+                    <table className="man-table">
+                        <thead>
+                            <tr>
+                                <th>订单号</th>
+                                <th>商品</th>
+                                <th>买家</th>
+                                <th>金额</th>
+                                <th>支付</th>
+                                <th>IP</th>
+                                <th>状态</th>
+                                <th>风控</th>
+                                <th>时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {orders.map(o => {
+                                const s = STATUS_MAP[o.status] || { label: o.status, color: '#94a3b8' }
+                                return (
+                                    <tr key={o.id}>
+                                        <td style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{o.orderNo}</td>
+                                        <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.productName} × {o.quantity}</td>
+                                        <td style={{ fontSize: '0.78rem' }}>{o.email}</td>
+                                        <td style={{ fontWeight: 700 }}>¥{o.totalAmount}</td>
+                                        <td style={{ fontSize: '0.75rem' }}>{o.paymentMethod || '—'}</td>
+                                        <td style={{ fontSize: '0.7rem', fontFamily: 'monospace' }}>{o.ipAddress || '—'}</td>
+                                        <td><span style={{ color: s.color, fontWeight: 600 }}>{s.label}</span></td>
+                                        <td>
+                                            {o.isFlagged ? (
+                                                <span title={o.riskHits?.join(', ')} style={{
+                                                    background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
+                                                    padding: '2px 8px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 600
+                                                }}>
+                                                    🚩 命中 {o.riskHits?.length || 0}
+                                                </span>
+                                            ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>—</span>}
+                                        </td>
+                                        <td className="time-cell">{new Date(o.createdAt).toLocaleString()}</td>
+                                        <td>
+                                            <button
+                                                className="man-btn-edit"
+                                                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                                                onClick={() => setDetailOrder(o)}
+                                            >
+                                                查看
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {total > 15 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+                    <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="man-btn-edit">上一页</button>
+                    <span style={{ padding: '6px 12px', color: 'var(--text-muted)' }}>第 {page} / {Math.ceil(total / 15)} 页</span>
+                    <button disabled={page * 15 >= total} onClick={() => setPage(p => p + 1)} className="man-btn-edit">下一页</button>
+                </div>
+            )}
+
+            {detailOrder && <ShopOrderDetailModal token={token} orderId={detailOrder.id} onClose={() => { setDetailOrder(null); loadOrders() }} />}
+        </div>
+    )
+}
+
 
 function PlatformSettings({ token }) {
     const [settings, setSettings] = useState({})
@@ -335,6 +1518,7 @@ function PlatformSettings({ token }) {
                     { key: 'email', label: '📧 平台邮件' },
                     { key: 'notify', label: '🔔 通知设置' },
                     { key: 'security', label: '🛡 安全策略' },
+                    { key: 'kyc', label: '🛡️ 渐进式实名' },
                 ].map(t => (
                     <button key={t.key} onClick={() => setActiveSection(t.key)} style={{
                         padding: '8px 18px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
@@ -669,6 +1853,26 @@ function PlatformSettings({ token }) {
                                     <input type="number" value={settings.securityTicketLimit || '5'} onChange={e => setSettings(s => ({ ...s, securityTicketLimit: e.target.value }))} style={{ width: 70, padding: '8px 10px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }} />
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>次 / 15分钟</span>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 渐进式实名提现限额配置 (Progressive KYC Limits) */}
+                {activeSection === 'kyc' && (
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 24 }}>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>渐进式实名 (Progressive KYC) 提现限额</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 16 }}>配置未实名认证商户的小额清算限额，控制平台打款资金风控并降低商户开店门槛</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', width: 150 }}>单笔免签提现限额</span>
+                                <input type="number" value={settings.kyc_progressive_single_limit || '1000'} onChange={e => setSettings(s => ({ ...s, kyc_progressive_single_limit: e.target.value }))} style={{ width: 100, padding: '8px 10px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }} />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>元 (CNY) / 笔</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', width: 150 }}>累计免签清算上限</span>
+                                <input type="number" value={settings.kyc_progressive_cumulative_limit || '3000'} onChange={e => setSettings(s => ({ ...s, kyc_progressive_cumulative_limit: e.target.value }))} style={{ width: 100, padding: '8px 10px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }} />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>元 (CNY) / 终身</span>
                             </div>
                         </div>
                     </div>
@@ -1339,16 +2543,7 @@ function PlanConfigPage({ token }) {
             </div>
             {msg && <div className={`man-msg ${msg.startsWith('✅') ? 'success' : 'error'}`}>{msg}</div>}
 
-            {/* 全局设置 */}
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 20, marginBottom: 24 }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>全局设置</div>
-                <div style={{ display: 'flex', gap: 24 }}>
-                    <div>
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>免费试用时长（小时）</label>
-                        <input type="number" value={config.trialHours || ''} onChange={e => setConfig(c => ({ ...c, trialHours: parseInt(e.target.value) || 48 }))} style={{ padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: 100 }} />
-                    </div>
-                </div>
-            </div>
+
 
             {/* 套餐列表 */}
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${config.plans.length}, 1fr)`, gap: 16, marginBottom: 24 }}>
@@ -1614,12 +2809,15 @@ function ThemeManage({ token }) {
 
 // ─── 商户订单监控 ──────────────────────────────────────────
 function ShopOrders({ token }) {
+    const [searchParams, setSearchParams] = useSearchParams()
+    const urlSearch = searchParams.get('search') || ''
+
     const [orders, setOrders] = useState([])
     const [total, setTotal] = useState(0)
     const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)
     const [filters, setFilters] = useState({
-        search: '', status: '', flagged: false, paymentMethod: '',
+        search: urlSearch, status: '', flagged: false, paymentMethod: '',
         minAmount: '', maxAmount: '', startDate: '', endDate: ''
     })
     const [detailOrder, setDetailOrder] = useState(null)
@@ -1628,6 +2826,12 @@ function ShopOrders({ token }) {
     const [tenantQuery, setTenantQuery] = useState('') // 输入框文本
     const [tenantOpen, setTenantOpen] = useState(false)
     const tenantBoxRef = useRef(null)
+
+    // Sync input field value when URL search parameter changes
+    useEffect(() => {
+        setFilters(f => ({ ...f, search: urlSearch }))
+        setPage(1)
+    }, [urlSearch])
 
     const load = () => {
         setLoading(true)
@@ -1757,7 +2961,16 @@ function ShopOrders({ token }) {
                             <span className="so-input-icon">🔍</span>
                             <input
                                 value={filters.search}
-                                onChange={e => { setFilters(f => ({ ...f, search: e.target.value })); setPage(1) }}
+                                onChange={e => {
+                                    const val = e.target.value
+                                    const newParams = new URLSearchParams(searchParams)
+                                    if (val) {
+                                        newParams.set('search', val)
+                                    } else {
+                                        newParams.delete('search')
+                                    }
+                                    setSearchParams(newParams, { replace: true })
+                                }}
                                 placeholder="订单号 / 商品名 / 邮箱"
                             />
                         </div>
@@ -1815,6 +3028,9 @@ function ShopOrders({ token }) {
                             setTenantFilter('')
                             setTenantQuery('')
                             setPage(1)
+                            const newParams = new URLSearchParams(searchParams)
+                            newParams.delete('search')
+                            setSearchParams(newParams, { replace: true })
                         }}
                     >
                         重置筛选
@@ -2938,6 +4154,8 @@ export default function ManDashboard() {
         const items = [
             { path: '/Man/dashboard', label: '数据概览' },
             { path: '/Man/merchants', label: '商户管理' },
+            { path: '/Man/kyc-audit', label: '实名审核' },
+            { path: '/Man/withdrawals', label: '提现审核' },
             { path: '/Man/plan-config', label: '套餐管理' },
             { path: '/Man/plan-orders', label: '所有订单' },
             { path: '/Man/shop-orders', label: '商户订单' },
@@ -2964,6 +4182,8 @@ export default function ManDashboard() {
                 <Routes>
                     <Route path="dashboard" element={<Overview token={token} />} />
                     <Route path="merchants" element={<Merchants token={token} />} />
+                    <Route path="kyc-audit" element={<KycAudit token={token} />} />
+                    <Route path="withdrawals" element={<WithdrawManage token={token} />} />
                     <Route path="plan-config" element={<PlanConfigPage token={token} />} />
                     <Route path="plan-orders" element={<PlanOrders token={token} />} />
                     <Route path="shop-orders" element={<ShopOrders token={token} />} />

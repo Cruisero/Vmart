@@ -5,6 +5,7 @@ import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import { formatPrice } from '../../../../utils/currencyFormat'
+import { formatStock } from '../../../../utils/stockFormat'
 import './ProductDetail.css'
 
 function resolveWholesalePrice(basePrice, wholesalePrices, qty) {
@@ -177,9 +178,18 @@ export default function FreshProductDetail() {
                         )}
                     </div>
                     <div className="fd-meta-row" style={{ marginBottom: 0 }}>
-                        <span>{L('products.sales')} {product.sold}</span>
+                        {storefront?.showSalesCount !== false && (
+                            storefront?.fuzzyStockEnabled ? (
+                                <span className="stock-badge stock-badge-indigo">
+                                    <span className="stock-dot" />
+                                    <span>{L('products.sales')} {product.sold}</span>
+                                </span>
+                            ) : (
+                                <span>{L('products.sales')} {product.sold}</span>
+                            )
+                        )}
                         <span style={{ color: isOutOfStock ? '#EF4444' : '#9CA3AF' }}>
-                            {isOutOfStock ? L('products.outOfStock') : `${L('products.stock')} ${currentStock}`}
+                            {formatStock(currentStock, storefront?.fuzzyStockEnabled, storefront?.fuzzyStockThreshold, L)}
                         </span>
                     </div>
 

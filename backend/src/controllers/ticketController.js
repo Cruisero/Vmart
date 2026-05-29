@@ -243,18 +243,13 @@ exports.getTicketDetail = async (req, res, next) => {
             where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
             include: {
                 user: {
-                    select: { id: true, email: true, username: true }
+                    select: { id: true, email: true, username: true, role: true }
                 },
                 customer: {
                     select: { id: true, email: true, username: true }
                 },
                 messages: {
-                    orderBy: { createdAt: 'asc' },
-                    include: {
-                        sender: {
-                            select: { id: true, username: true, email: true, role: true }
-                        }
-                    }
+                    orderBy: { createdAt: 'asc' }
                 },
                 order: {
                     select: { orderNo: true, productName: true, totalAmount: true, status: true }
@@ -272,6 +267,61 @@ exports.getTicketDetail = async (req, res, next) => {
         if (!isAdminRole && ticket.userId !== userId && !(isCustomer && ticket.customerId === userId)) {
             return res.status(403).json({ error: '无权限查看此工单' })
         }
+
+        // 构造消息发送者信息
+        const adminSenderIds = [...new Set(
+            ticket.messages
+                .filter(m => m.isAdmin && m.senderId)
+                .map(m => m.senderId)
+        )]
+
+        const admins = adminSenderIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: adminSenderIds } },
+                select: { id: true, username: true, email: true, role: true }
+            })
+            : []
+
+        const adminMap = new Map(admins.map(admin => [admin.id, admin]))
+
+        ticket.messages = ticket.messages.map(msg => {
+            let sender = null
+            if (msg.isAdmin) {
+                sender = adminMap.get(msg.senderId) || {
+                    id: msg.senderId,
+                    username: '客服',
+                    email: '',
+                    role: 'ADMIN'
+                }
+            } else {
+                if (ticket.user && ticket.user.id === msg.senderId) {
+                    sender = {
+                        id: ticket.user.id,
+                        username: ticket.user.username,
+                        email: ticket.user.email,
+                        role: ticket.user.role || 'USER'
+                    }
+                } else if (ticket.customer && ticket.customer.id === msg.senderId) {
+                    sender = {
+                        id: ticket.customer.id,
+                        username: ticket.customer.username,
+                        email: ticket.customer.email,
+                        role: 'CUSTOMER'
+                    }
+                } else {
+                    sender = {
+                        id: msg.senderId,
+                        username: '用户',
+                        email: '',
+                        role: 'USER'
+                    }
+                }
+            }
+            return {
+                ...msg,
+                sender
+            }
+        })
 
         const isAdmin = isAdminRole
         const unreadCount = isAdmin ? ticket.adminUnreadCount : ticket.userUnreadCount

@@ -98,7 +98,9 @@ function ProductCard({ product, linkPrefix }) {
                             <span className="fp-price-orig">{formatPrice(product.originalPrice, currency)}</span>
                         )}
                     </div>
-                    <span className="fp-meta">{L('products.sales')} {product.sold}</span>
+                    {storefront?.showSalesCount !== false && (
+                        <span className="fp-meta">{L('products.sales')} {product.sold}</span>
+                    )}
                 </div>
             </div>
         </Link>
@@ -135,6 +137,26 @@ export default function FreshProducts() {
             .catch(console.error)
             .finally(() => setLoading(false))
     }, [apiUrl])
+
+    // 记住离开时的滚动位置
+    useEffect(() => {
+        return () => {
+            sessionStorage.setItem(`scroll-${window.location.pathname}`, window.scrollY.toString())
+        }
+    }, [])
+
+    // 在数据加载完毕、DOM 渲染完成后恢复滚动位置
+    useEffect(() => {
+        if (!loading) {
+            const savedScroll = sessionStorage.getItem(`scroll-${window.location.pathname}`)
+            if (savedScroll) {
+                setTimeout(() => {
+                    window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'instant' })
+                }, 30) // 给一定缓冲确保 DOM 完全渲染
+            }
+        }
+    }, [loading])
+
 
     return (
         <div className="fp-page">

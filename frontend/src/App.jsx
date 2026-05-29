@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useParams, useLocation, useNavigationType } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import ForgotPassword from './pages/Auth/ForgotPassword'
 import ResetPassword from './pages/Auth/ResetPassword'
@@ -25,6 +25,19 @@ const isCustomDomain = () => {
     const host = window.location.hostname
     const mainDomains = ['localhost', '127.0.0.1', 'vmart.cc', 'www.vmart.cc', 'fallback.vmart.cc']
     return !mainDomains.includes(host)
+}
+
+function ScrollToTop() {
+    const { pathname } = useLocation()
+    const navigationType = useNavigationType()
+
+    useEffect(() => {
+        if (navigationType === 'PUSH' || navigationType === 'REPLACE') {
+            window.scrollTo({ top: 0, behavior: 'instant' })
+        }
+    }, [pathname, navigationType])
+
+    return null
 }
 
 function App() {
@@ -147,6 +160,7 @@ function App() {
     if (resolvedSlug) {
         return (
             <Router>
+                <ScrollToTop />
                 <div className="app">
                     <Routes>
                         {/* 自定义域名下的商户后台入口 www.custom.com/admin */}
@@ -163,6 +177,7 @@ function App() {
 
     return (
         <Router>
+            <ScrollToTop />
             <div className="app">
                 <Routes>
                     {/* 商户后台 /v/:slug/admin —— 必须在 /v/:slug 之前 */}

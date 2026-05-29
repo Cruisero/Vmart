@@ -15,6 +15,13 @@ function ResetPassword() {
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
 
+    const loginPath = window.location.pathname.includes('/v/')
+        ? window.location.pathname.replace(/\/reset-password.*$/, '/login')
+        : '/login'
+    const forgotPath = window.location.pathname.includes('/v/')
+        ? window.location.pathname.replace(/\/reset-password.*$/, '/forgot-password')
+        : '/forgot-password'
+
     const handleChange = (e) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
@@ -72,7 +79,7 @@ function ResetPassword() {
                     <h1 className="merchant-auth-title">链接无效</h1>
                     <p className="merchant-auth-sub">重置密码链接无效或已过期</p>
                     <div className="merchant-auth-footer">
-                        <Link to="/forgot-password" className="merchant-auth-forgot">重新请求重置链接</Link>
+                        <Link to={forgotPath} className="merchant-auth-forgot">重新请求重置链接</Link>
                     </div>
                 </div>
             </div>
@@ -86,7 +93,7 @@ function ResetPassword() {
                     <h1 className="merchant-auth-title">密码重置成功</h1>
                     <p className="merchant-auth-sub">您的密码已更新，请使用新密码登录</p>
                     <button
-                        onClick={() => navigate('/login')}
+                        onClick={() => navigate(loginPath)}
                         className="merchant-auth-btn"
                     >
                         前往登录

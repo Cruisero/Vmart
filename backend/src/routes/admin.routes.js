@@ -53,15 +53,18 @@ router.put('/withdrawals/:id', requirePermission('agents.withdraw'), adminAgent.
 // 订单管理 - 退款 & 删除（高危操作，所有者可用，子管理员需要权限）
 router.post('/orders/:id/refund', requirePermission('orders.refund'), adminController.refundOrder)
 router.post('/orders/:id/refund/complete', requirePermission('orders.refund'), adminController.completeRefundOrder)
+router.post('/orders/:id/refund/cancel', requirePermission('orders.refund'), adminController.cancelRefundOrder)
 router.delete('/orders/:id', isSuperAdmin, adminController.deleteOrder)
 
 // 卡密管理 - 删除（仅子管理员有 cards.delete 才行；所有者直接通过）
 router.delete('/cards/:id', requirePermission('cards.delete'), adminController.deleteCard)
 router.post('/cards/batch-delete', requirePermission('cards.delete'), adminController.deleteCards)
 
-// 用户管理 - 清理 & 角色修改
+// 用户管理 - 清理 & 角色修改 & 状态修改 & 删除
 router.post('/users/cleanup-unverified', isSuperAdmin, adminController.cleanupUnverifiedAccounts)
-router.patch('/users/:id/role', isSuperAdmin, adminController.updateUserRole)
+router.patch('/users/:id/role', requirePermission('customers.view'), adminController.updateUserRole)
+router.patch('/users/:id/status', requirePermission('customers.view'), adminController.updateUserStatus)
+router.delete('/users/:id', requirePermission('customers.view'), adminController.deleteUser)
 
 // 管理员管理（创建 / 删除 / 编辑权限）
 router.get('/admins', adminController.getSubAdmins)

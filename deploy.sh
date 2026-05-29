@@ -79,7 +79,7 @@ deploy_frontend() {
         ${SCRIPT_DIR}/frontend/ ${SERVER}:${REMOTE_PATH}/frontend/
 
     info "重新构建前端 Docker 镜像..."
-    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build --no-cache frontend"
+    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build frontend"
 
     info "重启前端容器..."
     ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} up -d frontend"
@@ -104,7 +104,7 @@ deploy_backend() {
     restore_server_schema
 
     info "重新构建后端 Docker 镜像..."
-    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build --no-cache backend"
+    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build backend"
 
     info "重启后端容器..."
     ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} up -d backend"
@@ -130,7 +130,7 @@ deploy_all() {
     restore_server_schema
 
     info "重新构建所有 Docker 镜像..."
-    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build --no-cache"
+    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build"
 
     info "重启所有容器..."
     ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} up -d"
@@ -185,7 +185,7 @@ deploy_migrate() {
     scp ${SSH_OPTS} "${local_schema}" ${SERVER}:${REMOTE_PATH}/backend/prisma/schema.prisma
 
     info "重新构建后端镜像..."
-    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build --no-cache backend"
+    ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} build backend"
 
     info "重启后端容器..."
     ssh ${SSH_OPTS} ${SERVER} "cd ${REMOTE_PATH} && docker compose -f ${COMPOSE_FILE} up -d backend"

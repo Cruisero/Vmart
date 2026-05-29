@@ -9,6 +9,7 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 
 import Navbar from '../../../components/common/Navbar'
+import StorefrontFooter from '../../../components/common/StorefrontFooter'
 import Products from '../../../pages/Products'
 import ProductDetail from '../../../pages/ProductDetail'
 import Cart from '../../../pages/Cart'
@@ -21,6 +22,8 @@ import UserCenter from '../../../pages/User'
 import Search from '../../../pages/Search'
 import TicketNew from '../../../pages/TicketNew'
 import TicketDetail from '../../../pages/TicketDetail'
+import ForgotPassword from './Auth/ForgotPassword'
+import ResetPassword from './Auth/ResetPassword'
 import { TermsPage, RefundPolicyPage } from '../../../pages/PolicyPage'
 import './styles.css'
 
@@ -37,6 +40,11 @@ function NoticeBanner({ text, slug }) {
 }
 
 export default function ClassicV1Theme({ shop, slug }) {
+    const location = useLocation()
+    const isAuthPage = location.pathname.endsWith('/login') || location.pathname.endsWith('/register')
+    const path = location.pathname.replace(/\/+$/, '')
+    const isHomepage = path === `/v/${slug}` || path === ''
+
     const LoginHeader = () => <Login headerTitle="欢迎回来" headerSubtitle="登录账号，继续购物" />
     const RegisterHeader = () => <Register headerTitle="创建账号" headerSubtitle="注册账号，享受更多服务" />
 
@@ -50,6 +58,8 @@ export default function ClassicV1Theme({ shop, slug }) {
             <Route path="order-query" element={<OrderQuery />} />
             <Route path="login" element={<LoginHeader />} />
             <Route path="register" element={<RegisterHeader />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
+            <Route path="reset-password" element={<ResetPassword />} />
             <Route path="search" element={<Search />} />
             <Route path="tickets/new" element={<TicketNew />} />
             <Route path="tickets/:id" element={<TicketDetail />} />
@@ -60,10 +70,12 @@ export default function ClassicV1Theme({ shop, slug }) {
     )
 
     return (
-        <div className="sf-root class-v1-theme">
+        <div className="sf-root class-v1-theme" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <Navbar />
             <NoticeBanner text={shop.shopNotice} slug={slug} />
-            <main className="main-content">{routes}</main>
+            <main className="main-content" style={{ flex: 1 }}>{routes}</main>
+            {!isAuthPage && isHomepage && <StorefrontFooter />}
         </div>
     )
 }
+

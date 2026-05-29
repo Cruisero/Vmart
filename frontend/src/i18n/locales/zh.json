@@ -26,6 +26,8 @@
     "buyNow": "立即购买",
     "placeOrder": "立即下单",
     "stock": "库存",
+    "inStockSufficient": "库存充足",
+    "inStockLow": "少量库存",
     "pieces": "件",
     "description": "商品详情",
     "selectVariant": "请选择规格",

@@ -300,8 +300,16 @@ exports.getDashboard = async (req, res, next) => {
                  orderBy: { createdAt: 'desc' },
                  take: 20
              }),
-             !req.tenantId && prisma.siteVisit ? prisma.siteVisit.aggregate({ _sum: { visits: true } }).catch(() => ({ _sum: { visits: 0 } })) : Promise.resolve({ _sum: { visits: 0 } }),
-             !req.tenantId && prisma.siteVisit ? prisma.siteVisit.findUnique({ where: { date: today } }).catch(() => null) : Promise.resolve(null),
+             prisma.siteVisit ? (
+                 req.tenantId
+                     ? prisma.siteVisit.aggregate({ where: { tenantId: req.tenantId }, _sum: { visits: true } }).catch(() => ({ _sum: { visits: 0 } }))
+                     : prisma.siteVisit.aggregate({ _sum: { visits: true } }).catch(() => ({ _sum: { visits: 0 } }))
+             ) : Promise.resolve({ _sum: { visits: 0 } }),
+             prisma.siteVisit ? (
+                 req.tenantId
+                     ? prisma.siteVisit.findUnique({ where: { date_tenantId: { date: today, tenantId: req.tenantId } } }).catch(() => null)
+                     : prisma.siteVisit.aggregate({ where: { date: today }, _sum: { visits: true } }).then(res => ({ visits: res._sum.visits || 0 })).catch(() => null)
+             ) : Promise.resolve(null),
              getStockMode(req.tenantId)
         ])
         const stockMode = stockModeSetting || 'auto'
@@ -471,23 +479,39 @@ exports.getDashboardTrend = async (req, res, next) => {
                 }),
             prisma.product.findMany({
                 where: {
-                ...(req.tenantId ? { tenantId: req.tenantId } : {}),
-                createdAt: {
+                    ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+                    createdAt: {
                         gte: startDate,
                         lte: today
                     }
                 },
                 select: { createdAt: true }
             }),
-            !req.tenantId && prisma.siteVisit ? prisma.siteVisit.findMany({
-                where: {
-                    date: {
-                        gte: startDate,
-                        lte: today
-                    }
-                },
-                select: { date: true, visits: true }
-            }).catch(() => []) : Promise.resolve([])
+            prisma.siteVisit ? (
+                req.tenantId
+                    ? prisma.siteVisit.findMany({
+                        where: {
+                            tenantId: req.tenantId,
+                            date: {
+                                gte: startDate,
+                                lte: today
+                            }
+                        },
+                        select: { date: true, visits: true }
+                    }).catch(() => [])
+                    : prisma.siteVisit.groupBy({
+                        by: ['date'],
+                        where: {
+                            date: {
+                                gte: startDate,
+                                lte: today
+                            }
+                        },
+                        _sum: {
+                            visits: true
+                        }
+                    }).then(items => items.map(item => ({ date: item.date, visits: item._sum.visits || 0 }))).catch(() => [])
+            ) : Promise.resolve([])
         ])
 
         // 整理数据
@@ -556,7 +580,7 @@ if (status) where.status = status.toUpperCase()
                         orderBy: { sortOrder: 'asc' }
                     }
                 },
-                orderBy: { createdAt: 'desc' },
+                orderBy: [{ status: 'asc' }, { weight: 'desc' }, { createdAt: 'desc' }],
                 skip: (page - 1) * pageSize,
                 take: parseInt(pageSize)
             }),
@@ -925,23 +949,39 @@ exports.deleteCategory = async (req, res, next) => {
 // 订单管理 - 列表
 exports.getOrders = async (req, res, next) => {
     try {
-        const { page = 1, pageSize = 20, status, userId, search } = req.query
+        const { page = 1, pageSize = 20, status, userId, email, search } = req.query
 
         const where = {};
         if (req.tenantId) where.tenantId = req.tenantId;
         
-        if (req.tenantId) where.tenantId = req.tenantId
-if (status) where.status = status.toUpperCase()
-        if (userId) where.userId = userId
+        if (status) where.status = status.toUpperCase()
+        if (email) where.email = email
+
+        const andConditions = []
+
+        if (userId) {
+            andConditions.push({
+                OR: [
+                    { userId: userId },
+                    { customerId: userId }
+                ]
+            })
+        }
 
         // 搜索：按订单号、邮箱、商品名称模糊匹配
         if (search && search.trim()) {
             const keyword = search.trim()
-            where.OR = [
-                { orderNo: { contains: keyword } },
-                { email: { contains: keyword } },
-                { productName: { contains: keyword } }
-            ]
+            andConditions.push({
+                OR: [
+                    { orderNo: { contains: keyword } },
+                    { email: { contains: keyword } },
+                    { productName: { contains: keyword } }
+                ]
+            })
+        }
+
+        if (andConditions.length > 0) {
+            where.AND = andConditions
         }
 
         const [orders, total] = await Promise.all([
@@ -1086,6 +1126,17 @@ exports.completeRefundOrder = async (req, res, next) => {
             console.error('退款成功邮件发送失败:', emailError)
         }
 
+        // 通知管理员订单已成功退款
+        try {
+            const { notifyRefund } = require('../services/notifyDispatcher')
+            notifyRefund({
+                ...order,
+                completedAt: refundCompletedAt
+            }).catch(e => console.error('管理员退款通知失败:', e))
+        } catch (notifyError) {
+            console.error('触发退款通知失败:', notifyError)
+        }
+
         res.json({
             message: emailSent ? '订单已退款，卡密已释放，退款通知邮件已发送' : '订单已退款，卡密已释放',
             emailSent
@@ -1094,6 +1145,41 @@ exports.completeRefundOrder = async (req, res, next) => {
         next(error)
     }
 }
+
+// 订单管理 - 拒绝/取消退款
+exports.cancelRefundOrder = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        const order = await prisma.order.findUnique({
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+            include: { cards: true }
+        })
+
+        if (!order) {
+            return res.status(404).json({ error: '订单不存在' })
+        }
+
+        if (order.status !== 'REFUNDING') {
+            return res.status(400).json({ error: '只有退款中的订单才能拒绝退款' })
+        }
+
+        // 恢复状态的判定规则：如果有关联卡密或 completedAt 不为空，则恢复为 COMPLETED，否则恢复为 PAID
+        const targetStatus = (order.cards && order.cards.length > 0) || order.completedAt ? 'COMPLETED' : 'PAID'
+
+        await prisma.order.update({
+            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
+            data: {
+                status: targetStatus
+            }
+        })
+
+        res.json({ message: `退款已拒绝，订单已恢复为${targetStatus === 'COMPLETED' ? '已完成' : '已支付'}状态`, status: targetStatus })
+    } catch (error) {
+        next(error)
+    }
+}
+
 
 // 订单管理 - 删除订单
 exports.deleteOrder = async (req, res, next) => {
@@ -1207,40 +1293,20 @@ exports.shipOrder = async (req, res, next) => {
         // 如果手动输入了卡密，创建卡密记录并关联到订单
         let newCards = []
         if (hasManualInput) {
-            // 解析卡密内容
-            let cardLines = []
-            if (order.quantity === 1) {
-                // 单个卡密：整段内容作为一个卡密（支持多行长卡密）
-                cardLines = [cardContent.trim()]
-            } else if (cardContent.includes('\n---\n') || cardContent.startsWith('---\n') || cardContent.endsWith('\n---')) {
-                // 多个卡密且使用 --- 分隔：支持每个卡密包含多行内容
-                cardLines = cardContent.split(/\n---\n|\n---$|^---\n/)
-                    .map(c => c.trim())
-                    .filter(c => c.length > 0)
-                    .slice(0, order.quantity)
-            } else {
-                // 多个卡密，按行分割（向后兼容）
-                cardLines = cardContent.split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0)
-                    .slice(0, order.quantity)
-            }
-
-            if (cardLines.length > 0) {
-                // 创建卡密记录
-                for (const content of cardLines) {
-                    const card = await prisma.card.create({
-                        data: {
-                            productId: order.productId,
-                            variantId: order.variantId || null,
-                            content: content,
-                            status: 'SOLD',
-                            orderId: order.id,
-                            soldAt: new Date()
-                        }
-                    })
-                    newCards.push(card)
-                }
+            // 手动发货始终为单条导入：整段内容作为一个卡密（支持多行长卡密/内容）
+            const content = cardContent.trim()
+            if (content.length > 0) {
+                const card = await prisma.card.create({
+                    data: {
+                        productId: order.productId,
+                        variantId: order.variantId || null,
+                        content: content,
+                        status: 'SOLD',
+                        orderId: order.id,
+                        soldAt: new Date()
+                    }
+                })
+                newCards.push(card)
 
                 // 更新商品已售数量
                 await prisma.product.update({
@@ -1315,20 +1381,10 @@ exports.resendCards = async (req, res, next) => {
             return res.status(400).json({ error: '只有已支付或已完成的订单才能补发' })
         }
 
-        // 解析卡密内容（复用发货的解析逻辑）
-        let cardLines = []
-        if (cardContent.includes('\n---\n') || cardContent.startsWith('---\n') || cardContent.endsWith('\n---')) {
-            cardLines = cardContent.split(/\n---\n|\n---$|^---\n/)
-                .map(c => c.trim())
-                .filter(c => c.length > 0)
-        } else {
-            // 补发不限制数量，按行或整段
-            cardLines = [cardContent.trim()]
-        }
-
-        // 创建新的卡密记录
+        // 重发/补发卡密始终为单条导入：整段内容作为一个卡密（支持多行长卡密/内容）
+        const content = cardContent.trim()
         const newCards = []
-        for (const content of cardLines) {
+        if (content.length > 0) {
             const card = await prisma.card.create({
                 data: {
                     productId: order.productId,
@@ -1399,7 +1455,7 @@ exports.getUsers = async (req, res, next) => {
                     ]
                 },
                 select: {
-                    id: true, email: true, username: true, role: true, createdAt: true
+                    id: true, email: true, username: true, role: true, status: true, createdAt: true
                 }
             })
 
@@ -1417,6 +1473,7 @@ exports.getUsers = async (req, res, next) => {
                     id: true,
                     email: true,
                     username: true,
+                    status: true,
                     emailVerified: true,
                     createdAt: true,
                     _count: { select: { orders: true } }
@@ -1432,6 +1489,7 @@ exports.getUsers = async (req, res, next) => {
                     username: u.username,
                     role: u.role, // TENANT_ADMIN / ADMIN
                     emailVerified: true,
+                    status: u.status,
                     createdAt: u.createdAt,
                     _count: { orders: 0 }
                 })),
@@ -1441,6 +1499,7 @@ exports.getUsers = async (req, res, next) => {
                     username: c.username,
                     role: 'CUSTOMER',
                     emailVerified: c.emailVerified,
+                    status: c.status,
                     createdAt: c.createdAt,
                     _count: c._count
                 }))
@@ -1490,6 +1549,7 @@ exports.getUsers = async (req, res, next) => {
                     email: true,
                     username: true,
                     role: true,
+                    status: true,
                     createdAt: true,
                     _count: { select: { orders: true } },
                     referralAgent: { select: { shopName: true, shopSlug: true } }
@@ -1756,6 +1816,9 @@ exports.getPlanLimits = async (req, res, next) => {
 // 系统设置
 exports.getSettings = async (req, res, next) => {
     try {
+        if (req.user?.role === 'ADMIN') {
+            return res.status(403).json({ error: '子管理员无权访问商城设置' })
+        }
         let settingsObj = {};
         
         if (req.tenantId) {
@@ -1770,13 +1833,67 @@ exports.getSettings = async (req, res, next) => {
                     console.error('Failed to parse tenant systemSettings:', e);
                 }
             }
+
+            // 获取超管后台控制的商户支付渠道与平台代收渠道开关，并拼接到设置中
+            let globalChannels = {};
+            try {
+                const channelSettings = await prisma.platformSetting.findMany({
+                    where: {
+                        OR: [
+                            { key: { startsWith: 'channel_' } },
+                            { key: { startsWith: 'platform_channel_' } }
+                        ]
+                    }
+                });
+                channelSettings.forEach(s => {
+                    globalChannels[s.key] = s.value;
+                    settingsObj[s.key] = s.value;
+                });
+            } catch (e) {
+                console.error('Failed to load platform channel settings:', e);
+            }
+
+            let platformPaymentEnabled = false;
             if (tenantSetting && tenantSetting.paymentConfig) {
                 try {
                     const payConfig = JSON.parse(tenantSetting.paymentConfig);
                     settingsObj.stockMode = payConfig.stock_mode || 'auto';
                     settingsObj.orderTimeout = payConfig.order_timeout || 15;
+                    settingsObj.fuzzyStockEnabled = !!payConfig.fuzzy_stock_enabled;
+                    settingsObj.fuzzyStockThreshold = typeof payConfig.fuzzy_stock_threshold === 'number'
+                        ? payConfig.fuzzy_stock_threshold
+                        : parseInt(payConfig.fuzzy_stock_threshold || '10', 10);
+                    settingsObj.showSalesCount = payConfig.show_sales_count !== false;
+
+                    platformPaymentEnabled = !!(
+                        (tenantSetting.alipayEnabled && payConfig.alipay_mode === 'platform' && globalChannels['platform_channel_alipay'] === 'true') ||
+                        (tenantSetting.wechatEnabled && payConfig.wechat_mode === 'platform' && globalChannels['platform_channel_wechat'] === 'true') ||
+                        (tenantSetting.usdtEnabled && payConfig.usdt_mode === 'platform' && globalChannels['platform_channel_usdt_trc20'] === 'true') ||
+                        (tenantSetting.bscUsdtEnabled && payConfig.bsc_usdt_mode === 'platform' && globalChannels['platform_channel_usdt_bep20'] === 'true') ||
+                        (payConfig.yipay_enabled && payConfig.yipay_mode === 'platform' && globalChannels['platform_channel_yipay'] === 'true')
+                    );
                 } catch (e) {}
             }
+
+            // 即使商户关闭了平台代收渠道，如果可用余额或冻结中余额仍有钱，不要隐藏提现菜单
+            let hasFunds = false;
+            try {
+                const tenant = await prisma.tenant.findUnique({
+                    where: { id: req.tenantId },
+                    select: { balance: true, frozenBalance: true }
+                });
+                if (tenant) {
+                    const balance = parseFloat(tenant.balance || 0);
+                    const frozenBalance = parseFloat(tenant.frozenBalance || 0);
+                    if (balance > 0 || frozenBalance > 0) {
+                        hasFunds = true;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to query tenant funds:', e);
+            }
+
+            settingsObj.platformPaymentEnabled = platformPaymentEnabled || hasFunds;
             if (!settingsObj.stockMode) {
                 settingsObj.stockMode = 'auto';
             }
@@ -1807,18 +1924,6 @@ exports.getSettings = async (req, res, next) => {
 
             // 加上当前商户是否允许代理系统的标记，前端用于禁用/隐藏 toggle
             settingsObj._planAllowsAgent = await isAgentSystemAllowed(req.tenantId);
-
-            // 获取超管后台控制的商户支付渠道开关，并拼接到设置中
-            try {
-                const channelSettings = await prisma.platformSetting.findMany({
-                    where: { key: { startsWith: 'channel_' } }
-                });
-                channelSettings.forEach(s => {
-                    settingsObj[s.key] = s.value;
-                });
-            } catch (e) {
-                console.error('Failed to load platform channel settings:', e);
-            }
             
         } else {            // Global settings
             const [settings, admins] = await Promise.all([
@@ -1858,6 +1963,9 @@ exports.getSettings = async (req, res, next) => {
 
 exports.updateSettings = async (req, res, next) => {
     try {
+        if (req.user?.role === 'ADMIN') {
+            return res.status(403).json({ error: '子管理员无权访问商城设置' })
+        }
         const settings = req.body
 
         if (req.tenantId) {
@@ -1917,6 +2025,9 @@ exports.updateSettings = async (req, res, next) => {
 // 测试邮件配置
 exports.testEmail = async (req, res, next) => {
     try {
+        if (req.user?.role === 'ADMIN') {
+            return res.status(403).json({ error: '子管理员无权访问商城设置' })
+        }
         const emailService = require('../services/emailService')
         const result = await emailService.testEmailConnection(req.tenantId)
 
@@ -2661,31 +2772,227 @@ exports.updateUserRole = async (req, res, next) => {
         const { id } = req.params
         const { role } = req.body
 
-        if (!['USER', 'ADMIN'].includes(role)) {
+        if (!['USER', 'ADMIN', 'CUSTOMER'].includes(role)) {
             return res.status(400).json({ error: '无效的角色' })
         }
 
-        const targetUser = await prisma.user.findFirst({ where: { ...(req.tenantId ? { tenantId: req.tenantId } : {}), id } })
-        if (!targetUser) {
-            return res.status(404).json({ error: '用户不存在' })
+        if (req.tenantId) {
+            // 商城店主 (TENANT_ADMIN) 视角：
+            // 1. 尝试在 Customer 表中查找
+            const customer = await prisma.customer.findFirst({
+                where: { id, tenantId: req.tenantId }
+            })
+
+            // 2. 尝试在 User 表中查找（子管理员）
+            const adminUser = await prisma.user.findFirst({
+                where: { id, tenantId: req.tenantId, role: 'ADMIN' }
+            })
+
+            if (!customer && !adminUser) {
+                return res.status(404).json({ error: '用户不存在' })
+            }
+
+            if (role === 'ADMIN') {
+                // 升级为子管理员
+                if (adminUser) {
+                    return res.json({ message: '角色已是管理员' })
+                }
+                // 从 Customer 升级
+                const { DEFAULT_ADMIN_PERMISSIONS } = require('../constants/permissions')
+                
+                // 检查 User 表中是否已有该 email
+                let existingUser = await prisma.user.findUnique({ where: { email: customer.email } })
+                if (existingUser) {
+                    await prisma.user.update({
+                        where: { id: existingUser.id },
+                        data: {
+                            role: 'ADMIN',
+                            tenantId: req.tenantId,
+                            permissions: JSON.stringify(DEFAULT_ADMIN_PERMISSIONS)
+                        }
+                    })
+                } else {
+                    await prisma.user.create({
+                        data: {
+                            email: customer.email,
+                            password: customer.password,
+                            username: customer.username || customer.email.split('@')[0],
+                            role: 'ADMIN',
+                            emailVerified: true,
+                            tenantId: req.tenantId,
+                            permissions: JSON.stringify(DEFAULT_ADMIN_PERMISSIONS)
+                        }
+                    })
+                }
+                return res.json({ message: '成功升级为子管理员，请到店铺设置-管理员设置中配置具体权限' })
+            } else {
+                // 降级为普通用户 (CUSTOMER)
+                if (adminUser) {
+                    await prisma.user.update({
+                        where: { id: adminUser.id },
+                        data: {
+                            role: 'USER',
+                            tenantId: null,
+                            permissions: null
+                        }
+                    })
+                    return res.json({ message: '已成功取消管理员权限，降级为普通用户' })
+                }
+                return res.json({ message: '角色已是普通用户' })
+            }
+
+        } else {
+            // 超级管理员 (SUPER_ADMIN) 视角：全局修改 User 表中的角色
+            if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+                return res.status(400).json({ error: '无效的角色' })
+            }
+            const targetUser = await prisma.user.findUnique({ where: { id } })
+            if (!targetUser) {
+                return res.status(404).json({ error: '用户不存在' })
+            }
+            if (targetUser.role === 'SUPER_ADMIN') {
+                return res.status(403).json({ error: '不能修改超级管理员的角色' })
+            }
+            if (targetUser.id === req.user.id) {
+                return res.status(403).json({ error: '不能修改自己的角色' })
+            }
+
+            await prisma.user.update({
+                where: { id },
+                data: { role }
+            })
+            return res.json({ message: '角色更新成功' })
+        }
+    } catch (error) {
+        next(error)
+    }
+}
+
+// 修改用户状态 (封禁/激活)
+exports.updateUserStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { status } = req.body // 'ACTIVE' | 'BANNED'
+
+        if (!['ACTIVE', 'BANNED'].includes(status)) {
+            return res.status(400).json({ error: '无效的状态' })
         }
 
-        // 不能修改超级管理员的角色
-        if (targetUser.role === 'SUPER_ADMIN') {
-            return res.status(403).json({ error: '不能修改超级管理员的角色' })
+        if (req.tenantId) {
+            // 商户视角
+            const customer = await prisma.customer.findFirst({
+                where: { id, tenantId: req.tenantId }
+            })
+            const adminUser = await prisma.user.findFirst({
+                where: { id, tenantId: req.tenantId, role: 'ADMIN' }
+            })
+
+            if (!customer && !adminUser) {
+                return res.status(404).json({ error: '用户不存在' })
+            }
+
+            if (customer) {
+                await prisma.customer.update({
+                    where: { id: customer.id },
+                    data: { status }
+                })
+            }
+            if (adminUser) {
+                await prisma.user.update({
+                    where: { id: adminUser.id },
+                    data: { status }
+                })
+            }
+            return res.json({ message: status === 'BANNED' ? '用户已封禁' : '用户已解封' })
+        } else {
+            // 超管视角：全局封禁 User
+            const targetUser = await prisma.user.findUnique({ where: { id } })
+            if (!targetUser) {
+                return res.status(404).json({ error: '用户不存在' })
+            }
+            if (targetUser.role === 'SUPER_ADMIN') {
+                return res.status(403).json({ error: '不能封禁超级管理员' })
+            }
+            if (targetUser.id === req.user.id) {
+                return res.status(403).json({ error: '不能封禁自己' })
+            }
+
+            await prisma.user.update({
+                where: { id },
+                data: { status }
+            })
+            return res.json({ message: status === 'BANNED' ? '用户已封禁' : '用户已解封' })
         }
+    } catch (error) {
+        next(error)
+    }
+}
 
-        // 不能修改自己的角色
-        if (targetUser.id === req.user.id) {
-            return res.status(403).json({ error: '不能修改自己的角色' })
+// 删除用户
+exports.deleteUser = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        if (req.tenantId) {
+            // 商户视角
+            const customer = await prisma.customer.findFirst({
+                where: { id, tenantId: req.tenantId }
+            })
+            const adminUser = await prisma.user.findFirst({
+                where: { id, tenantId: req.tenantId, role: 'ADMIN' }
+            })
+
+            if (!customer && !adminUser) {
+                return res.status(404).json({ error: '用户不存在' })
+            }
+
+            if (customer) {
+                // 安全删除：解绑订单和工单，防止外键报错并保留历史数据
+                await prisma.order.updateMany({
+                    where: { customerId: customer.id },
+                    data: { customerId: null }
+                })
+                await prisma.ticket.updateMany({
+                    where: { customerId: customer.id },
+                    data: { customerId: null }
+                })
+                await prisma.customer.delete({
+                    where: { id: customer.id }
+                })
+            }
+            if (adminUser) {
+                await prisma.user.updateMany({
+                    where: { referralAgentId: adminUser.id },
+                    data: { referralAgentId: null }
+                })
+                await prisma.user.delete({
+                    where: { id: adminUser.id }
+                })
+            }
+            return res.json({ message: '用户删除成功' })
+        } else {
+            // 超管视角：全局删除 User
+            const targetUser = await prisma.user.findUnique({ where: { id } })
+            if (!targetUser) {
+                return res.status(404).json({ error: '用户不存在' })
+            }
+            if (targetUser.role === 'SUPER_ADMIN') {
+                return res.status(403).json({ error: '不能删除超级管理员' })
+            }
+            if (targetUser.id === req.user.id) {
+                return res.status(403).json({ error: '不能删除自己' })
+            }
+
+            // 清理解绑
+            await prisma.user.updateMany({
+                where: { referralAgentId: targetUser.id },
+                data: { referralAgentId: null }
+            })
+            await prisma.user.delete({
+                where: { id: targetUser.id }
+            })
+            return res.json({ message: '用户删除成功' })
         }
-
-        await prisma.user.update({
-            where: { id, ...(req.tenantId ? { tenantId: req.tenantId } : {}) },
-            data: { role }
-        })
-
-        res.json({ message: '角色更新成功' })
     } catch (error) {
         next(error)
     }

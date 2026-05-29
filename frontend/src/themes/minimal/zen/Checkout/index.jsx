@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { FiMail, FiCreditCard, FiShield, FiZap, FiCheck, FiLock } from 'react-icons/fi'
+import { FiMail, FiCreditCard, FiShield, FiZap, FiCheck, FiLock, FiEye, FiEyeOff } from 'react-icons/fi'
 import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useAuthStore } from '../../../../store/authStore'
 import { useStorefront } from '../../../../store/storefrontStore'
@@ -26,6 +26,7 @@ export default function ZenCheckout() {
 
     const [email, setEmail] = useState(user?.email || '')
     const [queryPassword, setQueryPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
     const [showEmailEdit, setShowEmailEdit] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState('alipay')
     const [paymentMethods, setPaymentMethods] = useState([])
@@ -166,13 +167,22 @@ export default function ZenCheckout() {
                                     <div className="zc-input-wrap">
                                         <FiLock className="zc-input-icon" />
                                         <input
-                                            type="password"
-                                            className="zc-input"
+                                            type={showPassword ? 'text' : 'password'}
+                                            className="zc-input zc-password-input"
                                             placeholder={L('checkout.queryPasswordPlaceholder')}
                                             value={queryPassword}
                                             onChange={e => setQueryPassword(e.target.value)}
                                             maxLength={20}
                                         />
+                                        <button
+                                            type="button"
+                                            className="zc-password-toggle-btn"
+                                            onClick={() => setShowPassword(prev => !prev)}
+                                            tabIndex={-1}
+                                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                        >
+                                            {showPassword ? <FiEyeOff /> : <FiEye />}
+                                        </button>
                                     </div>
                                     <div className="zc-input-hint">{L('checkout.queryPasswordDesc')}</div>
                                 </div>

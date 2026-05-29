@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer')
 const prisma = require('../config/database')
 
-const BOOLEAN_SETTING_KEYS = new Set(['emailNotify', 'notifyOrderRefunded'])
+const BOOLEAN_SETTING_KEYS = new Set(['emailNotify', 'notifyOrderRefunded', 'notifyTicketClosed'])
 
 /**
  * 统一的邮件发送辅助：
@@ -34,7 +34,7 @@ const getEmailConfig = async () => {
     const settings = await prisma.setting.findMany({
         where: {
             key: {
-                in: ['smtpHost', 'smtpPort', 'smtpUser', 'smtpPass', 'emailNotify', 'notifyOrderRefunded', 'senderName']
+                in: ['smtpHost', 'smtpPort', 'smtpUser', 'smtpPass', 'emailNotify', 'notifyOrderRefunded', 'notifyTicketClosed', 'senderName']
             }
         }
     })
@@ -51,6 +51,65 @@ const getEmailConfig = async () => {
     })
 
     return config
+}
+
+/**
+ * 获取租户（如果存在）或全局合并后的设置，同时统一映射布尔型和驼峰字段
+ */
+const getSettingsForTenantOrGlobal = async (tenantId) => {
+    const globalSettings = await getEmailConfig()
+    if (!tenantId) {
+        return globalSettings
+    }
+
+    const tenantSetting = await prisma.tenantSetting.findUnique({
+        where: { tenantId }
+    })
+
+    let tenantConfig = {}
+    if (tenantSetting) {
+        if (tenantSetting.systemSettings) {
+            try {
+                const parsed = JSON.parse(tenantSetting.systemSettings)
+                Object.entries(parsed).forEach(([key, val]) => {
+                    if (val === 'true') tenantConfig[key] = true
+                    else if (val === 'false') tenantConfig[key] = false
+                    else tenantConfig[key] = val
+                })
+            } catch (e) {
+                console.error('Failed to parse tenant systemSettings:', e)
+            }
+        }
+        if (tenantSetting.paymentConfig) {
+            try {
+                const parsed = JSON.parse(tenantSetting.paymentConfig)
+                const mapping = {
+                    notify_order_paid: 'notifyOrderPaid',
+                    notify_ship_remind: 'notifyShipRemind',
+                    notify_new_ticket: 'notifyNewTicket',
+                    notify_new_user: 'notifyNewUser',
+                    notify_stock_alert: 'notifyStockAlert',
+                    notify_order_cancel: 'notifyOrderCancel',
+                    notify_refund: 'notifyRefund',
+                    notify_ticket_closed: 'notifyTicketClosed',
+                    email_notify: 'emailNotify'
+                }
+                Object.entries(parsed).forEach(([key, val]) => {
+                    const camelKey = mapping[key] || key
+                    if (val === 'true' || val === true) tenantConfig[camelKey] = true
+                    else if (val === 'false' || val === false) tenantConfig[camelKey] = false
+                    else tenantConfig[camelKey] = val
+                })
+            } catch (e) {
+                console.error('Failed to parse tenant paymentConfig:', e)
+            }
+        }
+    }
+
+    return {
+        ...globalSettings,
+        ...tenantConfig
+    }
 }
 
 // 创建邮件传输器
@@ -92,6 +151,19 @@ const sendOrderCompletedEmail = async (order, cards) => {
                 </div>
             `).join('')
             : '<p style="color: #64748b; text-align: center; padding: 20px;">此商品无卡密信息，请等待商家处理。</p>'
+
+        const deliveryNote = order.deliveryNote || order.product?.deliveryNote || null
+        const deliveryNoteHtml = deliveryNote
+            ? `
+                            <!-- Delivery Note Section -->
+                            <div style="margin-top: 28px; padding: 18px 20px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; border-left: 4px solid #22c55e;">
+                                <h3 style="color: #166534; font-size: 15px; margin: 0 0 8px 0; font-weight: 600; display: flex; align-items: center;">
+                                    <span style="margin-right: 8px;">📋</span>商家说明 / 发货备注
+                                </h3>
+                                <p style="color: #1e293b; font-size: 14px; margin: 0; line-height: 1.6; white-space: pre-wrap;">${deliveryNote}</p>
+                            </div>
+            `
+            : ''
 
         // 邮件内容
         const mailOptions = {
@@ -153,6 +225,8 @@ const sendOrderCompletedEmail = async (order, cards) => {
                                 </h3>
                                 ${cardsHtml}
                             </div>
+                            
+                            ${deliveryNoteHtml}
                             
                             <!-- Notice -->
                             <div style="margin-top: 28px; padding: 16px 20px; background: #fffbeb; border-radius: 10px; border: 1px solid #fef3c7;">
@@ -438,7 +512,7 @@ const sendPasswordResetEmail = async (user, resetToken, baseUrl) => {
 // 发送工单回复通知邮件
 const sendTicketReplyNotification = async (email, username, ticketNo, subject, replyContent, tenantId = null) => {
     try {
-        const config = await getEmailConfig()
+        const config = await getSettingsForTenantOrGlobal(tenantId)
 
         if (!config.emailNotify) {
             console.log('邮件通知已禁用')
@@ -532,8 +606,12 @@ const statusLabelMap = {
 
 const sendTicketStatusNotification = async (email, username, ticketNo, subject, newStatus, tenantId = null) => {
     try {
-        const config = await getEmailConfig()
+        const config = await getSettingsForTenantOrGlobal(tenantId)
         if (!config.emailNotify) return { success: false, reason: 'disabled' }
+        if (config.notifyTicketClosed === false) {
+            console.log('工单关闭邮件通知已禁用')
+            return { success: false, reason: 'ticket_closed_notify_disabled' }
+        }
 
         const statusLabel = statusLabelMap[newStatus] || newStatus
         const mailOptions = {
@@ -604,6 +682,19 @@ const sendAgentOrderNotifyEmail = async (agentEmail, agentName, order, cards, pr
             `).join('')
             : '<p style="color: #64748b; text-align: center; padding: 20px;">等待平台发货中</p>'
 
+        const deliveryNote = order.deliveryNote || order.product?.deliveryNote || null
+        const deliveryNoteHtml = deliveryNote
+            ? `
+                            <!-- Delivery Note Section -->
+                            <div style="margin-top: 28px; padding: 18px 20px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; border-left: 4px solid #22c55e;">
+                                <h3 style="color: #166534; font-size: 15px; margin: 0 0 8px 0; font-weight: 600; display: flex; align-items: center;">
+                                    <span style="margin-right: 8px;">📋</span>商家说明 / 发货备注
+                                </h3>
+                                <p style="color: #1e293b; font-size: 14px; margin: 0; line-height: 1.6; white-space: pre-wrap;">${deliveryNote}</p>
+                            </div>
+            `
+            : ''
+
         const mailOptions = {
             from: `"${config.senderName || 'HaoDongXi'}" <${config.smtpUser}>`,
             to: agentEmail,
@@ -668,6 +759,8 @@ const sendAgentOrderNotifyEmail = async (agentEmail, agentName, order, cards, pr
                                 </h3>
                                 ${cardsHtml}
                             </div>
+                            
+                            ${deliveryNoteHtml}
                         </div>
                         
                         <!-- Footer -->

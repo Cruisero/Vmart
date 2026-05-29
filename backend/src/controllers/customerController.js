@@ -118,11 +118,59 @@ exports.login = async (req, res, next) => {
             return res.status(400).json({ error: '无法识别商城信息' })
         }
 
-        // 1. 优先按 customer 登录
+        // 1. 优先尝试匹配 User 表里属于当前 tenant 的所有者 / 子管理员
+        const adminUser = await prisma.user.findFirst({
+            where: {
+                email,
+                OR: [
+                    { tenant: { id: tenantId } }, // 商城所有者（通过 Tenant.userId 反向）
+                    { tenantId: tenantId, role: 'ADMIN' } // 子管理员
+                ]
+            }
+        })
+        if (adminUser) {
+            if (adminUser.status === 'BANNED') {
+                return res.status(403).json({ error: '您的账号已被封禁，请联系客服' })
+            }
+            const valid = await bcrypt.compare(password, adminUser.password)
+            if (!valid) return res.status(401).json({ error: '邮箱或密码错误' })
+
+            // 用 User token（普通 auth 流程）
+            const jwt = require('jsonwebtoken')
+            const token = jwt.sign(
+                { id: adminUser.id, email: adminUser.email, role: adminUser.role },
+                process.env.JWT_SECRET,
+                { expiresIn: '7d' }
+            )
+            // 解析 permissions JSON
+            let permissions = null
+            if (adminUser.role === 'ADMIN' && adminUser.permissions) {
+                try { permissions = JSON.parse(adminUser.permissions) } catch {}
+            }
+
+            return res.json({
+                message: '登录成功',
+                token,
+                user: {
+                    id: adminUser.id,
+                    email: adminUser.email,
+                    username: adminUser.username,
+                    role: adminUser.role,
+                    emailVerified: adminUser.emailVerified,
+                    tenantId,
+                    permissions: adminUser.role === 'ADMIN' ? (permissions || {}) : null
+                }
+            })
+        }
+
+        // 2. 其次尝试按 customer 登录
         const customer = await prisma.customer.findUnique({
             where: { tenantId_email: { tenantId, email } }
         })
         if (customer) {
+            if (customer.status === 'BANNED') {
+                return res.status(403).json({ error: '您的账号已被封禁，请联系客服' })
+            }
             const valid = await bcrypt.compare(password, customer.password)
             if (!valid) return res.status(401).json({ error: '邮箱或密码错误' })
 
@@ -137,41 +185,6 @@ exports.login = async (req, res, next) => {
                     role: 'CUSTOMER',
                     emailVerified: customer.emailVerified,
                     tenantId: customer.tenantId
-                }
-            })
-        }
-
-        // 2. fallback：尝试匹配 User 表里属于当前 tenant 的所有者 / 子管理员
-        const adminUser = await prisma.user.findFirst({
-            where: {
-                email,
-                OR: [
-                    { tenant: { id: tenantId } }, // 商城所有者（通过 Tenant.userId 反向）
-                    { tenantId: tenantId, role: 'ADMIN' } // 子管理员
-                ]
-            }
-        })
-        if (adminUser) {
-            const valid = await bcrypt.compare(password, adminUser.password)
-            if (!valid) return res.status(401).json({ error: '邮箱或密码错误' })
-
-            // 用 User token（普通 auth 流程）
-            const jwt = require('jsonwebtoken')
-            const token = jwt.sign(
-                { id: adminUser.id, email: adminUser.email, role: adminUser.role },
-                process.env.JWT_SECRET,
-                { expiresIn: '7d' }
-            )
-            return res.json({
-                message: '登录成功',
-                token,
-                user: {
-                    id: adminUser.id,
-                    email: adminUser.email,
-                    username: adminUser.username,
-                    role: adminUser.role,
-                    emailVerified: adminUser.emailVerified,
-                    tenantId
                 }
             })
         }

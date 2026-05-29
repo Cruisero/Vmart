@@ -6,6 +6,7 @@ import { useCartStore } from '../../store/cartStore'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
 import { formatPrice } from '../../utils/currencyFormat'
+import { formatStock } from '../../utils/stockFormat'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import toast from 'react-hot-toast'
 import './ProductDetail.css'
@@ -306,9 +307,18 @@ function ProductDetail() {
                             )}
                         </div>
                         <div className="sales-row">
-                            <span>{t('products.sales')} {product.sold}</span>
+                            {storefront?.showSalesCount !== false && (
+                                storefront?.fuzzyStockEnabled ? (
+                                    <span className="stock-badge stock-badge-indigo">
+                                        <span className="stock-dot" />
+                                        <span>{t('products.sales')} {product.sold}</span>
+                                    </span>
+                                ) : (
+                                    <span>{t('products.sales')} {product.sold}</span>
+                                )
+                            )}
                             <span className={currentStock === 0 ? 'out-of-stock' : ''}>
-                                {currentStock > 0 ? `${t('products.stock')} ${currentStock}` : t('products.soldOut')}
+                                {formatStock(currentStock, storefront?.fuzzyStockEnabled, storefront?.fuzzyStockThreshold, t)}
                             </span>
                         </div>
                     </div>

@@ -35,12 +35,34 @@ exports.getStorefront = async (req, res, next) => {
             where: { shopSlug: slug },
             select: {
                 id: true, shopName: true, shopSlug: true,
-                shopLogo: true, shopSkin: true, shopNotice: true, status: true
+                shopLogo: true, shopSkin: true, shopNotice: true, status: true,
+                tenantId: true
             }
         })
 
         if (!agent || agent.status !== 'ACTIVE') {
             return res.status(404).json({ error: '分站不存在或已关闭' })
+        }
+
+        // 获取租户 settings，以取出 fuzzyStock
+        let fuzzyStockEnabled = false
+        let fuzzyStockThreshold = 10
+        let showSalesCount = true
+        try {
+            const tenantSetting = await prisma.tenantSetting.findUnique({
+                where: { tenantId: agent.tenantId },
+                select: { paymentConfig: true }
+            })
+            if (tenantSetting?.paymentConfig) {
+                const config = JSON.parse(tenantSetting.paymentConfig)
+                fuzzyStockEnabled = !!config.fuzzy_stock_enabled
+                fuzzyStockThreshold = typeof config.fuzzy_stock_threshold === 'number'
+                    ? config.fuzzy_stock_threshold
+                    : parseInt(config.fuzzy_stock_threshold || '10', 10)
+                showSalesCount = config.show_sales_count !== false
+            }
+        } catch (e) {
+            console.error('Failed to get tenant settings for agent storefront:', e)
         }
 
         res.json({
@@ -49,7 +71,17 @@ exports.getStorefront = async (req, res, next) => {
                 shopSlug: agent.shopSlug,
                 shopLogo: agent.shopLogo,
                 shopSkin: agent.shopSkin,
-                shopNotice: agent.shopNotice
+                shopNotice: agent.shopNotice,
+                fuzzyStockEnabled,
+                fuzzyStockThreshold,
+                showSalesCount,
+                contactEnabled: false,
+                contactTelegram: '',
+                contactWhatsapp: '',
+                contactEmail: '',
+                contactQq: '',
+                contactWechat: '',
+                contactLinks: null
             }
         })
     } catch (error) {
@@ -131,8 +163,10 @@ exports.getStorefrontProducts = async (req, res, next) => {
                 tags: p.tags,
                 variants: p.variants.map(v => ({
                     id: v.id,
+                    type: v.type,
                     name: v.name,
                     price: (v.price ? parseFloat(v.price) : basePrice) + parseFloat(ap.markup),
+                    originalPrice: v.originalPrice ? (parseFloat(v.originalPrice) + parseFloat(ap.markup)) : null,
                     stock: stockMode === 'manual' ? v.stock : v.cards.length
                 }))
             }
@@ -221,8 +255,10 @@ exports.getStorefrontProduct = async (req, res, next) => {
                 wholesalePrices: p.wholesalePrices,
                 variants: p.variants.map(v => ({
                     id: v.id,
+                    type: v.type,
                     name: v.name,
                     price: (v.price ? parseFloat(v.price) : basePrice) + parseFloat(agentProduct.markup),
+                    originalPrice: v.originalPrice ? (parseFloat(v.originalPrice) + parseFloat(agentProduct.markup)) : null,
                     stock: stockMode === 'manual' ? v.stock : v.cards.length
                 })),
                 // 用于下单时传递
@@ -297,7 +333,11 @@ exports.getTenantProducts = async (req, res, next) => {
                 stock,
                 soldCount: p.soldCount, category: p.category, tags: p.tags,
                 variants: p.variants.map(v => ({
-                    id: v.id, name: v.name, price: parseFloat(v.price),
+                    id: v.id,
+                    type: v.type,
+                    name: v.name,
+                    price: parseFloat(v.price),
+                    originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
                     stock: stockMode === 'manual' ? v.stock : v.cards.length
                 }))
             }
@@ -342,7 +382,12 @@ exports.getTenantProduct = async (req, res, next) => {
                 soldCount: product.soldCount, category: product.category, tags: product.tags,
                 deliveryNote: product.deliveryNote, wholesalePrices: product.wholesalePrices,
                 variants: product.variants.map(v => ({
-                    id: v.id, name: v.name, price: parseFloat(v.price), stock: stockMode === 'manual' ? v.stock : v.cards.length
+                    id: v.id,
+                    type: v.type,
+                    name: v.name,
+                    price: parseFloat(v.price),
+                    originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
+                    stock: stockMode === 'manual' ? v.stock : v.cards.length
                 })),
                 _tenantId: req.tenantId
             }
@@ -381,11 +426,15 @@ exports.getMerchantStorefront = async (req, res, next) => {
 
         let shopFavicon = null
         let shopBookmarkTitle = null
+        let shopSeoDescription = null
+        let shopSeoKeywords = null
         if (shop?.settings) {
             try {
                 const parsedSettings = JSON.parse(shop.settings)
                 shopFavicon = parsedSettings?.favicon || null
                 shopBookmarkTitle = parsedSettings?.bookmarkTitle || null
+                shopSeoDescription = parsedSettings?.seoDescription || null
+                shopSeoKeywords = parsedSettings?.seoKeywords || null
             } catch {}
         }
 
@@ -394,11 +443,33 @@ exports.getMerchantStorefront = async (req, res, next) => {
         let agreements = null
         let language = 'zh'
         let currency = 'CNY'
+        let contactSettings = {
+            contactEnabled: false,
+            contactTelegram: '',
+            contactWhatsapp: '',
+            contactEmail: '',
+            contactQq: '',
+            contactWechat: '',
+            contactLinks: null
+        }
+        let fuzzyStockEnabled = false
+        let fuzzyStockThreshold = 10
+        let showSalesCount = true
         try {
             const ts = await prisma.tenantSetting.findUnique({
                 where: { tenantId: tenant.id },
-                select: { systemSettings: true }
+                select: { systemSettings: true, paymentConfig: true }
             })
+            if (ts?.paymentConfig) {
+                try {
+                    const payConfig = JSON.parse(ts.paymentConfig)
+                    fuzzyStockEnabled = !!payConfig.fuzzy_stock_enabled
+                    fuzzyStockThreshold = typeof payConfig.fuzzy_stock_threshold === 'number'
+                        ? payConfig.fuzzy_stock_threshold
+                        : parseInt(payConfig.fuzzy_stock_threshold || '10', 10)
+                    showSalesCount = payConfig.show_sales_count !== false
+                } catch (e) {}
+            }
             if (ts?.systemSettings) {
                 const sys = JSON.parse(ts.systemSettings)
                 if (sys.featureCard && sys.featureCard.enabled) {
@@ -422,6 +493,17 @@ exports.getMerchantStorefront = async (req, res, next) => {
                 if (sys.language) language = sys.language
                 // 经营货币
                 if (sys.currency) currency = sys.currency
+
+                // contact fields
+                contactSettings = {
+                    contactEnabled: sys.contactEnabled === true || sys.contactEnabled === 'true',
+                    contactTelegram: sys.contactTelegram || '',
+                    contactWhatsapp: sys.contactWhatsapp || '',
+                    contactEmail: sys.contactEmail || sys.contactGmail || '',
+                    contactQq: sys.contactQq || '',
+                    contactWechat: sys.contactWechat || '',
+                    contactLinks: sys.contactLinks || null
+                }
             }
         } catch {}
 
@@ -434,12 +516,18 @@ exports.getMerchantStorefront = async (req, res, next) => {
                 shopNotice: tenant.shopNotice || shop?.notice || null,
                 shopFavicon,
                 shopBookmarkTitle,
+                shopSeoDescription,
+                shopSeoKeywords,
                 featureCard,
                 agreements,
                 language,
                 currency,
                 tenantId: tenant.id,
-                _tenantMode: true
+                _tenantMode: true,
+                fuzzyStockEnabled,
+                fuzzyStockThreshold,
+                showSalesCount,
+                ...contactSettings
             }
         })
     } catch (error) { next(error) }
@@ -493,7 +581,12 @@ exports.getMerchantProducts = async (req, res, next) => {
                 stock,
                 soldCount: p.soldCount, category: p.category, tags: p.tags,
                 variants: p.variants.map(v => ({
-                    id: v.id, name: v.name, price: parseFloat(v.price), stock: stockMode === 'manual' ? v.stock : v.cards.length
+                    id: v.id,
+                    type: v.type,
+                    name: v.name,
+                    price: parseFloat(v.price),
+                    originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
+                    stock: stockMode === 'manual' ? v.stock : v.cards.length
                 }))
             }
         })
@@ -540,7 +633,12 @@ exports.getMerchantProduct = async (req, res, next) => {
                 soldCount: product.soldCount, category: product.category, tags: product.tags,
                 deliveryNote: product.deliveryNote, wholesalePrices: product.wholesalePrices,
                 variants: product.variants.map(v => ({
-                    id: v.id, name: v.name, price: parseFloat(v.price), stock: stockMode === 'manual' ? v.stock : v.cards.length
+                    id: v.id,
+                    type: v.type,
+                    name: v.name,
+                    price: parseFloat(v.price),
+                    originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
+                    stock: stockMode === 'manual' ? v.stock : v.cards.length
                 })),
                 _tenantId: tenant.id
             }

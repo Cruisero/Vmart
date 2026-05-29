@@ -26,6 +26,8 @@ const en = {
         "buyNow": "Buy Now",
         "placeOrder": "Place Order",
         "stock": "Stock",
+        "inStockSufficient": "In Stock",
+        "inStockLow": "Low Stock",
         "pieces": "pcs",
         "description": "Description",
         "selectVariant": "Select variant",

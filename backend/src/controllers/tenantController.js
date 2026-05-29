@@ -25,7 +25,7 @@ exports.getMe = async (req, res) => {
 // 创建或更新租户基本信息
 exports.setup = async (req, res) => {
     try {
-        const { shopName, shopSlug, shopSkin, shopNotice, shopLogo, contactEmail, contactInfo } = req.body
+        const { shopName, shopSlug, shopSkin, shopNotice, shopLogo, contactEmail, contactInfo, favicon, bookmarkTitle, seoDescription, seoKeywords } = req.body
 
         if (!shopName || !shopSlug) {
             return res.status(400).json({ error: '店铺名称和路径不能为空' })
@@ -65,6 +65,56 @@ exports.setup = async (req, res) => {
         // 初始化 TenantSetting（如不存在）
         if (!tenant.settings) {
             await prisma.tenantSetting.create({ data: { tenantId: tenant.id } })
+        }
+
+        // 同步更新与其绑定的平台 Shop 表记录
+        let updatedShop = null
+        if (tenant.shopSlug) {
+            const shop = await prisma.shop.findUnique({
+                where: { slug: tenant.shopSlug }
+            })
+            if (shop) {
+                let settings = {}
+                if (shop.settings) {
+                    try {
+                        settings = JSON.parse(shop.settings)
+                    } catch (e) {}
+                }
+                if (favicon !== undefined) {
+                    settings.favicon = favicon
+                }
+                if (bookmarkTitle !== undefined) {
+                    settings.bookmarkTitle = bookmarkTitle
+                }
+                if (seoDescription !== undefined) {
+                    settings.seoDescription = seoDescription
+                }
+                if (seoKeywords !== undefined) {
+                    settings.seoKeywords = seoKeywords
+                }
+
+                updatedShop = await prisma.shop.update({
+                    where: { id: shop.id },
+                    data: {
+                        name: shopName,
+                        skin: shopSkin || shop.skin,
+                        logo: shopLogo !== undefined ? shopLogo : shop.logo,
+                        notice: shopNotice !== undefined ? shopNotice : shop.notice,
+                        settings: JSON.stringify(settings)
+                    }
+                })
+            }
+        }
+
+        if (updatedShop) {
+            tenant.shop = updatedShop
+        } else {
+            const shop = await prisma.shop.findUnique({
+                where: { slug: tenant.shopSlug }
+            })
+            if (shop) {
+                tenant.shop = shop
+            }
         }
 
         res.json({ tenant })
@@ -208,6 +258,24 @@ exports.verifyDns = async (req, res) => {
                 })
             }
 
+            // 同步绑定状态到主站 Shop 记录，使平台超管能正确看到和搜索
+            if (tenant.shopSlug) {
+                if (dnsVerified) {
+                    await prisma.shop.update({
+                        where: { slug: tenant.shopSlug },
+                        data: { customDomain: domain }
+                    })
+                } else {
+                    const shop = await prisma.shop.findUnique({ where: { slug: tenant.shopSlug } })
+                    if (shop && shop.customDomain === domain) {
+                        await prisma.shop.update({
+                            where: { slug: tenant.shopSlug },
+                            data: { customDomain: null }
+                        })
+                    }
+                }
+            }
+
             let msg = ''
             if (verified) {
                 msg = '🎉 域名解析及 SSL 安全证书已完全生效！您的商城已支持安全访问。'
@@ -246,6 +314,14 @@ exports.verifyDns = async (req, res) => {
                 where: { id: domainRecord.id },
                 data: { dnsVerified: true, verifiedAt: new Date() }
             })
+
+            // 同步绑定状态到主站 Shop 记录
+            if (tenant.shopSlug) {
+                await prisma.shop.update({
+                    where: { slug: tenant.shopSlug },
+                    data: { customDomain: domain }
+                })
+            }
         }
 
         res.json({
@@ -291,6 +367,17 @@ exports.deleteDomain = async (req, res) => {
             where: { id: domainRecord.id }
         })
 
+        // 从主站 Shop 记录中清除已解绑的域名
+        if (tenant.shopSlug) {
+            const shop = await prisma.shop.findUnique({ where: { slug: tenant.shopSlug } })
+            if (shop && shop.customDomain === domain) {
+                await prisma.shop.update({
+                    where: { slug: tenant.shopSlug },
+                    data: { customDomain: null }
+                })
+            }
+        }
+
         res.json({ success: true, message: '域名已成功解绑和删除' })
     } catch (err) {
         res.status(500).json({ error: err.message })
@@ -327,9 +414,12 @@ exports.submitReview = async (req, res) => {
     }
 }
 
-// 获取/更新租户设置
+// 获取租户设置
 exports.getSettings = async (req, res) => {
     try {
+        if (req.user?.role === 'ADMIN') {
+            return res.status(403).json({ error: '需要管理员权限' })
+        }
         const tenant = await prisma.tenant.findUnique({ where: { userId: req.user.id } })
         if (!tenant) return res.status(404).json({ error: '租户不存在' })
 
@@ -340,8 +430,12 @@ exports.getSettings = async (req, res) => {
     }
 }
 
+// 更新租户设置
 exports.updateSettings = async (req, res) => {
     try {
+        if (req.user?.role === 'ADMIN') {
+            return res.status(403).json({ error: '需要管理员权限' })
+        }
         const tenant = await prisma.tenant.findUnique({ where: { userId: req.user.id } })
         if (!tenant) return res.status(404).json({ error: '租户不存在' })
 
@@ -349,6 +443,70 @@ exports.updateSettings = async (req, res) => {
             alipayEnabled, wechatEnabled, usdtEnabled, bscUsdtEnabled,
             paymentConfig, notificationEnabled, notificationText, notificationLink
         } = req.body
+
+        let config = {}
+        if (paymentConfig) {
+            try {
+                config = typeof paymentConfig === 'string' ? JSON.parse(paymentConfig) : paymentConfig
+            } catch (e) {
+                return res.status(400).json({ error: '支付配置格式不正确，必须是合法的 JSON' })
+            }
+        }
+
+        // 支付宝配置强校验 (仅对所有者做，或者如果非子管理员且启用了支付宝，且并非平台代收模式)
+        const isSubAdmin = req.user?.role === 'ADMIN'
+        if (!isSubAdmin && alipayEnabled && config.alipay_mode !== 'platform') {
+            const appId = config.alipay_app_id || ''
+            const privateKey = config.alipay_private_key || ''
+            const publicKey = config.alipay_public_key || ''
+
+            if (!appId) {
+                return res.status(400).json({ error: '启用支付宝时，应用 ID (AppID) 不能为空' })
+            }
+            if (!privateKey) {
+                return res.status(400).json({ error: '启用支付宝时，应用私钥 (Private Key) 不能为空' })
+            }
+            if (!publicKey) {
+                return res.status(400).json({ error: '启用支付宝时，支付宝公钥 (Public Key) 不能为空' })
+            }
+
+            const crypto = require('crypto')
+
+            // 1. 校验私钥
+            const privateKeyCleaned = privateKey.replace(/-----BEGIN[A-Z\s]+-----|-----END[A-Z\s]+-----|\s/g, '')
+            if (privateKeyCleaned.startsWith('MIIBIjANBgkqhkiG9w0BAQ')) {
+                return res.status(400).json({ error: '保存失败：您填入的【应用私钥】似乎是公钥（公钥通常以 MIIBIj 开头，长度较短）。请重新复制您的 PKCS8 格式应用私钥。' })
+            }
+            if (privateKeyCleaned.length < 1000) {
+                return res.status(400).json({ error: '保存失败：您填入的【应用私钥】长度不足，合法的 RSA2 私钥长度通常为 1600+ 字符。请检查复制是否完整，或是否误填了公钥。' })
+            }
+
+            try {
+                let pem = privateKey.trim()
+                if (!pem.includes('BEGIN PRIVATE KEY') && !pem.includes('BEGIN RSA PRIVATE KEY')) {
+                    pem = `-----BEGIN PRIVATE KEY-----\n${pem}\n-----END PRIVATE KEY-----`
+                }
+                crypto.createPrivateKey(pem)
+            } catch (err) {
+                return res.status(400).json({ error: `保存失败：【应用私钥】格式无法被解析（报错: ${err.message}）。请确认填写的是 PKCS8 格式的应用私钥，且头部带有 BEGIN PRIVATE KEY 标识或复制了完整文本。` })
+            }
+
+            // 2. 校验公钥
+            const publicKeyCleaned = publicKey.replace(/-----BEGIN[A-Z\s]+-----|-----END[A-Z\s]+-----|\s/g, '')
+            if (publicKeyCleaned.length > 1000) {
+                return res.status(400).json({ error: '保存失败：您填入的【支付宝公钥】长度过长，这通常是私钥的长度。请检查是否误填了私钥。' })
+            }
+
+            try {
+                let pem = publicKey.trim()
+                if (!pem.includes('BEGIN PUBLIC KEY')) {
+                    pem = `-----BEGIN PUBLIC KEY-----\n${pem}\n-----END PUBLIC KEY-----`
+                }
+                crypto.createPublicKey(pem)
+            } catch (err) {
+                return res.status(400).json({ error: `保存失败：【支付宝公钥】格式无法被解析（报错: ${err.message}）。请确认是支付宝开放平台生成的【支付宝公钥】（而非商户自己生成的应用公钥）。` })
+            }
+        }
 
         const settings = await prisma.tenantSetting.upsert({
             where: { tenantId: tenant.id },
@@ -360,16 +518,18 @@ exports.updateSettings = async (req, res) => {
                 bscUsdtEnabled: !!bscUsdtEnabled,
                 paymentConfig: typeof paymentConfig === 'string' ? paymentConfig : (paymentConfig ? JSON.stringify(paymentConfig) : null),
                 notificationEnabled: !!notificationEnabled,
-                notificationText, notificationLink
+                notificationText,
+                notificationLink
             },
             update: {
                 alipayEnabled: !!alipayEnabled,
                 wechatEnabled: !!wechatEnabled,
                 usdtEnabled: !!usdtEnabled,
                 bscUsdtEnabled: !!bscUsdtEnabled,
-                paymentConfig: typeof paymentConfig === 'string' ? paymentConfig : (paymentConfig ? JSON.stringify(paymentConfig) : undefined),
+                paymentConfig: typeof paymentConfig === 'string' ? paymentConfig : (paymentConfig ? JSON.stringify(paymentConfig) : null),
                 notificationEnabled: !!notificationEnabled,
-                notificationText, notificationLink
+                notificationText,
+                notificationLink
             }
         })
 
@@ -389,7 +549,7 @@ exports.getProducts = async (req, res) => {
         const products = await prisma.product.findMany({
             where: { tenantId: tenant.id },
             include: { category: true, variants: true, _count: { select: { cards: { where: { status: 'AVAILABLE' } } } } },
-            orderBy: { createdAt: 'desc' }
+            orderBy: [{ status: 'asc' }, { weight: 'desc' }, { createdAt: 'desc' }]
         })
         res.json({ products })
     } catch (err) {

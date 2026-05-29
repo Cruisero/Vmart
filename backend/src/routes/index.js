@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
 })
 
 // 公开设置（无需认证，供前端皮肤切换等使用）
-const PUBLIC_KEYS = ['frontend_skin', 'siteName', 'siteDescription', 'notificationEnabled', 'notificationText', 'notificationLink', 'siteLogo', 'siteFavicon', 'agentSkinPool', 'agentEnabled']
+const PUBLIC_KEYS = ['frontend_skin', 'siteName', 'siteDescription', 'notificationEnabled', 'notificationText', 'notificationLink', 'siteLogo', 'siteFavicon', 'agentSkinPool', 'agentEnabled', 'contactEnabled', 'contactTelegram', 'contactWhatsapp', 'contactEmail', 'contactQq', 'contactWechat', 'contactLinks']
 const prisma = require('../config/database')
 
 // 公开 OTP 开关查询（前端注册页用来决定是否显示验证码 UI）
@@ -73,6 +73,14 @@ router.get('/settings/public', async (req, res) => {    try {
             const tenantSetting = await prisma.tenantSetting.findUnique({
                 where: { tenantId: req.tenantId }
             })
+            let tenantSysSettings = {}
+            if (tenantSetting?.systemSettings) {
+                try {
+                    tenantSysSettings = JSON.parse(tenantSetting.systemSettings)
+                } catch (e) {
+                    console.error('Failed to parse tenant systemSettings in public API:', e)
+                }
+            }
             return res.json({
                 settings: {
                     siteName: req.tenant.shopName,
@@ -81,6 +89,13 @@ router.get('/settings/public', async (req, res) => {    try {
                     notificationEnabled: tenantSetting?.notificationEnabled ? 'true' : 'false',
                     notificationText: tenantSetting?.notificationText || '',
                     notificationLink: tenantSetting?.notificationLink || '',
+                    contactEnabled: tenantSysSettings.contactEnabled === true || tenantSysSettings.contactEnabled === 'true' ? 'true' : 'false',
+                    contactTelegram: tenantSysSettings.contactTelegram || '',
+                    contactWhatsapp: tenantSysSettings.contactWhatsapp || '',
+                    contactEmail: tenantSysSettings.contactEmail || tenantSysSettings.contactGmail || '',
+                    contactQq: tenantSysSettings.contactQq || '',
+                    contactWechat: tenantSysSettings.contactWechat || '',
+                    contactLinks: tenantSysSettings.contactLinks || null,
                     _tenantMode: true,
                     _tenantId: req.tenantId
                 }

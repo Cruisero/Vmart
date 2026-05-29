@@ -8,8 +8,9 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { useParams, Link, useLocation } from 'react-router-dom'
 import { Routes, Route } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { StorefrontContext } from '../../store/storefrontStore'
+import { useTranslation } from 'react-i18next'
+import StorefrontFooter from '../../components/common/StorefrontFooter'
 
 // 主题组件（复用现有）
 import ZenNavbar from '../../themes/minimal/zen/Navbar'
@@ -20,6 +21,8 @@ import ZenOrderResult from '../../themes/minimal/zen/OrderResult'
 import ZenOrderQuery from '../../themes/minimal/zen/OrderQuery'
 import ZenLogin from '../../themes/minimal/zen/Auth/Login'
 import ZenRegister from '../../themes/minimal/zen/Auth/Register'
+import ZenForgotPassword from '../../themes/minimal/zen/Auth/ForgotPassword'
+import ZenResetPassword from '../../themes/minimal/zen/Auth/ResetPassword'
 import ZenUserCenter from '../../themes/minimal/zen/UserCenter'
 
 import FreshNavbar from '../../themes/minimal/fresh/Navbar'
@@ -30,6 +33,8 @@ import FreshOrderResult from '../../themes/minimal/fresh/OrderResult'
 import FreshOrderQuery from '../../themes/minimal/fresh/OrderQuery'
 import FreshLogin from '../../themes/minimal/fresh/Auth/Login'
 import FreshRegister from '../../themes/minimal/fresh/Auth/Register'
+import FreshForgotPassword from '../../themes/minimal/fresh/Auth/ForgotPassword'
+import FreshResetPassword from '../../themes/minimal/fresh/Auth/ResetPassword'
 import FreshUserCenter from '../../themes/minimal/fresh/UserCenter'
 
 import Navbar from '../../components/common/Navbar'
@@ -45,6 +50,8 @@ import UserCenter from '../../pages/User'
 import Search from '../../pages/Search'
 import TicketNew from '../../pages/TicketNew'
 import TicketDetail from '../../pages/TicketDetail'
+import ForgotPassword from '../../pages/Auth/ForgotPassword'
+import ResetPassword from '../../pages/Auth/ResetPassword'
 import { TermsPage, RefundPolicyPage } from '../../pages/PolicyPage'
 
 import './MerchantStorefront.css'
@@ -74,13 +81,6 @@ function NoticeBanner({ text, slug }) {
     )
 }
 
-function Footer({ shopName }) {
-    return (
-        <footer className="sf-footer">
-            <span>{shopName} · <a href="https://vmart.cc" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>Powered by Vmart</a></span>
-        </footer>
-    )
-}
 
 export default function MerchantStorefront({ propSlug }) {
     const { slug: paramSlug } = useParams()
@@ -89,6 +89,9 @@ export default function MerchantStorefront({ propSlug }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const { i18n, t } = useTranslation()
+    const location = useLocation()
+    const path = location.pathname.replace(/\/+$/, '')
+    const isHomepage = path === `/v/${slug}` || path === ''
 
     useEffect(() => {
         setLoading(true)
@@ -102,7 +105,7 @@ export default function MerchantStorefront({ propSlug }) {
             .finally(() => setLoading(false))
     }, [slug])
 
-    // 设置商户的 favicon 和标题
+    // 设置商户的 favicon 和标题，以及 SEO 元数据
     useEffect(() => {
         if (!shop) return
         
@@ -114,12 +117,71 @@ export default function MerchantStorefront({ propSlug }) {
         
         document.title = shop.shopBookmarkTitle || autoTitle
 
+        let oldFavicon = null
         if (shop.shopFavicon) {
             let link = document.querySelector("link[rel~='icon']")
-            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
+            if (link) {
+                oldFavicon = link.href
+            } else {
+                link = document.createElement('link')
+                link.rel = 'icon'
+                document.head.appendChild(link)
+            }
             link.href = shop.shopFavicon
         }
+
+        // 动态更新 meta description，改善 SEO 并解决页脚被当作摘要抓取的问题
+        let metaDesc = document.querySelector("meta[name='description']")
+        const oldDesc = metaDesc ? metaDesc.content : ''
+        if (!metaDesc) {
+            metaDesc = document.createElement('meta')
+            metaDesc.name = 'description'
+            document.head.appendChild(metaDesc)
+        }
+        metaDesc.content = shop.shopSeoDescription || `${shop.shopName || autoTitle} - 专业的在线虚拟物品与数字商品自动发卡商城。为您提供优质的商品与服务，支持卡密自动发放。`
+
+        // 动态更新 meta keywords
+        let metaKeywords = document.querySelector("meta[name='keywords']")
+        const oldKeywords = metaKeywords ? metaKeywords.content : ''
+        if (!metaKeywords) {
+            metaKeywords = document.createElement('meta')
+            metaKeywords.name = 'keywords'
+            document.head.appendChild(metaKeywords)
+        }
+        metaKeywords.content = shop.shopSeoKeywords || `${shop.shopName || autoTitle}, 虚拟商品, 自动发卡, 打造专属数字商城`
+
+        return () => {
+            // 恢复默认 meta 标签和 favicon
+            if (metaDesc) metaDesc.content = oldDesc || 'Vmart - 打造你的专属数字商城 | Build your digital storefront'
+            if (metaKeywords) metaKeywords.content = oldKeywords || 'Vmart,发卡,虚拟物品,自动发卡,卡密,充值,digital storefront'
+            if (oldFavicon) {
+                const link = document.querySelector("link[rel~='icon']")
+                if (link) link.href = oldFavicon
+            }
+        }
     }, [shop])
+
+    // 记录商户访问量
+    useEffect(() => {
+        if (!shop || !shop.tenantId) return
+        const recordMerchantVisit = async () => {
+            try {
+                const lastVisit = localStorage.getItem(`last_visit_${slug}`)
+                const today = new Date().toDateString()
+                if (lastVisit !== today) {
+                    await fetch('/api/stats/visit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tenantId: shop.tenantId })
+                    })
+                    localStorage.setItem(`last_visit_${slug}`, today)
+                }
+            } catch (error) {
+                // 忽略错误
+            }
+        }
+        recordMerchantVisit()
+    }, [shop, slug])
 
     // 进入店面时给 html 加 class，离开时移除（用于隐藏全局滚动条）
     useEffect(() => {
@@ -166,11 +228,14 @@ export default function MerchantStorefront({ propSlug }) {
     // StorefrontContext：slug + apiBase 让主题组件知道去哪里取数据
     const ctx = {
         slug,
+        ...shop,
         shopName: shop.shopName,
         shopLogo: shop.shopLogo,
         shopSkin: skin,
         shopNotice: shop.shopNotice,
         shopBookmarkTitle: shop.shopBookmarkTitle,
+        shopSeoDescription: shop.shopSeoDescription,
+        shopSeoKeywords: shop.shopSeoKeywords,
         featureCard: shop.featureCard || null,
         agreements: shop.agreements || null,
         language: shop.language || 'zh',
@@ -191,6 +256,8 @@ export default function MerchantStorefront({ propSlug }) {
             <Route path="order-query" element={skin === 'fresh' ? <FreshOrderQuery /> : <ZenOrderQuery />} />
             <Route path="login" element={skin === 'fresh' ? <FreshLogin headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} /> : <ZenLogin headerTitle={t('user.welcome')} headerSubtitle={t('auth.loginContinue')} />} />
             <Route path="register" element={skin === 'fresh' ? <FreshRegister headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} /> : <ZenRegister headerTitle={t('auth.createAccount')} headerSubtitle={t('auth.registerToShop')} />} />
+            <Route path="forgot-password" element={skin === 'fresh' ? <FreshForgotPassword /> : <ZenForgotPassword />} />
+            <Route path="reset-password" element={skin === 'fresh' ? <FreshResetPassword /> : <ZenResetPassword />} />
             <Route path="search" element={<Search />} />
             <Route path="tickets/new" element={<TicketNew />} />
             <Route path="tickets/:id" element={<TicketDetail />} />
@@ -228,7 +295,7 @@ export default function MerchantStorefront({ propSlug }) {
                             <FreshNavbar />
                             <NoticeBanner text={shop.shopNotice} slug={slug} />
                             <main className="fresh-main-content" style={{ flex: 1 }}>{routes}</main>
-                            <Footer shopName={shop.shopName} />
+                            {isHomepage && <StorefrontFooter />}
                         </div>
                     )}
                     {skin !== 'fresh' && !skin?.startsWith?.('custom:') && (
@@ -236,7 +303,7 @@ export default function MerchantStorefront({ propSlug }) {
                             <ZenNavbar />
                             <NoticeBanner text={shop.shopNotice} slug={slug} />
                             <main style={{ flex: 1 }}>{routes}</main>
-                            <Footer shopName={shop.shopName} />
+                            {isHomepage && <StorefrontFooter />}
                         </div>
                     )}
                 </>

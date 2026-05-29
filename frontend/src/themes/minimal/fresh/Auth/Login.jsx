@@ -48,14 +48,11 @@ export default function FreshLogin({ headerTitle, headerSubtitle } = {}) {
             login(data.user, data.token)
             toast.success(L('auth.loginSuccess'))
             const role = data.user.role
-            if (!storefront?._tenantMode && ['ADMIN', 'TENANT_ADMIN', 'SUPER_ADMIN'].includes(role)) {
-                const tenantPath = await getTenantAdminPath(data.token)
-                if (tenantPath) {
-                    navigate(tenantPath, { replace: true })
-                } else if (role === 'SUPER_ADMIN') {
+            if (['ADMIN', 'TENANT_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+                if (role === 'SUPER_ADMIN' && !storefront?._tenantMode) {
                     navigate('/Man/dashboard', { replace: true })
                 } else {
-                    navigate(`${prefix}/`)
+                    navigate(`${prefix}/admin`, { replace: true })
                 }
             } else {
                 navigate(`${prefix}/`)
@@ -95,9 +92,7 @@ export default function FreshLogin({ headerTitle, headerSubtitle } = {}) {
                     </div>
 
                     <div className="fa-field">
-                        <div className="fa-label-row">
-                            <label className="fa-label">{L('auth.password')}</label>
-                        </div>
+                        <label className="fa-label">{L('auth.password')}</label>
                         <div className="fa-input-wrap">
                             <FiLock className="fa-input-icon" size={15} />
                             <input
@@ -111,6 +106,9 @@ export default function FreshLogin({ headerTitle, headerSubtitle } = {}) {
                             <button type="button" className="fa-toggle-pw" onClick={() => setShowPw(!showPw)}>
                                 {showPw ? <FiEyeOff size={15} /> : <FiEye size={15} />}
                             </button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                            <Link to={`${prefix}/forgot-password`} className="fa-forgot">{L('忘记密码？', 'Forgot Password?')}</Link>
                         </div>
                     </div>
 

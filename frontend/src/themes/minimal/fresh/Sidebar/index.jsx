@@ -17,6 +17,8 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
     const { user, isAuthenticated, logout } = useAuthStore()
     const { siteName, siteLogo } = useSkinStore()
     const storefront = useStorefront()
+    const displayLogo = storefront ? storefront.shopLogo : siteLogo
+    const displayName = storefront ? storefront.shopName : siteName
     const { withPrefix } = useStorefrontPath()
     const cartItems = useCartStore(s => s.items)
     const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0)
@@ -41,8 +43,8 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
         <>
             {/* Logo */}
             <Link to={homePath} className="fs-logo" onClick={onClose}>
-                {siteLogo ? (
-                    <img src={siteLogo} alt={siteName || 'Logo'} className="fs-logo-img" />
+                {displayLogo ? (
+                    <img src={displayLogo} alt={displayName || 'Logo'} className="fs-logo-img" />
                 ) : (
                     <>
                         <svg className="fs-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -57,7 +59,7 @@ function SidebarContent({ categories, activeCategory, onCategoryClick, onClose }
                             <circle cx="15" cy="22.5" r="1.3" fill="white"/>
                             <circle cx="21" cy="22.5" r="1.3" fill="white"/>
                         </svg>
-                        <span className="fs-logo-text">{siteName ? siteName : <>V<span className="fs-logo-accent">mart</span></>}</span>
+                        <span className="fs-logo-text">{displayName ? displayName : <>V<span className="fs-logo-accent">mart</span></>}</span>
                     </>
                 )}
             </Link>

@@ -6,6 +6,8 @@ const MAIN_HOSTS = new Set([
     '127.0.0.1',
     'vmart.cc',
     'www.vmart.cc',
+    'backend',
+    'kashop-backend',
 ])
 
 /**

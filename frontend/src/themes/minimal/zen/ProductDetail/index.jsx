@@ -5,6 +5,7 @@ import { useBuyerL } from '../../../../hooks/useBuyerL'
 import { useStorefront } from '../../../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../../../utils/agentDomain'
 import { formatPrice } from '../../../../utils/currencyFormat'
+import { formatStock } from '../../../../utils/stockFormat'
 import './ProductDetail.css'
 
 function resolveWholesalePrice(basePrice, wholesalePrices, qty) {
@@ -118,8 +119,17 @@ export default function ZenProductDetail() {
                     </div>
 
                     <div className="zd-meta">
-                        <span>{L('products.sales')} {product.sold}</span>
-                        <span style={{ color: isOutOfStock ? '#C45D3E' : '#bbb' }}>{isOutOfStock ? L('products.outOfStock') : `${L('products.stock')} ${currentStock}`}</span>
+                        {storefront?.showSalesCount !== false && (
+                            storefront?.fuzzyStockEnabled ? (
+                                <span className="stock-badge stock-badge-indigo">
+                                    <span className="stock-dot" />
+                                    <span>{L('products.sales')} {product.sold}</span>
+                                </span>
+                            ) : (
+                                <span>{L('products.sales')} {product.sold}</span>
+                            )
+                        )}
+                        <span style={{ color: isOutOfStock ? '#C45D3E' : '#bbb' }}>{formatStock(currentStock, storefront?.fuzzyStockEnabled, storefront?.fuzzyStockThreshold, L)}</span>
                     </div>
 
                     {(hasTypes || typeVariants.length > 0) && <>

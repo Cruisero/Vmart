@@ -118,6 +118,13 @@ async function trialGate(req, res, next) {
 
     // 超管跳过
     if (req.merchant.isSuperAdmin) return next()
+
+    // 检查并应用待生效的降级计划
+    try {
+        const { applyPendingPlanChangeIfNeeded } = require('../utils/planUpgradeHelper')
+        await applyPendingPlanChangeIfNeeded(shop)
+    } catch {}
+
     // GET 请求放行（允许查看数据）
     if (req.method === 'GET') return next()
 

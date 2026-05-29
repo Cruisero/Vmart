@@ -71,6 +71,20 @@ const PERMISSION_GROUPS = [
             { key: 'agents.skinPool', label: '管理皮肤池' },
             { key: 'agents.withdraw', label: '提现审核' }
         ]
+    },
+
+    {
+        key: 'notifications',
+        label: '邮件通知订阅',
+        items: [
+            { key: 'notify.order_paid', label: '💰 订单已支付 (用户完成支付后通知)' },
+            { key: 'notify.ship_remind', label: '📦 待手动发货 (无自动发卡需手动发货时通知)' },
+            { key: 'notify.new_ticket', label: '📮 新工单创建 (用户提交新工单时通知)' },
+            { key: 'notify.new_user', label: '👤 新用户注册 (有新用户注册时通知)' },
+            { key: 'notify.stock_alert', label: '⚠️ 库存不足预警 (商品库存低于阈值时通知)' },
+            { key: 'notify.order_cancel', label: '🚫 订单已取消 (订单被取消时通知)' },
+            { key: 'notify.refund', label: '💸 退款成功通知 (订单退款成功后通知)' }
+        ]
     }
 ]
 

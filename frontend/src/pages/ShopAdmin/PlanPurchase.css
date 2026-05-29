@@ -18,67 +18,103 @@
 /* 套餐卡片 */
 .pp2-plans {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    max-width: 1000px;
+    margin: 0 auto 24px;
+    text-align: left;
 }
 
 .pp2-plan {
-    border: 2px solid var(--border-color, #e2e8f0);
-    border-radius: var(--radius-md, 12px);
-    padding: 22px;
-    cursor: pointer;
-    transition: all 0.15s;
+    background: #ffffff;
+    border: 2px solid #ffe5e5;
+    border-radius: 16px;
+    padding: 28px 24px;
     position: relative;
-    background: var(--bg-secondary, #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
 }
 
 .pp2-plan:hover {
-    border-color: var(--primary-light, #f87171);
+    border-color: #fca5a5;
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.05);
 }
 
 .pp2-plan.active {
-    border-color: var(--primary, #ef4444);
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.12);
 }
 
 .pp2-plan-tag {
     position: absolute;
-    top: -10px;
-    right: 16px;
-    background: var(--gradient-primary, linear-gradient(135deg, #ef4444, #f97316));
+    top: -12px;
+    right: 12px;
+    background: #ff5c26;
     color: #fff;
-    font-size: 0.68rem;
+    font-size: 11px;
     font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 10px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(255, 92, 38, 0.2);
 }
 
 .pp2-plan-name {
-    font-size: 1rem;
+    font-size: 18px;
     font-weight: 700;
-    color: var(--text-primary, #1e293b);
-    margin-bottom: 8px;
+    color: #1e293b;
+    margin-bottom: 0;
 }
 
 .pp2-plan-price {
-    font-size: 1.6rem;
+    font-size: 32px;
     font-weight: 800;
-    color: var(--primary, #ef4444);
-    margin-bottom: 14px;
+    color: #ef4444;
+    margin-bottom: 4px;
 }
 
 .pp2-plan-price span {
-    font-size: 0.8rem;
+    font-size: 16px;
     font-weight: 400;
-    color: var(--text-muted, #94a3b8);
+    color: #94a3b8;
+    margin-left: 2px;
 }
 
 .pp2-plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    font-size: 0.8rem;
-    color: var(--text-secondary, #475569);
+    gap: 10px;
+    flex: 1;
+}
+
+.pp2-plan-features li {
+    font-size: 14px;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1.5;
+}
+
+.pp2-plan-features li .feature-check {
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+}
+
+.pp2-plan-features li.not-included {
+    color: #94a3b8;
+}
+
+.pp2-plan-features li.not-included .feature-check {
+    color: #cbd5e1;
 }
 
 /* 配置区 */
@@ -400,3 +436,107 @@
     font-size: 0.75rem;
     color: var(--text-muted, #94a3b8);
 }
+
+/* 订阅成功卡片样式 */
+.pp2-success-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-md, 12px);
+    padding: 36px 24px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(16, 185, 129, 0.06);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    max-width: 480px;
+    margin: 20px auto;
+}
+
+.pp2-success-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.pp2-success-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #10b981;
+    margin: 0;
+}
+
+.pp2-success-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-muted, #64748b);
+    margin: 0 0 10px 0;
+}
+
+.pp2-success-details {
+    width: 100%;
+    background: var(--bg-tertiary, #f1f5f9);
+    border-radius: var(--radius-sm, 8px);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+}
+
+.pp2-success-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.pp2-success-row span:first-child {
+    color: var(--text-muted, #64748b);
+}
+
+.pp2-success-row code {
+    font-family: monospace;
+    font-size: 0.8rem;
+    background: var(--bg-secondary, #fff);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.pp2-success-amount {
+    color: var(--primary, #ef4444);
+    font-weight: 700;
+}
+
+.pp2-success-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    border: none;
+    border-radius: var(--radius-sm, 8px);
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+}
+
+.pp2-success-btn:hover {
+    opacity: 0.9;
+}
+
+@keyframes scaleIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+

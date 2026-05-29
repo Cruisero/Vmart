@@ -20,9 +20,11 @@ function Navbar() {
     const cartItems = useCartStore((state) => state.items)
     const { user, isAuthenticated } = useAuthStore()
     const { theme, toggleTheme } = useThemeStore()
-    const { siteLogo } = useSkinStore()
+    const { siteLogo, siteName } = useSkinStore()
     const storefront = useStorefront()
     const prefix = storefront ? getStorefrontBasePath(storefront) : ''
+    const displayLogo = storefront?.shopLogo || siteLogo || (theme === 'dark' ? logoDarkImg : logoImg)
+    const displayName = storefront?.shopName || siteName || 'Logo'
 
     const [searchQuery, setSearchQuery] = useState('')
     const [showDropdown, setShowDropdown] = useState(false)
@@ -207,8 +209,8 @@ function Navbar() {
                 {/* Logo */}
                 <Link to={`${prefix}/`} className="navbar-logo">
                     <img
-                        src={siteLogo || (theme === 'dark' ? logoDarkImg : logoImg)}
-                        alt="Logo"
+                        src={displayLogo}
+                        alt={displayName}
                         className="logo-image"
                     />
                 </Link>

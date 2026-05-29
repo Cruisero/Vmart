@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useStorefront } from '../../store/storefrontStore'
 import { getStorefrontBasePath } from '../../utils/agentDomain'
 import { formatPrice } from '../../utils/currencyFormat'
+import { formatStock } from '../../utils/stockFormat'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import './Products.css'
 
@@ -139,6 +140,26 @@ function Products() {
             })
     }, [activeCategory, productsBase])
 
+    // 记住离开时的滚动位置
+    useEffect(() => {
+        return () => {
+            sessionStorage.setItem(`scroll-${window.location.pathname}`, window.scrollY.toString())
+        }
+    }, [])
+
+    // 在数据加载完毕、DOM 渲染完成后恢复滚动位置
+    useEffect(() => {
+        if (!loading) {
+            const savedScroll = sessionStorage.getItem(`scroll-${window.location.pathname}`)
+            if (savedScroll) {
+                setTimeout(() => {
+                    window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'instant' })
+                }, 30) // 给一定缓冲确保 DOM 完全渲染
+            }
+        }
+    }, [loading])
+
+
     // 排序商品
     const filteredProducts = useMemo(() => {
         let result = [...products]
@@ -242,11 +263,13 @@ function Products() {
                                     <h3 className="product-name">{product.name}</h3>
                                     <p className="product-desc">{product.description}</p>
                                     <div className="product-meta">
-                                        <span className="product-sales">
-                                            <FiTag /> {t('products.sales')} {product.sold}
-                                        </span>
+                                        {storefront?.showSalesCount !== false && (
+                                            <span className="product-sales">
+                                                <FiTag /> {t('products.sales')} {product.sold}
+                                            </span>
+                                        )}
                                         <span className="product-stock">
-                                            {t('products.stock')} {product.stock}
+                                            {formatStock(product.stock, storefront?.fuzzyStockEnabled, storefront?.fuzzyStockThreshold, t)}
                                         </span>
                                     </div>
                                     <div className="product-footer">

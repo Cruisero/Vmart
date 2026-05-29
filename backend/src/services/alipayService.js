@@ -128,6 +128,10 @@ async function createQrCodePayment(order, tenantConfig = null, notifyUrl = null)
         // 调试日志：输出完整响应
         logger.info(`支付宝API响应: ${JSON.stringify(result)}`)
 
+        if (result.code !== '10000') {
+            throw new Error(`支付宝接口及网关返回失败: [${result.subCode || result.code}] ${result.subMsg || result.msg || '未知错误'}`)
+        }
+
         // 支付宝当面付接口返回的字段可能是 qrCode 或 qr_code
         const qrCode = result.qrCode || result.qr_code
         logger.info(`支付宝二维码生成成功: ${order.orderNo}, qrCode: ${qrCode}`)

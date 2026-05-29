@@ -11,6 +11,67 @@ const STATUS_MAP = {
     REJECTED: { label: '已拒绝', color: 'var(--error, #ef4444)' }
 }
 
+const getPlanFeaturesList = (plan) => {
+    const f = plan.features || {}
+    const list = []
+
+    // 1. 商品数量
+    if (f.maxProducts === -1) {
+        list.push({ text: '商品数量不限', included: true })
+    } else if (f.maxProducts > 0) {
+        list.push({ text: `最多 ${f.maxProducts} 个商品`, included: true })
+    } else {
+        list.push({ text: '不支持商品上架', included: false })
+    }
+
+    // 2. 皮肤
+    if (f.skins === '全部') {
+        list.push({ text: '全部主题和皮肤解锁', included: true })
+    } else if (f.skins) {
+        list.push({ text: `${f.skins}皮肤支持`, included: true })
+    } else {
+        list.push({ text: '1 套精美皮肤', included: true })
+    }
+
+    // 3. 自定义域名
+    list.push({ text: '自定义独立域名', included: !!f.customDomain })
+
+    // 4. 代理商分销系统
+    list.push({ text: '代理商分销系统', included: !!f.agentSystem })
+
+    // 5. 邮件通知配额
+    if (f.emailNotifications === -1) {
+        list.push({ text: '邮件通知不限', included: true })
+    } else if (f.emailNotifications > 0) {
+        list.push({ text: `邮件通知 ${f.emailNotifications.toLocaleString()} 封/月`, included: true })
+    } else {
+        list.push({ text: '邮件通知功能', included: false })
+    }
+
+    // 6. 子管理员上限
+    if (f.maxSubAdmins === -1) {
+        list.push({ text: '子管理员不限', included: true })
+    } else if (f.maxSubAdmins > 0) {
+        list.push({ text: `${f.maxSubAdmins} 个子管理员`, included: true })
+    } else {
+        list.push({ text: '协作子管理员', included: false })
+    }
+
+    // 7. 工单管理系统
+    list.push({ text: '客服工单管理系统', included: !!f.customerTickets || f.support === true })
+
+    // 8. 平台专属技术支持
+    list.push({ text: '平台专属技术支持', included: f.support === true })
+
+    // 9. 卡密自动发货
+    list.push({ text: '卡密秒级自动发货', included: true })
+
+    // 10. 多种支付方式集成
+    list.push({ text: '支付宝/USDT集成支付', included: true })
+
+    return list
+}
+
 export default function PlanPurchase() {
     const { token: mToken } = useMerchantStore()
     const { token: aToken } = useAuthStore()
@@ -24,6 +85,7 @@ export default function PlanPurchase() {
     const [loading, setLoading] = useState(false)
     const [orders, setOrders] = useState([])
     const [msg, setMsg] = useState('')
+    const [isPaid, setIsPaid] = useState(false)
 
     useEffect(() => {
         fetch('/api/platform/plans').then(r => r.json()).then(d => setPlans(d.plans || []))
@@ -37,7 +99,7 @@ export default function PlanPurchase() {
 
     const handleBuy = async () => {
         if (!selectedPlan) return
-        setLoading(true); setMsg('')
+        setLoading(true); setMsg(''); setIsPaid(false)
         try {
             const res = await fetch('/api/platform/plan/buy', {
                 method: 'POST',
@@ -62,15 +124,15 @@ export default function PlanPurchase() {
                 })
                 const data = await res.json()
                 if (data.status === 'paid') {
+                    setIsPaid(true)
                     setMsg('✅ 支付成功，套餐已激活！')
-                    setStep('select')
-                    setPaymentInfo(null)
                     loadOrders()
                     clearInterval(interval)
                 } else if (data.status === 'cancelled') {
                     setMsg('❌ 订单已取消')
                     setStep('select')
                     setPaymentInfo(null)
+                    setIsPaid(false)
                     clearInterval(interval)
                 }
             } catch {}
@@ -118,25 +180,30 @@ export default function PlanPurchase() {
 
                 {/* 套餐选择卡片 */}
                 <div className="pp2-plans">
-                    {plans.map(plan => (
-                        <div
-                            key={plan.key}
-                            className={`pp2-plan ${selectedPlan === plan.key ? 'active' : ''}`}
-                            onClick={() => setSelectedPlan(plan.key)}
-                        >
-                            {plan.key === 'PRO' && <div className="pp2-plan-tag">推荐</div>}
-                            <div className="pp2-plan-name">{plan.name}</div>
-                            <div className="pp2-plan-price">
-                                ¥{months >= 12 ? plan.yearlyPrice : plan.monthlyPrice}<span>/月</span>
+                    {plans.map(plan => {
+                        const featuresList = getPlanFeaturesList(plan)
+                        return (
+                            <div
+                                key={plan.key}
+                                className={`pp2-plan ${selectedPlan === plan.key ? 'active' : ''}`}
+                                onClick={() => setSelectedPlan(plan.key)}
+                            >
+                                {plan.key === 'PRO' && <div className="pp2-plan-tag">推荐</div>}
+                                <div className="pp2-plan-name">{plan.name}</div>
+                                <div className="pp2-plan-price">
+                                    ¥{months >= 12 ? plan.yearlyPrice : plan.monthlyPrice}<span>/月</span>
+                                </div>
+                                <ul className="pp2-plan-features">
+                                    {featuresList.map((feat, idx) => (
+                                        <li key={idx} className={!feat.included ? 'not-included' : ''}>
+                                            <span className="feature-check">{feat.included ? '✓' : '×'}</span>
+                                            {feat.text}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
-                            <div className="pp2-plan-features">
-                                <div>商品：{plan.features.maxProducts === -1 ? '无限' : plan.features.maxProducts + ' 个'}</div>
-                                <div>订单：无限</div>
-                                <div>{plan.features.customDomain ? '✓' : '✗'} 自定义域名</div>
-                                <div>{plan.features.agentSystem ? '✓' : '✗'} 代理商系统</div>
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
 
                 {/* 购买配置 */}
@@ -186,6 +253,49 @@ export default function PlanPurchase() {
 
     // ─── 支付信息 ───
     if (step === 'pay' && paymentInfo) {
+        if (isPaid) {
+            return (
+                <div className="pp2">
+                    <div className="pp2-success-card">
+                        <div className="pp2-success-icon">✓</div>
+                        <h3 className="pp2-success-title">订阅成功！</h3>
+                        <p className="pp2-success-subtitle">您的套餐已激活，立即享受所有专属权益！</p>
+                        
+                        <div className="pp2-success-details">
+                            <div className="pp2-success-row">
+                                <span>订单号</span>
+                                <code>{paymentInfo.orderNo}</code>
+                            </div>
+                            <div className="pp2-success-row">
+                                <span>订阅套餐</span>
+                                <strong>{PLAN_LABELS[paymentInfo.plan]}</strong>
+                            </div>
+                            <div className="pp2-success-row">
+                                <span>订阅时长</span>
+                                <span>{paymentInfo.months} 个月</span>
+                            </div>
+                            <div className="pp2-success-row">
+                                <span>支付金额</span>
+                                <span className="pp2-success-amount">¥{paymentInfo.amount}</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            className="pp2-success-btn"
+                            onClick={() => {
+                                setIsPaid(false)
+                                setPaymentInfo(null)
+                                setStep('select')
+                                setMsg('')
+                            }}
+                        >
+                            完成
+                        </button>
+                    </div>
+                </div>
+            )
+        }
+
         return (
             <div className="pp2">
                 {msg && <div className="pp2-msg">{msg}</div>}
@@ -249,6 +359,7 @@ export default function PlanPurchase() {
                                 setMsg('订单已取消')
                                 setStep('select')
                                 setPaymentInfo(null)
+                                setIsPaid(false)
                                 loadOrders()
                             } catch {}
                         }}
@@ -263,7 +374,7 @@ export default function PlanPurchase() {
                         取消订单
                     </button>
                 </div>
-                <button className="pp2-back" style={{ marginTop: 12 }} onClick={() => { setStep('select'); setPaymentInfo(null) }}>← 返回</button>
+                <button className="pp2-back" style={{ marginTop: 12 }} onClick={() => { setStep('select'); setPaymentInfo(null); setIsPaid(false) }}>← 返回</button>
             </div>
         )
     }

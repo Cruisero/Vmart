@@ -50,7 +50,8 @@ exports.register = async (req, res) => {
         const slug = await generateUniqueSlug()
 
         // 读取平台配置的试用时长（小时），默认 24
-        const trialHours = parseInt(await getPlatformConfig('trial_hours', '24'))
+        const parsedHours = parseInt(await getPlatformConfig('trial_hours', '24'))
+        const trialHours = isNaN(parsedHours) ? 24 : parsedHours
         const trialEndsAt = new Date(Date.now() + trialHours * 3600 * 1000)
 
         const merchant = await prisma.merchant.create({
@@ -308,7 +309,8 @@ exports.listMerchants = async (req, res) => {
             where.OR = [
                 { email: { contains: search } },
                 { shopName: { contains: search } },
-                { shop: { slug: { contains: search } } }
+                { shop: { slug: { contains: search } } },
+                { shop: { customDomain: { contains: search } } }
             ]
         }
 
@@ -316,24 +318,44 @@ exports.listMerchants = async (req, res) => {
             prisma.merchant.count({ where }),
             prisma.merchant.findMany({
                 where,
-                include: { shop: { select: { id: true, slug: true, name: true, plan: true, status: true, trialEndsAt: true, planExpiresAt: true, createdAt: true } } },
+                include: { shop: { select: { id: true, slug: true, name: true, plan: true, status: true, trialEndsAt: true, planExpiresAt: true, createdAt: true, customDomain: true } } },
                 orderBy: { createdAt: 'desc' },
                 skip: (page - 1) * limit,
                 take: parseInt(limit)
             })
         ])
 
-        // 关联 tenantId
+        // 关联 tenantId 及 KYC 信息
         const slugs = merchants.map(m => m.shop?.slug).filter(Boolean)
         const tenants = slugs.length ? await prisma.tenant.findMany({
             where: { shopSlug: { in: slugs } },
-            select: { id: true, shopSlug: true }
+            select: {
+                id: true,
+                shopSlug: true,
+                kycStatus: true,
+                kycRealName: true,
+                kycIdNumber: true,
+                kycRejectReason: true,
+                kycRequestedAt: true,
+                kycAuditLog: true,
+                kycPhotoFile: true
+            }
         }) : []
-        const tenantBySlug = Object.fromEntries(tenants.map(t => [t.shopSlug, t.id]))
-        const enriched = merchants.map(m => ({
-            ...m,
-            tenantId: m.shop?.slug ? tenantBySlug[m.shop.slug] || null : null
-        }))
+        const tenantMap = Object.fromEntries(tenants.map(t => [t.shopSlug, t]))
+        const enriched = merchants.map(m => {
+            const tenant = m.shop?.slug ? tenantMap[m.shop.slug] || null : null
+            return {
+                ...m,
+                tenantId: tenant ? tenant.id : null,
+                kycStatus: tenant ? tenant.kycStatus : 'UNVERIFIED',
+                kycRealName: tenant ? tenant.kycRealName : null,
+                kycIdNumber: tenant ? tenant.kycIdNumber : null,
+                kycRejectReason: tenant ? tenant.kycRejectReason : null,
+                kycRequestedAt: tenant ? tenant.kycRequestedAt : null,
+                kycAuditLog: tenant ? tenant.kycAuditLog : null,
+                kycPhotoFile: tenant ? tenant.kycPhotoFile : null
+            }
+        })
 
         res.json({ total, page: parseInt(page), merchants: enriched })
     } catch (e) {
@@ -593,6 +615,18 @@ exports.getPlatformStats = async (req, res) => {
         const now = new Date()
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
+        const { rankingRange = 'all' } = req.query
+        let rankingStartDate = null
+
+        if (rankingRange === 'today' || rankingRange === 'day') {
+            rankingStartDate = today
+        } else if (rankingRange === 'week') {
+            rankingStartDate = new Date(now.getTime() - 7 * 24 * 3600 * 1000)
+        } else if (rankingRange === 'month') {
+            rankingStartDate = new Date(now.getTime() - 30 * 24 * 3600 * 1000)
+        }
+
+        // 1. 基础平台统计（商户数、平台套餐订购收入等）
         const [total, active, expired, todayNew, expiringIn7Days, totalRevenue, monthRevenue] = await Promise.all([
             prisma.shop.count(),
             prisma.shop.count({ where: { status: 'ACTIVE' } }),
@@ -619,10 +653,240 @@ exports.getPlatformStats = async (req, res) => {
             })
         ])
 
+        // 2. 全站商户运营 data（总成交额、总订单数、总商品数、总会员数、总访问量）
+        const [totalSalesAggregate, totalOrdersCount, totalProductsCount, totalCustomersCount, totalVisitsAggregate] = await Promise.all([
+            prisma.order.aggregate({
+                where: { status: 'COMPLETED' },
+                _sum: { totalAmount: true }
+            }),
+            prisma.order.count({
+                where: { status: 'COMPLETED' }
+            }),
+            prisma.product.count(),
+            prisma.customer.count(),
+            prisma.siteVisit ? prisma.siteVisit.aggregate({
+                _sum: { visits: true }
+            }).catch(() => ({ _sum: { visits: 0 } })) : Promise.resolve({ _sum: { visits: 0 } })
+        ])
+
+        // 3. 热销商品排行 Top 5 (若指定区间则从已完成订单聚合)
+        let topProducts = []
+        if (rankingStartDate) {
+            const productSalesGroup = await prisma.order.groupBy({
+                by: ['productId'],
+                where: {
+                    status: 'COMPLETED',
+                    createdAt: { gte: rankingStartDate }
+                },
+                _sum: { quantity: true },
+                orderBy: {
+                    _sum: { quantity: 'desc' }
+                },
+                take: 5
+            })
+
+            if (productSalesGroup.length > 0) {
+                const productIds = productSalesGroup.map(g => g.productId)
+                const productsInfo = await prisma.product.findMany({
+                    where: { id: { in: productIds } },
+                    include: {
+                        tenant: {
+                            select: { shopName: true, shopSlug: true }
+                        }
+                    }
+                })
+
+                topProducts = productSalesGroup.map(group => {
+                    const p = productsInfo.find(x => x.id === group.productId)
+                    return {
+                        id: group.productId,
+                        name: p?.name || '未知商品',
+                        price: p ? Number(p.price) : 0,
+                        soldCount: group._sum.quantity || 0,
+                        shopName: p?.tenant?.shopName || '—',
+                        shopSlug: p?.tenant?.shopSlug || ''
+                    }
+                }).filter(p => p.soldCount > 0)
+            }
+        } else {
+            const topProductsRaw = await prisma.product.findMany({
+                orderBy: { soldCount: 'desc' },
+                take: 5,
+                include: {
+                    tenant: {
+                        select: { shopName: true, shopSlug: true }
+                    }
+                }
+            })
+            topProducts = topProductsRaw.map(p => ({
+                id: p.id,
+                name: p.name,
+                price: Number(p.price),
+                soldCount: p.soldCount,
+                shopName: p.tenant?.shopName || '—',
+                shopSlug: p.tenant?.shopSlug || ''
+            }))
+        }
+
+        // 4. 销量最高商户 Top 3 (以 COMPLETED 状态订单总额 GMV 排行，加时间区间限制)
+        const merchantSalesGroup = await prisma.order.groupBy({
+            by: ['tenantId'],
+            where: {
+                status: 'COMPLETED',
+                ...(rankingStartDate && {
+                    createdAt: { gte: rankingStartDate }
+                })
+            },
+            _sum: { totalAmount: true },
+            _count: { id: true },
+            orderBy: {
+                _sum: { totalAmount: 'desc' }
+            },
+            take: 3
+        })
+
+        // 解析商户的名称和 Slug
+        const topMerchants = await Promise.all(merchantSalesGroup.map(async (group) => {
+            if (!group.tenantId) {
+                return {
+                    tenantId: null,
+                    shopName: '平台直营/未知',
+                    shopSlug: '',
+                    totalSales: Number(group._sum.totalAmount || 0),
+                    orderCount: group._count.id
+                }
+            }
+            const tenant = await prisma.tenant.findUnique({
+                where: { id: group.tenantId },
+                select: { shopName: true, shopSlug: true }
+            })
+            return {
+                tenantId: group.tenantId,
+                shopName: tenant?.shopName || '未命名商铺',
+                shopSlug: tenant?.shopSlug || '',
+                totalSales: Number(group._sum.totalAmount || 0),
+                orderCount: group._count.id
+            }
+        }))
+
+        // 4.5. 商家流量排行 Top 5 (按访问量)
+        let topVisits = []
+        if (prisma.siteVisit) {
+            const visitsGroup = await prisma.siteVisit.groupBy({
+                by: ['tenantId'],
+                where: {
+                    ...(rankingStartDate && {
+                        date: { gte: rankingStartDate }
+                    })
+                },
+                _sum: { visits: true },
+                orderBy: {
+                    _sum: { visits: 'desc' }
+                },
+                take: 5
+            })
+
+            topVisits = await Promise.all(visitsGroup.map(async (group) => {
+                if (!group.tenantId || group.tenantId === 'platform') {
+                    return {
+                        tenantId: 'platform',
+                        shopName: '平台直营/主站',
+                        shopSlug: '',
+                        totalVisits: group._sum.visits || 0
+                    }
+                }
+                const tenant = await prisma.tenant.findUnique({
+                    where: { id: group.tenantId },
+                    select: { shopName: true, shopSlug: true }
+                })
+                return {
+                    tenantId: group.tenantId,
+                    shopName: tenant?.shopName || '未命名商铺',
+                    shopSlug: tenant?.shopSlug || '',
+                    totalVisits: group._sum.visits || 0
+                }
+            }))
+        }
+
+        // 5. 商家套餐分布
+        const planGroup = await prisma.shop.groupBy({
+            by: ['plan'],
+            _count: { id: true }
+        })
+        const planBreakdown = planGroup.map(g => ({
+            plan: g.plan,
+            count: g._count.id
+        }))
+
+        // 6. 最近平台套餐订单
+        const recentPlanOrdersRaw = await prisma.planOrder.findMany({
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                merchant: {
+                    select: {
+                        email: true,
+                        shopName: true,
+                        shop: {
+                            select: {
+                                slug: true
+                            }
+                        }
+                    }
+                }
+            }
+        })
+        const recentPlanOrders = recentPlanOrdersRaw.map(o => ({
+            id: o.id,
+            plan: o.plan,
+            amount: Number(o.amount),
+            status: o.paymentStatus,
+            merchantEmail: o.merchant?.email || '—',
+            merchantShopName: o.merchant?.shopName || '—',
+            shopSlug: o.merchant?.shop?.slug || '',
+            createdAt: o.createdAt
+        }))
+
+        // 7. 全站最近 5 笔交易订单
+        const recentStoreOrdersRaw = await prisma.order.findMany({
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                tenant: {
+                    select: { shopName: true, shopSlug: true }
+                }
+            }
+        })
+        const recentStoreOrders = recentStoreOrdersRaw.map(o => ({
+            id: o.id,
+            orderNo: o.orderNo,
+            productName: o.productName,
+            quantity: o.quantity,
+            totalAmount: Number(o.totalAmount),
+            status: o.status,
+            createdAt: o.createdAt,
+            shopName: o.tenant?.shopName || '—',
+            shopSlug: o.tenant?.shopSlug || ''
+        }))
+
         res.json({
             total, active, expired, todayNew, expiringIn7Days,
             totalRevenue: Number(totalRevenue._sum.amount || 0),
-            monthRevenue: Number(monthRevenue._sum.amount || 0)
+            monthRevenue: Number(monthRevenue._sum.amount || 0),
+            // 全站商户统计数据
+            shopStats: {
+                totalSales: Number(totalSalesAggregate._sum.totalAmount || 0),
+                totalOrders: totalOrdersCount,
+                totalProducts: totalProductsCount,
+                totalCustomers: totalCustomersCount,
+                totalVisits: Number(totalVisitsAggregate?._sum?.visits || 0)
+            },
+            topProducts,
+            topMerchants,
+            topVisits,
+            planBreakdown,
+            recentPlanOrders,
+            recentStoreOrders
         })
     } catch (e) {
         res.status(500).json({ error: e.message })
@@ -650,6 +914,33 @@ exports.getPlatformTrend = async (req, res) => {
             select: { paidAt: true, amount: true }
         })
 
+        // 获取全站每日完成的商户订单趋势
+        const storeOrders = await prisma.order.findMany({
+            where: {
+                status: 'COMPLETED',
+                createdAt: { gte: startDate }
+            },
+            select: { createdAt: true, totalAmount: true }
+        })
+
+        // 获取全站每日新增商品趋势
+        const storeProducts = await prisma.product.findMany({
+            where: { createdAt: { gte: startDate } },
+            select: { createdAt: true }
+        })
+
+        // 获取全站每日新增会员趋势
+        const storeCustomers = await prisma.customer.findMany({
+            where: { createdAt: { gte: startDate } },
+            select: { createdAt: true }
+        })
+
+        // 获取全站每日访问量趋势
+        const storeVisits = prisma.siteVisit ? await prisma.siteVisit.findMany({
+            where: { date: { gte: startDate } },
+            select: { date: true, visits: true }
+        }).catch(() => []) : []
+
         // 生成日期数组
         const trend = []
         for (let i = 0; i < days; i++) {
@@ -665,7 +956,36 @@ exports.getPlatformTrend = async (req, res) => {
                 .filter(o => o.paidAt && o.paidAt.toISOString().split('T')[0] === dateStr)
                 .reduce((sum, o) => sum + Number(o.amount), 0)
 
-            trend.push({ date: dateStr, merchants: dayMerchants, revenue: dayRevenue })
+            const dayStoreSales = storeOrders
+                .filter(o => o.createdAt.toISOString().split('T')[0] === dateStr)
+                .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0)
+
+            const dayStoreOrders = storeOrders
+                .filter(o => o.createdAt.toISOString().split('T')[0] === dateStr)
+                .length
+
+            const dayStoreProducts = storeProducts
+                .filter(p => p.createdAt.toISOString().split('T')[0] === dateStr)
+                .length
+
+            const dayStoreCustomers = storeCustomers
+                .filter(c => c.createdAt.toISOString().split('T')[0] === dateStr)
+                .length
+
+            const dayStoreVisits = storeVisits
+                .filter(v => v.date && v.date.toISOString().split('T')[0] === dateStr)
+                .reduce((sum, v) => sum + v.visits, 0)
+
+            trend.push({
+                date: dateStr,
+                merchants: dayMerchants,
+                revenue: Number(dayRevenue.toFixed(2)),
+                storeSales: Number(dayStoreSales.toFixed(2)),
+                storeOrders: dayStoreOrders,
+                storeProducts: dayStoreProducts,
+                storeCustomers: dayStoreCustomers,
+                storeVisits: dayStoreVisits
+            })
         }
 
         res.json({ trend })
@@ -688,3 +1008,319 @@ exports.getShopPublicConfig = async (req, res) => {
         res.status(500).json({ error: e.message })
     }
 }
+
+// ─── 平台超管：获取商户的仪表盘统计数据 ──────────────────────────────
+exports.getMerchantStats = async (req, res) => {
+    try {
+        const { tenantId } = req.params
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+        const [
+            totalOrders,
+            totalRevenue,
+            totalProducts,
+            totalUsers,
+            todayOrders,
+            todayRevenue,
+            totalVisitsData,
+            todayVisitsData
+        ] = await Promise.all([
+            prisma.order.count({ where: { tenantId, status: 'COMPLETED' } }),
+            prisma.order.aggregate({
+                where: { tenantId, status: 'COMPLETED' },
+                _sum: { totalAmount: true }
+            }),
+            prisma.product.count({ where: { tenantId } }),
+            prisma.customer.count({ where: { tenantId } }),
+            prisma.order.count({
+                where: {
+                    tenantId,
+                    status: 'COMPLETED',
+                    createdAt: { gte: today }
+                }
+            }),
+            prisma.order.aggregate({
+                where: {
+                    tenantId,
+                    status: 'COMPLETED',
+                    createdAt: { gte: today }
+                },
+                _sum: { totalAmount: true }
+            }),
+            prisma.siteVisit ? prisma.siteVisit.aggregate({ where: { tenantId }, _sum: { visits: true } }).catch(() => ({ _sum: { visits: 0 } })) : Promise.resolve({ _sum: { visits: 0 } }),
+            prisma.siteVisit ? prisma.siteVisit.findUnique({ where: { date_tenantId: { date: today, tenantId } } }).catch(() => null) : Promise.resolve(null)
+        ])
+
+        res.json({
+            totalOrders,
+            totalRevenue: Number(totalRevenue._sum.totalAmount || 0),
+            totalProducts,
+            totalUsers,
+            totalVisits: totalVisitsData?._sum?.visits || 0,
+            todayOrders,
+            todayRevenue: Number(todayRevenue._sum.totalAmount || 0),
+            todayVisits: todayVisitsData?.visits || 0
+        })
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+}
+
+// ─── 平台超管：获取特定商户的销售/指标趋势数据 ──────────────────────────────
+exports.getMerchantTrend = async (req, res) => {
+    try {
+        const { tenantId } = req.params
+        const days = parseInt(req.query.days) || 7
+        const today = new Date()
+        today.setHours(23, 59, 59, 999)
+        
+        const startDate = new Date(today)
+        startDate.setDate(startDate.getDate() - days + 1)
+        startDate.setHours(0, 0, 0, 0)
+
+        // 生成日期数组
+        const dateList = []
+        for (let i = 0; i < days; i++) {
+            const d = new Date(startDate)
+            d.setDate(d.getDate() + i)
+            const dateStr = d.toISOString().split('T')[0]
+            dateList.push({
+                date: dateStr,
+                orders: 0,
+                revenue: 0,
+                users: 0,
+                products: 0,
+                visits: 0
+            })
+        }
+
+        // 并行查询
+        const [orders, customers, products, siteVisits] = await Promise.all([
+            prisma.order.findMany({
+                where: {
+                    tenantId,
+                    status: 'COMPLETED',
+                    createdAt: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { createdAt: true, totalAmount: true }
+            }),
+            prisma.customer.findMany({
+                where: {
+                    tenantId,
+                    createdAt: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { createdAt: true }
+            }),
+            prisma.product.findMany({
+                where: {
+                    tenantId,
+                    createdAt: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { createdAt: true }
+            }),
+            prisma.siteVisit ? prisma.siteVisit.findMany({
+                where: {
+                    tenantId,
+                    date: {
+                        gte: startDate,
+                        lte: today
+                    }
+                },
+                select: { date: true, visits: true }
+            }).catch(() => []) : Promise.resolve([])
+        ])
+
+        // 整理数据
+        const dataMap = new Map(dateList.map(item => [item.date, item]))
+
+        orders.forEach(o => {
+            const dateStr = o.createdAt.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).orders += 1
+                dataMap.get(dateStr).revenue += parseFloat(o.totalAmount || 0)
+            }
+        })
+
+        customers.forEach(u => {
+            const dateStr = u.createdAt.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).users += 1
+            }
+        })
+
+        products.forEach(p => {
+            const dateStr = p.createdAt.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).products += 1
+            }
+        })
+
+        siteVisits.forEach(sv => {
+            const dateStr = sv.date.toISOString().split('T')[0]
+            if (dataMap.has(dateStr)) {
+                dataMap.get(dateStr).visits += sv.visits
+            }
+        })
+
+        // 固定两位小数
+        dateList.forEach(item => {
+            item.revenue = parseFloat(item.revenue.toFixed(2))
+        })
+
+        res.json({
+            trend: dateList
+        })
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+}
+
+// 平台超管：获取商户提现申请列表
+exports.getAdminWithdrawals = async (req, res) => {
+    try {
+        const { status, page = 1, limit = 20 } = req.query
+        const where = {}
+        if (status) {
+            where.status = status
+        }
+
+        const [total, list] = await Promise.all([
+            prisma.tenantWithdrawal.count({ where }),
+            prisma.tenantWithdrawal.findMany({
+                where,
+                include: {
+                    tenant: {
+                        select: {
+                            id: true,
+                            shopName: true,
+                            shopSlug: true,
+                            kycRealName: true,
+                            kycStatus: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (parseInt(page) - 1) * parseInt(limit),
+                take: parseInt(limit)
+            })
+        ])
+
+        res.json({
+            total,
+            page: parseInt(page),
+            withdrawals: list.map(w => ({
+                id: w.id,
+                tenantId: w.tenantId,
+                shopName: w.tenant.shopName,
+                shopSlug: w.tenant.shopSlug,
+                kycRealName: w.tenant.kycRealName || '—',
+                amount: parseFloat(w.amount),
+                method: w.method,
+                account: w.account,
+                status: w.status,
+                rejectReason: w.rejectReason || null,
+                processedAt: w.processedAt || null,
+                createdAt: w.createdAt
+            }))
+        })
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+}
+
+// 平台超管：审批商户提现申请
+exports.auditAdminWithdrawal = async (req, res) => {
+    try {
+        const { id, action, rejectReason } = req.body
+        if (!id || !['APPROVE', 'REJECT'].includes(action)) {
+            return res.status(400).json({ error: '参数无效或不完整' })
+        }
+
+        const withdrawal = await prisma.tenantWithdrawal.findUnique({
+            where: { id },
+            include: { tenant: true }
+        })
+        if (!withdrawal) {
+            return res.status(404).json({ error: '提现记录不存在' })
+        }
+        if (withdrawal.status !== 'PENDING') {
+            return res.status(400).json({ error: '该提现申请已在之前处理完毕' })
+        }
+
+        const amount = parseFloat(withdrawal.amount)
+
+        if (action === 'APPROVE') {
+            await prisma.$transaction(async (tx) => {
+                // 扣减冻结余额（可用余额已在申请时扣减）
+                await tx.tenant.update({
+                    where: { id: withdrawal.tenantId },
+                    data: {
+                        frozenBalance: { decrement: amount }
+                    }
+                })
+
+                // 更新提现状态为已通过
+                await tx.tenantWithdrawal.update({
+                    where: { id },
+                    data: {
+                        status: 'APPROVED',
+                        processedAt: new Date()
+                    }
+                })
+            })
+
+            res.json({ message: '提现申请已批准并完成打款扣账' })
+        } else {
+            // REJECT
+            await prisma.$transaction(async (tx) => {
+                // 扣除商户冻结额度，返还至商户可用余额中
+                const updatedTenant = await tx.tenant.update({
+                    where: { id: withdrawal.tenantId },
+                    data: {
+                        balance: { increment: amount },
+                        frozenBalance: { decrement: amount }
+                    }
+                })
+
+                // 更新提现状态为已拒绝
+                await tx.tenantWithdrawal.update({
+                    where: { id },
+                    data: {
+                        status: 'REJECTED',
+                        processedAt: new Date(),
+                        rejectReason: rejectReason || '提现信息不符合要求，申请被驳回'
+                    }
+                })
+
+                // 记账流水：退回
+                await tx.tenantBalanceLog.create({
+                    data: {
+                        tenantId: withdrawal.tenantId,
+                        type: 'REJECT',
+                        amount: amount,
+                        balance: updatedTenant.balance,
+                        referenceId: id,
+                        remark: `提现申请被驳回，资金已自动返还 (驳回原因: ${rejectReason || '未填写'})`
+                    }
+                })
+            })
+
+            res.json({ message: '已成功驳回提现申请，资金已退还商户余额' })
+        }
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+}
+
+
+

@@ -4,6 +4,8 @@ import { FiShoppingCart, FiSearch, FiBox } from 'react-icons/fi'
 import { useCartStore } from '../../store/cartStore'
 import { useStorefront, useStorefrontPath } from '../../store/storefrontStore'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useTranslation } from 'react-i18next'
+import { formatStock } from '../../utils/stockFormat'
 import toast from 'react-hot-toast'
 import './Search.css'
 
@@ -21,6 +23,7 @@ const getImageUrl = (url, size = 'large') => {
 }
 
 function Search() {
+    const { t } = useTranslation()
     const [searchParams] = useSearchParams()
     const query = searchParams.get('q') || ''
     usePageTitle(query ? `搜索：${query}` : '搜索')
@@ -169,8 +172,10 @@ function Search() {
                                     <p className="product-desc">{product.description}</p>
 
                                     <div className="product-meta">
-                                        <span className="product-sold">已售 {product.sold}</span>
-                                        <span className="product-stock">库存 {product.stock}</span>
+                                        {storefront?.showSalesCount !== false && (
+                                            <span className="product-sold">已售 {product.sold}</span>
+                                        )}
+                                        <span className="product-stock">{formatStock(product.stock, storefront?.fuzzyStockEnabled, storefront?.fuzzyStockThreshold, t)}</span>
                                     </div>
 
                                     <div className="product-footer">

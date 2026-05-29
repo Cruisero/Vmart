@@ -92,6 +92,8 @@ router.post('/platform/tickets/:id/close', platformAuth, merchantTicketCtrl.clos
 router.get('/man/stats', platformAuth, superAdminOnly, ctrl.getPlatformStats)
 router.get('/man/trend', platformAuth, superAdminOnly, ctrl.getPlatformTrend)
 router.get('/man/merchants', platformAuth, superAdminOnly, ctrl.listMerchants)
+router.get('/man/merchants/:tenantId/stats', platformAuth, superAdminOnly, ctrl.getMerchantStats)
+router.get('/man/merchants/:tenantId/trend', platformAuth, superAdminOnly, ctrl.getMerchantTrend)
 router.patch('/man/merchants/:id', platformAuth, superAdminOnly, ctrl.updateMerchant)
 router.get('/man/settings', platformAuth, superAdminOnly, ctrl.getPlatformSettings)
 router.put('/man/settings', platformAuth, superAdminOnly, ctrl.updatePlatformSettings)
@@ -191,5 +193,15 @@ router.post('/man/test-email', platformAuth, superAdminOnly, async (req, res) =>
 
 // 商户数据导出
 router.get('/platform/export', platformAuth, ctrl.exportMerchantData)
+
+// 平台超管：商户实名认证 (KYC) 审核管理
+const kycController = require('../controllers/kycController')
+router.get('/man/kyc/requests', platformAuth, superAdminOnly, kycController.getAdminKycRequests)
+router.get('/man/kyc/file/:filename', platformAuth, superAdminOnly, kycController.getAdminKycFile)
+router.post('/man/kyc/audit', platformAuth, superAdminOnly, kycController.auditKyc)
+
+// 平台超管：商户提现审批管理
+router.get('/man/withdrawals', platformAuth, superAdminOnly, ctrl.getAdminWithdrawals)
+router.post('/man/withdrawals/audit', platformAuth, superAdminOnly, ctrl.auditAdminWithdrawal)
 
 module.exports = router

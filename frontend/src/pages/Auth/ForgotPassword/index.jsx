@@ -1,13 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiMail, FiArrowLeft } from 'react-icons/fi'
+import { useStorefront } from '../../../store/storefrontStore'
 import toast from 'react-hot-toast'
 import '../../MerchantAuth/Auth.css'
 
 function ForgotPassword() {
+    const storefront = useStorefront()
     const [email, setEmail] = useState('')
     const [loading, setLoading] = useState(false)
     const [submitted, setSubmitted] = useState(false)
+
+    const loginPath = window.location.pathname.includes('/v/')
+        ? window.location.pathname.replace(/\/forgot-password.*$/, '/login')
+        : '/login'
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -23,7 +29,10 @@ function ForgotPassword() {
             const response = await fetch('/api/auth/forgot-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ 
+                    email,
+                    storefrontSlug: storefront?.slug
+                })
             })
 
             const data = await response.json()
@@ -57,7 +66,7 @@ function ForgotPassword() {
                     </div>
 
                     <div className="merchant-auth-footer">
-                        <Link to="/login" className="merchant-auth-forgot">返回登录</Link>
+                        <Link to={loginPath} className="merchant-auth-forgot">返回登录</Link>
                     </div>
                 </div>
             </div>
@@ -87,7 +96,7 @@ function ForgotPassword() {
                 </form>
 
                 <p className="merchant-auth-footer">
-                    <Link to="/login" className="merchant-auth-forgot">
+                    <Link to={loginPath} className="merchant-auth-forgot">
                         <FiArrowLeft style={{ verticalAlign: '-2px', marginRight: 4 }} />
                         返回登录
                     </Link>

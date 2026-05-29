@@ -9,10 +9,14 @@ exports.recordVisit = async (req, res, next) => {
             return res.json({ success: false, reason: 'model_not_available' })
         }
 
+        const tenantId = req.body?.tenantId || 'platform'
+
         const siteVisit = await prisma.siteVisit.upsert({
             where: {
-                    ...(req.tenantId ? { tenantId: req.tenantId } : {}),
-                date: today
+                date_tenantId: {
+                    date: today,
+                    tenantId: tenantId
+                }
             },
             update: {
                 visits: {
@@ -21,6 +25,7 @@ exports.recordVisit = async (req, res, next) => {
             },
             create: {
                 date: today,
+                tenantId: tenantId,
                 visits: 1
             }
         })

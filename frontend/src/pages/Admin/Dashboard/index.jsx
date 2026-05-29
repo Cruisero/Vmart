@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, useRef, Fragment } from 'react'
+import { useState, useEffect, createContext, useContext, useRef, Fragment, useCallback } from 'react'
 import { Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import {
     FiHome, FiPackage, FiShoppingBag, FiCreditCard,
@@ -20,6 +20,40 @@ import { formatMoney, getCurrencySymbol } from '../../../utils/adminFormat'
 import { prepareUploadImageFile, uploadImages as uploadCompressedImages } from '../../../utils/imageUtils'
 import './Dashboard.css'
 import TenantSettings from '../TenantSettings'
+import WalletSettings from '../TenantSettings/WalletSettings'
+
+const TelegramIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.89 1.2-5.33 3.52-.5.35-.96.52-1.37.51-.45-.01-1.32-.26-1.97-.47-.79-.26-1.42-.4-1.37-.84.03-.23.35-.46.96-.71 3.76-1.63 6.27-2.71 7.54-3.23 3.58-1.48 4.32-1.74 4.81-1.75.11 0 .35.03.5.16.13.12.17.29.19.41-.02.11-.02.26-.03.4z"/>
+    </svg>
+)
+
+const WhatsappIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+        <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2zm5.8 14.16c-.24.67-1.18 1.24-1.62 1.29-.44.05-.98.24-2.95-.54-2.52-1-4.1-3.61-4.23-3.78-.13-.17-.99-1.32-.99-2.5 0-1.18.62-1.76.84-2 .22-.24.49-.3.65-.3.16 0 .33 0 .46.01.14.01.32-.05.5.38.19.46.65 1.58.71 1.7.06.12.1.26.02.43-.08.17-.12.27-.24.42-.12.15-.26.33-.37.44-.12.12-.25.26-.11.5.14.24.63 1.04 1.35 1.68.93.82 1.71 1.08 1.95 1.2.24.12.38.1.53-.06.15-.17.65-.75.82-.99.17-.24.34-.2.58-.11.24.09 1.52.72 1.78.85.26.13.43.19.49.3.06.11.06.64-.18 1.31z"/>
+    </svg>
+)
+
+const EmailIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+    </svg>
+)
+
+const QqIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 16 16" width={size} height={size} fill="currentColor">
+        <path d="M6.048 3.323c.022.277-.13.523-.338.55-.21.026-.397-.176-.419-.453s.13-.523.338-.55c.21-.026.397.176.42.453Zm2.265-.24c-.603-.146-.894.256-.936.333-.027.048-.008.117.037.15.045.035.092.025.119-.003.361-.39.751-.172.829-.129l.011.007c.053.024.147.028.193-.098.023-.063.017-.11-.006-.142-.016-.023-.089-.08-.247-.118"/>
+        <path d="M11.727 6.719c0-.022.01-.375.01-.557 0-3.07-1.45-6.156-5.015-6.156S1.708 3.092 1.708 6.162c0 .182.01.535.01.557l-.72 1.795a26 26 0 0 0-.534 1.508c-.68 2.187-.46 3.093-.292 3.113.36.044 1.401-1.647 1.401-1.647 0 .979.504 2.256 1.594 3.179-.408.126-.907.319-1.228.556-.29.213-.253.43-.201.518.228.386 3.92.246 4.985.126 1.065.12 4.756.26 4.984-.126.052-.088.088-.305-.2-.518-.322-.237-.822-.43-1.23-.557 1.09-.922 1.594-2.2 1.594-3.178 0 0 1.041 1.69 1.401 1.647.168-.02.388-.926-.292-3.113a26 26 0 0 0-.534 1.508l-.72-1.795ZM9.773 5.53a.1.1 0 0 1-.009.096c-.109.159-1.554.943-3.033.943h-.017c-1.48 0-2.925-.784-3.034-.943a.1.1 0 0 1-.018-.055q0-.022.01-.04c.13-.287 1.43-.606 3.042-.606h.017c1.611 0 2.912.319 3.042.605m-4.32-.989c-.483.022-.896-.529-.922-1.229s.344-1.286.828-1.308c.483-.022.896.529.922 1.23.027.7-.344 1.286-.827 1.307Zm2.538 0c-.484-.022-.854-.607-.828-1.308.027-.7.44-1.25.923-1.23.483.023.853.608.827 1.309-.026.7-.439 1.251-.922 1.23ZM2.928 8.99q.32.063.639.117v2.336s1.104.222 2.21.068V9.363q.49.027.937.023h.017c1.117.013 2.474-.136 3.786-.396.097.622.151 1.386.097 2.284-.146 2.45-1.6 3.99-3.846 4.012h-.091c-2.245-.023-3.7-1.562-3.846-4.011-.054-.9 0-1.663.097-2.285"/>
+    </svg>
+)
+
+const WechatIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 16 16" width={size} height={size} fill="currentColor">
+        <path d="M11.176 14.429c-2.665 0-4.826-1.8-4.826-4.018 0-2.22 2.159-4.02 4.824-4.02S16 8.191 16 10.411c0 1.21-.65 2.301-1.666 3.036a.32.32 0 0 0-.12.366l.218.81a.6.6 0 0 1 .029.117.166.166 0 0 1-.162.162.2.2 0 0 1-.092-.03l-1.057-.61a.5.5 0 0 0-.256-.074.5.5 0 0 0-.142.021 5.7 5.7 0 0 1-1.576.22M9.064 9.542a.647.647 0 1 0 .557-1 .645.645 0 0 0-.646.647.6.6 0 0 0 .09.353Zm3.232.001a.646.646 0 1 0 .546-1 .645.645 0 0 0-.644.644.63.63 0 0 0 .098.356"/>
+        <path d="M0 6.826c0 1.455.781 2.765 2.001 3.656a.385.385 0 0 1 .143.439l-.161.6-.1.373a.5.5 0 0 0-.032.14.19.19 0 0 0 .193.193q.06 0 .111-.029l1.268-.733a.6.6 0 0 1 .308-.088q.088 0 .171.025a6.8 6.8 0 0 0 1.625.26 4.5 4.5 0 0 1-.177-1.251c0-2.936 2.785-5.02 5.824-5.02l.15.002C10.587 3.429 8.392 2 5.796 2 2.596 2 0 4.16 0 6.826m4.632-1.555a.77.77 0 1 1-1.54 0 .77.77 0 0 1 1.54 0m3.875 0a.77.77 0 1 1-1.54 0 .77.77 0 0 1 1.54 0"/>
+    </svg>
+)
 
 // ==================== Toast & Dialog Context ====================
 const ToastContext = createContext(null)
@@ -187,6 +221,7 @@ const menuItems = [
     { path: '/admin/users', icon: FiUsers, labelZh: '用户管理', labelEn: 'Customers', permission: 'customers.view' },
     { path: '/admin/agents', icon: FiShare2, labelZh: '代理管理', labelEn: 'Agents', permission: 'agents.review' },
     { path: '/admin/support', icon: FiSend, labelZh: '联系客服', labelEn: 'Support', ownerOnly: true },
+    { path: '/admin/wallet', icon: FiDollarSign, labelZh: '资金提现', labelEn: 'Funds & Payout', ownerOnly: true },
     { path: '/admin/settings', icon: FiSettings, labelZh: '商城设置', labelEn: 'Settings', ownerOnly: true },
     { path: '/admin/setup', icon: FiFlag, labelZh: '新手起航', labelEn: 'Get Started', tenantOnly: true },
 ]
@@ -675,6 +710,7 @@ function DashboardHome() {
                     <div className="trend-tabs" style={{ marginBottom: 0 }}>
                         <span className={`trend-tab ${trendDays === 7 ? 'active' : ''}`} onClick={() => setTrendDays(7)}>7d</span>
                         <span className={`trend-tab ${trendDays === 30 ? 'active' : ''}`} onClick={() => setTrendDays(30)}>30d</span>
+                        <span className={`trend-tab ${trendDays === 90 ? 'active' : ''}`} onClick={() => setTrendDays(90)}>90d</span>
                     </div>
                 </div>
                 {!trendData[trendDays] ? (
@@ -1419,9 +1455,22 @@ function ProductsManage() {
         }
     }
 
+    const sanitizePrice = (val) => {
+        let clean = val.replace(/[^\d.]/g, '')
+        const parts = clean.split('.')
+        if (parts.length > 2) {
+            clean = parts[0] + '.' + parts.slice(1).join('')
+        }
+        if (parts.length > 1) {
+            clean = parts[0] + '.' + parts[1].slice(0, 2)
+        }
+        return clean
+    }
+
     const handleChange = (e) => {
         const { name, value } = e.target
-        setFormData(prev => ({ ...prev, [name]: value }))
+        const finalValue = name === 'price' ? sanitizePrice(value) : value
+        setFormData(prev => ({ ...prev, [name]: finalValue }))
     }
 
     // 处理图片选择
@@ -1790,15 +1839,15 @@ function ProductsManage() {
                                                                             style={{ flex: 2, padding: '6px 10px', fontSize: '0.85rem' }}
                                                                         />
                                                                         <input
-                                                                            type="number"
+                                                                            type="text"
+                                                                            inputMode="decimal"
                                                                             placeholder={L('售价', 'Price')}
                                                                             value={variant.price}
                                                                             onChange={(e) => {
                                                                                 const newVariants = [...formData.variants]
-                                                                                newVariants[variant.originalIndex].price = e.target.value
+                                                                                newVariants[variant.originalIndex].price = sanitizePrice(e.target.value)
                                                                                 setFormData({ ...formData, variants: newVariants })
                                                                             }}
-                                                                            step="0.01"
                                                                             style={{ flex: 1, padding: '6px 10px', fontSize: '0.85rem' }}
                                                                         />
                                                                         {stockMode === 'manual' && (
@@ -1900,15 +1949,15 @@ function ProductsManage() {
                                                             style={{ flex: 2, padding: '6px 10px', fontSize: '0.85rem' }}
                                                         />
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="decimal"
                                                             placeholder={L('售价', 'Price')}
                                                             value={variant.price}
                                                             onChange={(e) => {
                                                                 const newVariants = [...formData.variants]
-                                                                newVariants[index].price = e.target.value
+                                                                newVariants[index].price = sanitizePrice(e.target.value)
                                                                 setFormData({ ...formData, variants: newVariants })
                                                             }}
-                                                            step="0.01"
                                                             style={{ flex: 1, padding: '6px 10px', fontSize: '0.85rem' }}
                                                         />
                                                         {stockMode === 'manual' && (
@@ -1959,12 +2008,12 @@ function ProductsManage() {
                                         <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                                             <label>{L('商品售价', 'Price')} ({getCurrencySymbol()}) *</label>
                                             <input
-                                                type="number"
+                                                type="text"
+                                                inputMode="decimal"
                                                 name="price"
                                                 value={formData.price}
                                                 onChange={handleChange}
                                                 placeholder="0.00"
-                                                step="0.01"
                                                 required={specMode === 'single'}
                                                 style={{ padding: '8px 12px' }}
                                             />
@@ -2115,13 +2164,12 @@ function ProductsManage() {
                                                             </div>
                                                             <div className="wholesale-editor__input-wrap">
                                                                 <input
-                                                                    type="number"
+                                                                    type="text"
+                                                                    inputMode="decimal"
                                                                     className="wholesale-editor__input"
                                                                     placeholder={L('如: 9.90', 'e.g. 9.90')}
-                                                                    min="0"
-                                                                    step="0.01"
                                                                     value={tier.price}
-                                                                    onChange={(e) => updateTier(tier._key, 'price', e.target.value)}
+                                                                    onChange={(e) => updateTier(tier._key, 'price', sanitizePrice(e.target.value))}
                                                                 />
                                                             </div>
                                                             <button
@@ -2427,6 +2475,7 @@ function ProductsManage() {
 function OrdersManage() {
     const L = useAdminL()
     const location = useLocation()
+    const navigate = useNavigate()
     const basePath = location.pathname.replace(/\/orders.*$/, '') || '/admin'
     // 商户店面下用 /v/:slug 前缀；Main Site直接用 /order/...
     const storefrontPrefix = basePath.startsWith('/v/')
@@ -2434,21 +2483,25 @@ function OrdersManage() {
         : ''
     const queryParams = new URLSearchParams(location.search)
     const userIdFilter = queryParams.get('userId')
+    const emailFilter = queryParams.get('email')
     const urlStatusFilter = queryParams.get('status')
     const token = useAuthStore(state => state.token)
     const currentUser = useAuthStore(state => state.user)
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
+    const canRefund = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(currentUser?.role) ||
+        (currentUser?.role === 'ADMIN' && currentUser?.permissions?.['orders.refund'])
     const { showToast, showConfirm } = useToast()
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [statusFilter, setStatusFilter] = useState(urlStatusFilter || 'all')
     const [shipping, setShipping] = useState(null) // 正在Ship的订单ID
     const [currentPage, setCurrentPage] = useState(1)
+    const pageSize = 20
     const [totalOrders, setTotalOrders] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
-    const pageSize = 20
-    const [searchInput, setSearchInput] = useState('')
-    const [debouncedSearch, setDebouncedSearch] = useState('')
+    const urlSearchFilter = queryParams.get('search') || ''
+    const [searchInput, setSearchInput] = useState(urlSearchFilter)
+    const [debouncedSearch, setDebouncedSearch] = useState(urlSearchFilter)
     const searchTimer = useRef(null)
     const [searching, setSearching] = useState(false)
 
@@ -2472,11 +2525,11 @@ function OrdersManage() {
 
     useEffect(() => {
         setCurrentPage(1)
-    }, [statusFilter, userIdFilter, debouncedSearch])
+    }, [statusFilter, userIdFilter, emailFilter, debouncedSearch])
 
     useEffect(() => {
         fetchOrders()
-    }, [statusFilter, currentPage, userIdFilter, debouncedSearch])
+    }, [statusFilter, currentPage, userIdFilter, emailFilter, debouncedSearch])
 
     const fetchOrders = async () => {
         // 初次加载显示loading，Search时不显示全页loading
@@ -2485,6 +2538,7 @@ function OrdersManage() {
             const params = new URLSearchParams({ page: currentPage, pageSize })
             if (statusFilter !== 'all') params.append('status', statusFilter)
             if (userIdFilter) params.append('userId', userIdFilter)
+            if (emailFilter) params.append('email', emailFilter)
             if (debouncedSearch.trim()) params.append('search', debouncedSearch.trim())
             const res = await fetch(`/api/admin/orders?${params}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -2644,6 +2698,31 @@ function OrdersManage() {
         )
     }
 
+    const handleCancelRefund = (order) => {
+        showConfirm(
+            L('拒绝退款', 'Reject Refund'),
+            L(`确定要拒绝订单 ${order.orderNo} 的退款申请吗？订单将恢复到退款前的状态。`, `Are you sure you want to reject the refund request for order ${order.orderNo}? The order will be restored to its pre-refund state.`),
+            async () => {
+                try {
+                    const res = await fetch(`/api/admin/orders/${order.id}/refund/cancel`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    const data = await res.json()
+                    if (res.ok) {
+                        showToast(data.message || L('退款已拒绝，订单已恢复', 'Refund rejected, order restored'), 'success')
+                        fetchOrders()
+                    } else {
+                        showToast(data.error || L('拒绝退款失败', 'Reject Refund Failed'), 'error')
+                    }
+                } catch (error) {
+                    showToast(L('拒绝退款失败', 'Reject Refund Failed'), 'error')
+                }
+            },
+            L('确认拒绝', 'Confirm Reject')
+        )
+    }
+
     // Delete Order
     const handleDeleteOrder = (order) => {
         showConfirm(
@@ -2703,7 +2782,15 @@ function OrdersManage() {
                         />
                         {searching && <span className="search-spinner" />}
                         {searchInput && !searching && (
-                            <button className="search-clear" onClick={() => { setSearchInput(''); setDebouncedSearch('') }}>
+                            <button className="search-clear" onClick={() => {
+                                setSearchInput('')
+                                setDebouncedSearch('')
+                                const newParams = new URLSearchParams(location.search)
+                                if (newParams.get('search')) {
+                                    newParams.delete('search')
+                                    navigate(`${location.pathname}?${newParams.toString()}`)
+                                }
+                            }}>
                                 <FiX />
                             </button>
                         )}
@@ -2723,6 +2810,56 @@ function OrdersManage() {
                     </select>
                 </div>
             </div>
+            {(userIdFilter || emailFilter) && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 16,
+                    padding: '8px 14px',
+                    background: 'rgba(59, 130, 246, 0.06)',
+                    border: '1px solid rgba(59, 130, 246, 0.15)',
+                    borderRadius: '10px',
+                    fontSize: '0.82rem',
+                    color: '#2563eb',
+                    width: 'fit-content'
+                }}>
+                    <span>
+                        🔍 {userIdFilter 
+                            ? L(`正在过滤用户 ID 为 "${userIdFilter}" 的订单`, `Filtering orders for User ID "${userIdFilter}"`)
+                            : L(`正在过滤邮箱为 "${emailFilter}" 的订单`, `Filtering orders for Email "${emailFilter}"`)}
+                    </span>
+                    <button
+                        onClick={() => {
+                            const newParams = new URLSearchParams(location.search)
+                            newParams.delete('userId')
+                            newParams.delete('email')
+                            navigate(`${location.pathname}?${newParams.toString()}`)
+                        }}
+                        style={{
+                            border: 'none',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            color: '#2563eb',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.78rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            transition: 'all 0.15s'
+                        }}
+                        onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
+                        }}
+                        onMouseLeave={e => {
+                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                        }}
+                    >
+                        清除过滤
+                    </button>
+                </div>
+            )}
             <table className="admin-table">
                 <thead>
                     <tr>
@@ -2776,7 +2913,7 @@ function OrdersManage() {
                                         {L('重发卡密', 'Resend')}
                                     </button>
                                 )}
-                                {isSuperAdmin && (order.status?.toUpperCase() === 'PAID' || order.status?.toUpperCase() === 'COMPLETED') && (
+                                {canRefund && (order.status?.toUpperCase() === 'PAID' || order.status?.toUpperCase() === 'COMPLETED') && (
                                     <button
                                         className="action-btn refund"
                                         onClick={() => handleRefund(order)}
@@ -2784,13 +2921,21 @@ function OrdersManage() {
                                         {L('退款', 'Refund')}
                                     </button>
                                 )}
-                                {isSuperAdmin && order.status?.toUpperCase() === 'REFUNDING' && (
-                                    <button
-                                        className="action-btn refund-complete"
-                                        onClick={() => handleCompleteRefund(order)}
-                                    >
-                                        {L('已退款', 'Refunded')}
-                                    </button>
+                                {canRefund && order.status?.toUpperCase() === 'REFUNDING' && (
+                                    <>
+                                        <button
+                                            className="action-btn refund-complete"
+                                            onClick={() => handleCompleteRefund(order)}
+                                        >
+                                            {L('已退款', 'Refunded')}
+                                        </button>
+                                        <button
+                                            className="action-btn refund-cancel"
+                                            onClick={() => handleCancelRefund(order)}
+                                        >
+                                            {L('拒绝退款', 'Reject')}
+                                        </button>
+                                    </>
                                 )}
                                 <button className="action-btn view" onClick={() => window.open(`${storefrontPrefix}/order/${order.orderNo}`, '_blank')}>{L('admin.orders.view')}</button>
                                 {isSuperAdmin && <button className="action-btn delete" onClick={() => handleDeleteOrder(order)}>{L('删除', 'Delete')}</button>}
@@ -2889,21 +3034,13 @@ function OrdersManage() {
                                 <label className="card-input-label">
                                     <span className="card-icon">🎫</span>
                                     {isResendMode ? L('重发卡密内容', 'Resend Key Content') : L('卡密内容', 'Card Key Content')}
-                                    <span className="card-hint">{isResendMode ? L('多张卡密请用 --- 分隔', 'Separate multiple keys with ---') : (cardInputOrder.quantity === 1 ? L('支持多行卡密内容', 'Supports multi-line content') : L(`请用 --- 分隔，最多输入 ${cardInputOrder.quantity} 个卡密`, `Separate with ---, max ${cardInputOrder.quantity} items`))}</span>
+                                    <span className="card-hint">{L('支持多行长卡密/内容，整段将作为一个卡密发送给顾客', 'Supports multi-line content, entire text will be sent as one card key')}</span>
                                 </label>
                                 <textarea
                                     className="card-input-textarea"
                                     value={cardInputContent}
                                     onChange={(e) => setCardInputContent(e.target.value)}
-                                    placeholder={cardInputOrder.quantity === 1 ? L('请输入卡密内容（支持多行）...', 'Enter card key content (multi-line supported)...') : L(`请输入卡密内容...
-请用 --- 分隔。例如:
-卡密1内容
----
-卡密2内容`, `Enter card key content...
-Separate with ---. Example:
-key1 content
----
-key2 content`)}
+                                    placeholder={L('请输入卡密内容（支持多行）...', 'Enter card key content (multi-line supported)...')}
                                     rows={6}
                                     autoFocus
                                 />
@@ -2954,8 +3091,13 @@ key2 content`)}
 function TicketsManage() {
     const L = useAdminL()
     const { showToast } = useToast()
-    const { token } = useAuthStore()
+    const { token, user: currentUser } = useAuthStore()
+    const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(currentUser?.role)
     const location = useLocation()
+    const basePath = location.pathname.replace(/\/tickets.*$/, '') || '/admin'
+    const storefrontPrefix = basePath.startsWith('/v/')
+        ? basePath.replace(/\/admin$/, '')
+        : ''
     const [tickets, setTickets] = useState([])
     const [globalStats, setGlobalStats] = useState({ total: 0, open: 0, inProgress: 0, pendingSuperAdmin: 0, completed: 0, closed: 0, unread: 0, noReply: 0 })
     const [page, setPage] = useState(1)
@@ -2973,6 +3115,7 @@ function TicketsManage() {
     const [replyImages, setReplyImages] = useState([])
     const [uploadingImg, setUploadingImg] = useState(false)
     const [replying, setReplying] = useState(false)
+    const [hasSubAdmins, setHasSubAdmins] = useState(true)
 
     const statusMap = {
         OPEN: { label: L('等待处理', 'Pending'), class: 'pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
@@ -2987,6 +3130,20 @@ function TicketsManage() {
         REFUND: { label: L('退款申请', 'Refund Request'), color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
         OTHER: { label: L('其他', 'Other'), color: '#64748b', bg: 'rgba(100, 116, 139, 0.1)' }
     }
+
+    useEffect(() => {
+        // 检查是否有子管理员
+        const checkSubAdmins = async () => {
+            try {
+                const res = await fetch('/api/admin/admins', { headers: { 'Authorization': `Bearer ${token}` } })
+                if (res.ok) {
+                    const data = await res.json()
+                    setHasSubAdmins((data.admins || []).length > 0)
+                }
+            } catch {}
+        }
+        checkSubAdmins()
+    }, [token])
 
     useEffect(() => {
         fetchTickets()
@@ -3235,6 +3392,7 @@ function TicketsManage() {
                         <span className="stat-label">{L('admin.tickets.stats.inProgress')}</span>
                     </div>
                 </div>
+                {hasSubAdmins && (
                 <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'PENDING_SUPER_ADMIN' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('PENDING_SUPER_ADMIN')}>
                     <div className="stat-icon super-admin"><FiShield /></div>
                     <div className="stat-info">
@@ -3242,6 +3400,7 @@ function TicketsManage() {
                         <span className="stat-label">{L('admin.tickets.stats.pendingSuperAdmin')}</span>
                     </div>
                 </div>
+                )}
                 <div className={`ticket-stat-card ${!unreadFilter && statusFilter === 'CLOSED' ? 'active' : ''}`} onClick={() => handleStatusFilterChange('CLOSED')}>
                     <div className="stat-icon" style={{ background: 'rgba(100,116,139,0.1)', color: '#64748b' }}><FiCheck /></div>
                     <div className="stat-info">
@@ -3288,7 +3447,7 @@ function TicketsManage() {
                         <option value="all">{L('admin.orders.allStatus')}</option>
                         <option value="OPEN">{L('admin.tickets.stats.pending')}</option>
                         <option value="IN_PROGRESS">{L('admin.tickets.stats.inProgress')}</option>
-                        <option value="PENDING_SUPER_ADMIN">{L('admin.tickets.stats.pendingSuperAdmin')}</option>
+                        {hasSubAdmins && <option value="PENDING_SUPER_ADMIN">{L('admin.tickets.stats.pendingSuperAdmin')}</option>}
                         <option value="COMPLETED">{L('已完成', 'Completed')}</option>
                         <option value="CLOSED">{L('admin.tickets.stats.closed')}</option>
                     </select>
@@ -3500,7 +3659,7 @@ function TicketsManage() {
                                         )}
                                     </div>
                                 </div>
-                                {selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'PENDING_SUPER_ADMIN' && (
+                                {hasSubAdmins && !isSuperAdmin && selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'PENDING_SUPER_ADMIN' && (
                                     <div className="info-item">
                                         <label>{L('工单升级', 'Escalate')}</label>
                                         <button
@@ -3524,15 +3683,29 @@ function TicketsManage() {
                                             key={msg.id}
                                             className={`message-item ${msg.isAdmin ? 'admin' : 'user'}`}
                                         >
-                                            <div className="message-header">
-                                                <span className="message-sender">
-                                                    {msg.isAdmin ? L('客服', 'Support') : L('用户', 'User')}
-                                                </span>
-                                                <span className="message-time">
-                                                    {formatTime(msg.createdAt)}
-                                                </span>
+                                            <div className="message-avatar">
+                                                {msg.isAdmin ? '👨‍💼' : '👤'}
                                             </div>
-                                            <p className="message-content">{msg.content}</p>
+                                            <div className="message-content">
+                                                <div className="message-header">
+                                                    <span className="message-sender">
+                                                        {msg.isAdmin ? L('客服', 'Support') : L('用户', 'User')}
+                                                    </span>
+                                                    <span className="message-time">
+                                                        {formatTime(msg.createdAt)}
+                                                    </span>
+                                                </div>
+                                                <div className="message-text">{msg.content}</div>
+                                                {msg.images && Array.isArray(msg.images) && msg.images.length > 0 && (
+                                                    <div className="message-images">
+                                                        {msg.images.map((url, i) => (
+                                                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="message-image-link">
+                                                                <img src={url} alt="" className="message-image" />
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -4263,6 +4436,7 @@ function UsersManage() {
     const token = useAuthStore(state => state.token)
     const currentUser = useAuthStore(state => state.user)
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
+    const canManage = currentUser?.role === 'TENANT_ADMIN' || currentUser?.role === 'SUPER_ADMIN' || (currentUser?.role === 'ADMIN' && currentUser?.permissions?.['customers.view'])
     const [users, setUsers] = useState([])
     const [initialLoading, setInitialLoading] = useState(true)
     const [searching, setSearching] = useState(false)
@@ -4362,6 +4536,56 @@ function UsersManage() {
         } catch {
             showToast(L('操作失败', 'Operation failed'), 'error')
         }
+    }
+
+    const handleUpdateStatus = async (userId, newStatus, usernameOrEmail) => {
+        const actionText = newStatus === 'BANNED' ? L('封禁', 'Ban') : L('解封', 'Unban')
+        showConfirm(
+            `${actionText}${L('用户', 'User')}`,
+            L(`确定要${actionText}用户“${usernameOrEmail}”吗？${newStatus === 'BANNED' ? '封禁后该用户将无法登陆商城。' : ''}`, `Are you sure you want to ${actionText.toLowerCase()} user "${usernameOrEmail}"?`),
+            async () => {
+                try {
+                     const res = await fetch(`/api/admin/users/${userId}/status`, {
+                         method: 'PATCH',
+                         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ status: newStatus })
+                     })
+                     if (res.ok) {
+                         showToast(L('操作成功', 'Operation succeeded'), 'success')
+                         doFetch(currentPageRef.current, searchTermRef.current, roleFilterRef.current)
+                     } else {
+                         const data = await res.json()
+                         showToast(data.error || L('操作失败', 'Operation failed'), 'error')
+                     }
+                 } catch {
+                     showToast(L('操作失败', 'Operation failed'), 'error')
+                 }
+            }
+        )
+    }
+
+    const handleDeleteUser = async (userId, usernameOrEmail) => {
+        showConfirm(
+            L('删除用户', 'Delete User'),
+            L(`确定要永久删除用户“${usernameOrEmail}”吗？此操作将自动解除其关联的订单及工单的绑定，且无法撤销！`, `Are you sure you want to permanently delete user "${usernameOrEmail}"? This will unbind their orders and tickets and cannot be undone!`),
+            async () => {
+                 try {
+                     const res = await fetch(`/api/admin/users/${userId}`, {
+                         method: 'DELETE',
+                         headers: { 'Authorization': `Bearer ${token}` }
+                     })
+                     if (res.ok) {
+                         showToast(L('用户删除成功', 'User deleted successfully'), 'success')
+                         doFetch(currentPageRef.current, searchTermRef.current, roleFilterRef.current)
+                     } else {
+                         const data = await res.json()
+                         showToast(data.error || L('删除失败', 'Deletion failed'), 'error')
+                     }
+                 } catch {
+                     showToast(L('操作失败', 'Operation failed'), 'error')
+                 }
+            }
+        )
     }
 
     const handleCreateAdmin = async (e) => {
@@ -4572,24 +4796,40 @@ function UsersManage() {
                                 <tr key={user.id}>
                                     <td>
                                         <div className="user-cell">
-                                            <div className="user-avatar-sm">
+                                            <div className="user-avatar-sm" style={user.status === 'BANNED' ? { background: '#94a3b8', color: '#f1f5f9', opacity: 0.6 } : {}}>
                                                 {(user.username || user.email || 'U').charAt(0).toUpperCase()}
                                             </div>
                                             <div className="user-info-cell">
-                                                <span className="user-name-cell">{user.username || L('未设置', 'Not set')}</span>
-                                                <span className="user-email-cell">{user.email}</span>
+                                                <span className="user-name-cell" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {user.username || L('未设置', 'Not set')}
+                                                    {user.status === 'BANNED' && (
+                                                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: 4, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--error)', fontWeight: 600 }}>
+                                                            {L('已封禁', 'Banned')}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="user-email-cell" style={user.status === 'BANNED' ? { textDecoration: 'line-through', opacity: 0.6 } : {}}>{user.email}</span>
                                             </div>
                                         </div>
                                     </td>
                                     <td>
-                                        {isSuperAdmin && user.role !== 'SUPER_ADMIN' ? (
+                                        {canManage && user.role !== 'TENANT_ADMIN' && user.role !== 'SUPER_ADMIN' && user.id !== currentUser?.id ? (
                                             <select
                                                 className={`role-select ${(user.role || '').toLowerCase()}`}
-                                                value={user.role}
+                                                value={user.role === 'ADMIN' ? 'ADMIN' : 'CUSTOMER'}
                                                 onChange={(e) => handleChangeRole(user.id, e.target.value)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '0.8rem',
+                                                    borderRadius: '4px',
+                                                    border: '1px solid var(--border-color)',
+                                                    background: 'var(--bg-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    cursor: 'pointer'
+                                                }}
                                             >
-                                                <option value="USER">{L('普通用户', 'Users')}</option>
-                                                <option value="ADMIN">{L('子管理员', 'Admins')}</option>
+                                                <option value="CUSTOMER">{L('普通用户', 'Customer')}</option>
+                                                <option value="ADMIN">{L('子管理员', 'Admin')}</option>
                                             </select>
                                         ) : (
                                             <span className={`role-badge ${(user.role || '').toLowerCase()}`}>
@@ -4612,8 +4852,30 @@ function UsersManage() {
                                     <td className="time">{new Date(user.createdAt).toLocaleDateString('zh-CN')}</td>
                                     <td className="actions">
                                         <button className="action-btn edit" onClick={() => navigate(`${basePath}/orders?userId=${user.id}`)}>{L('查看订单', 'View Orders')}</button>
-                                        {isSuperAdmin && user.role === 'ADMIN' && (
-                                            <button className="action-btn delete" onClick={() => handleDeleteAdmin(user.id, user.username || user.email)}>{L('移除管理', 'Remove Admin')}</button>
+                                        {canManage && user.role !== 'TENANT_ADMIN' && user.role !== 'SUPER_ADMIN' && user.id !== currentUser?.id && (
+                                            <>
+                                                <button
+                                                    className="action-btn"
+                                                    style={{
+                                                        background: user.status === 'BANNED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                        color: user.status === 'BANNED' ? 'var(--success)' : 'var(--warning, #ea580c)',
+                                                        border: 'none',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        padding: '6px 12px',
+                                                        fontSize: '0.8rem',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onClick={() => handleUpdateStatus(user.id, user.status === 'BANNED' ? 'ACTIVE' : 'BANNED', user.username || user.email)}
+                                                >
+                                                    {user.status === 'BANNED' ? L('解封', 'Unban') : L('封禁', 'Ban')}
+                                                </button>
+                                                <button
+                                                    className="action-btn delete"
+                                                    onClick={() => handleDeleteUser(user.id, user.username || user.email)}
+                                                >
+                                                    {L('删除', 'Delete')}
+                                                </button>
+                                            </>
                                         )}
                                     </td>
                                 </tr>
@@ -5643,6 +5905,13 @@ function SettingsPage() {
         siteLogo: '',
         siteFavicon: '',
         agentSubdomainRoot: '',
+        contactEnabled: false,
+        contactTelegram: '',
+        contactWhatsapp: '',
+        contactEmail: '',
+        contactQq: '',
+        contactWechat: '',
+        contactLinks: [],
         // 通知栏设置
         notificationEnabled: false,
         notificationText: '',
@@ -5677,6 +5946,7 @@ function SettingsPage() {
         notifyLowStock: true,
         notifyOrderCancelled: false,
         notifyOrderRefunded: true,
+        notifyTicketClosed: true,
         // 安全策略设置
         securityEnabled: true,
         securityEnableIpBlock: true,
@@ -5705,6 +5975,33 @@ function SettingsPage() {
     const [activeTab, setActiveTab] = useState('basic')
     const [saving, setSaving] = useState(false)
     const [loading, setLoading] = useState(true)
+    const [contactExpanded, setContactExpanded] = useState(false)
+    const addContactLink = (type = 'telegram') => {
+        const newLink = {
+            id: 'link_' + Date.now() + Math.random().toString(36).substr(2, 9),
+            type: type,
+            value: '',
+            label: ''
+        };
+        setSettings(prev => ({
+            ...prev,
+            contactLinks: [...(prev.contactLinks || []), newLink]
+        }));
+    };
+    const updateContactLink = (id, key, val) => {
+        setSettings(prev => ({
+            ...prev,
+            contactLinks: (prev.contactLinks || []).map(item => 
+                item.id === id ? { ...item, [key]: val } : item
+            )
+        }));
+    };
+    const removeContactLink = (id) => {
+        setSettings(prev => ({
+            ...prev,
+            contactLinks: (prev.contactLinks || []).filter(item => item.id !== id)
+        }));
+    };
     // 套餐邮件额度：>0 / -1 表示允许，0 表示已禁用
     const [emailQuota, setEmailQuota] = useState(-1)
     const emailDisabled = emailQuota === 0
@@ -5720,26 +6017,45 @@ function SettingsPage() {
                 if (res.ok) {
                     const data = await res.json()
                     if (data.settings) {
+                        const parsedSettings = Object.fromEntries(
+                            Object.entries(data.settings).map(([key, value]) => {
+                                if (key === 'adminEmailNotificationConfigs') {
+                                    try {
+                                        const parsed = JSON.parse(value || '[]')
+                                        return [key, Array.isArray(parsed) ? parsed : []]
+                                    } catch {
+                                        return [key, []]
+                                    }
+                                }
+                                if (key === 'contactLinks') {
+                                    try {
+                                        const parsed = JSON.parse(value || '[]')
+                                        return [key, Array.isArray(parsed) ? parsed : []]
+                                    } catch {
+                                        return [key, []]
+                                    }
+                                }
+                                if (value === 'true') return [key, true]
+                                if (value === 'false') return [key, false]
+                                if (value !== '' && /^-?\d+(\.\d+)?$/.test(value)) return [key, Number(value)]
+                                return [key, value]
+                            })
+                        )
+
+                        // Migrate or populate contactLinks
+                        let parsedLinks = parsedSettings.contactLinks || []
+                        if (parsedLinks.length === 0) {
+                            if (parsedSettings.contactTelegram) parsedLinks.push({ id: 'tg', type: 'telegram', value: parsedSettings.contactTelegram, label: '' })
+                            if (parsedSettings.contactWhatsapp) parsedLinks.push({ id: 'wa', type: 'whatsapp', value: parsedSettings.contactWhatsapp, label: '' })
+                            if (parsedSettings.contactEmail) parsedLinks.push({ id: 'mail', type: 'email', value: parsedSettings.contactEmail, label: '' })
+                            if (parsedSettings.contactQq) parsedLinks.push({ id: 'qq', type: 'qq', value: parsedSettings.contactQq, label: '' })
+                            if (parsedSettings.contactWechat) parsedLinks.push({ id: 'wx', type: 'wechat', value: parsedSettings.contactWechat, label: '' })
+                        }
+                        parsedSettings.contactLinks = parsedLinks
+
                         setSettings(prev => ({
                             ...prev,
-                            ...Object.fromEntries(
-                                Object.entries(data.settings).map(([key, value]) => {
-                                    // 转换布尔值
-                                    if (key === 'adminEmailNotificationConfigs') {
-                                        try {
-                                            const parsed = JSON.parse(value || '[]')
-                                            return [key, Array.isArray(parsed) ? parsed : []]
-                                        } catch {
-                                            return [key, []]
-                                        }
-                                    }
-                                    if (value === 'true') return [key, true]
-                                    if (value === 'false') return [key, false]
-                                    // 转换数字（排除0x开头的地址等非十进制字符串）
-                                    if (value !== '' && /^-?\d+(\.\d+)?$/.test(value)) return [key, Number(value)]
-                                    return [key, value]
-                                })
-                            )
+                            ...parsedSettings
                         }))
                     }
                 }
@@ -5784,11 +6100,25 @@ function SettingsPage() {
     const handleSave = async () => {
         setSaving(true)
         try {
+            const getFirstValue = (type) => {
+                const found = (settings.contactLinks || []).find(item => item.type === type);
+                return found ? found.value : '';
+            };
+
+            const updatedSettings = {
+                ...settings,
+                contactTelegram: getFirstValue('telegram'),
+                contactWhatsapp: getFirstValue('whatsapp'),
+                contactEmail: getFirstValue('email'),
+                contactQq: getFirstValue('qq'),
+                contactWechat: getFirstValue('wechat')
+            };
+
             // 将设置值转换为字符串
             const settingsToSave = Object.fromEntries(
-                Object.entries(settings).map(([key, value]) => [
+                Object.entries(updatedSettings).map(([key, value]) => [
                     key,
-                    key === 'adminEmailNotificationConfigs' ? JSON.stringify(value) : String(value)
+                    (key === 'adminEmailNotificationConfigs' || key === 'contactLinks') ? JSON.stringify(value) : String(value)
                 ])
             )
 
@@ -6051,6 +6381,233 @@ function SettingsPage() {
                                     >{L('清除', 'Clear')}</button>
                                 )}
                             </div>
+                        </div>
+                        <div className="settings-section" style={{ marginTop: 24 }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 4, height: 16, background: '#3b82f6', borderRadius: 2 }}></span>
+                                {L('联系我们设置', 'Contact Us Settings')}
+                            </h3>
+
+                            <div className="setting-item toggle-item">
+                                <div className="toggle-info">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <label>{L('显示联系我们', 'Show Contact Us')}</label>
+                                        {settings.contactEnabled && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setContactExpanded(!contactExpanded)}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--border-color)',
+                                                    color: 'var(--primary-light, #ef4444)',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    padding: '3px 10px',
+                                                    borderRadius: 6,
+                                                    transition: 'all 0.2s',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center'
+                                                }}
+                                            >
+                                                {contactExpanded ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
+                                            </button>
+                                        )}
+                                    </div>
+                                    <span className="toggle-desc">{L('在商城底部展示联系我们模块', 'Show contact us module in store footer')}</span>
+                                </div>
+                                <label className="toggle-switch">
+                                    <input
+                                        type="checkbox"
+                                        checked={!!settings.contactEnabled}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            handleChange('contactEnabled', checked);
+                                            if (checked) {
+                                                setContactExpanded(true);
+                                            }
+                                        }}
+                                    />
+                                    <span className="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            {settings.contactEnabled && contactExpanded && (
+                                <div className="ts-pay-config-wrapper" style={{ marginTop: 14 }}>
+                                    <div className="ts-pay-fields" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: 'none' }}>
+                                        {/* Icons in a row at the top */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                                {L('点击图标添加联系方式：', 'Click icon to add contact channel:')}
+                                            </span>
+                                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                                {[
+                                                    { type: 'telegram', name: 'Telegram', color: '#24A1DE', icon: <TelegramIcon size={16} /> },
+                                                    { type: 'whatsapp', name: 'WhatsApp', color: '#25D366', icon: <WhatsappIcon size={16} /> },
+                                                    { type: 'email', name: 'Email', color: '#ea4335', icon: <EmailIcon size={14} /> },
+                                                    { type: 'qq', name: 'QQ', color: '#12B7F5', icon: <QqIcon size={16} /> },
+                                                    { type: 'wechat', name: L('微信', 'WeChat'), color: '#07C160', icon: <WechatIcon size={16} /> }
+                                                ].map(platform => (
+                                                    <button
+                                                        key={platform.type}
+                                                        type="button"
+                                                        onClick={() => addContactLink(platform.type)}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 8,
+                                                            padding: '8px 16px',
+                                                            borderRadius: '20px',
+                                                            border: '1px solid var(--border-color)',
+                                                            background: 'var(--bg-primary)',
+                                                            color: 'var(--text-primary)',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: 500,
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s',
+                                                            boxShadow: 'var(--shadow-sm)'
+                                                        }}
+                                                        onMouseEnter={e => {
+                                                            e.currentTarget.style.borderColor = platform.color;
+                                                            e.currentTarget.style.color = '#fff';
+                                                            e.currentTarget.style.background = platform.color;
+                                                        }}
+                                                        onMouseLeave={e => {
+                                                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                                                            e.currentTarget.style.color = 'var(--text-primary)';
+                                                            e.currentTarget.style.background = 'var(--bg-primary)';
+                                                        }}
+                                                    >
+                                                        <span style={{ display: 'flex', alignItems: 'center' }}>
+                                                            {platform.icon}
+                                                        </span>
+                                                        {platform.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ height: '1px', background: 'var(--border-color)', opacity: 0.5, margin: '4px 0' }} />
+
+                                        {/* Input fields appear underneath after choosing a platform */}
+                                        {(settings.contactLinks || []).length === 0 ? (
+                                            <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                                                {L('选择上方图标添加配置后即可显示输入框', 'Select an icon above to add and show the input fields')}
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                {(settings.contactLinks || []).map((item, index) => {
+                                                    const renderBrandBubble = (type) => {
+                                                        const config = {
+                                                            telegram: { color: '#24A1DE', icon: <TelegramIcon size={16} /> },
+                                                            whatsapp: { color: '#25D366', icon: <WhatsappIcon size={16} /> },
+                                                            email: { color: '#ea4335', icon: <EmailIcon size={14} /> },
+                                                            qq: { color: '#12B7F5', icon: <QqIcon size={16} /> },
+                                                            wechat: { color: '#07C160', icon: <WechatIcon size={16} /> }
+                                                        }[type] || { color: 'var(--text-secondary)', icon: null };
+
+                                                        return (
+                                                            <div
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    width: '32px',
+                                                                    height: '32px',
+                                                                    borderRadius: '50%',
+                                                                    background: config.color,
+                                                                    color: '#fff',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            >
+                                                                {config.icon}
+                                                            </div>
+                                                        );
+                                                    };
+
+                                                    return (
+                                                        <div key={item.id || index} style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%' }}>
+                                                            {renderBrandBubble(item.type)}
+                                                            <span style={{
+                                                                minWidth: '60px',
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: 600,
+                                                                color: 'var(--text-primary)'
+                                                            }}>
+                                                                {item.type === 'wechat' ? L('微信', 'WeChat') : item.type.charAt(0).toUpperCase() + item.type.slice(1)}:
+                                                            </span>
+                                                            <input
+                                                                type="text"
+                                                                value={item.value || ''}
+                                                                onChange={e => updateContactLink(item.id, 'value', e.target.value)}
+                                                                placeholder={
+                                                                    item.type === 'telegram' ? L('链接或用户名 (例如 https://t.me/yourusername)', 'Link or username (e.g. https://t.me/yourusername)') :
+                                                                    item.type === 'whatsapp' ? L('链接或电话号码 (例如 https://wa.me/number)', 'Link or phone (e.g. https://wa.me/number)') :
+                                                                    item.type === 'email' ? L('Email 邮箱地址 (例如 yourname@domain.com)', 'Email address (e.g. yourname@domain.com)') :
+                                                                    item.type === 'qq' ? L('QQ 号码或联系链接', 'QQ number or link') :
+                                                                    L('微信号或二维码链接', 'WeChat ID or QR link')
+                                                                }
+                                                                style={{
+                                                                    flex: 1,
+                                                                    padding: '8px 12px',
+                                                                    borderRadius: '8px',
+                                                                    border: '1px solid var(--border-color)',
+                                                                    background: 'var(--bg-primary)',
+                                                                    color: 'var(--text-primary)',
+                                                                    fontSize: '0.85rem',
+                                                                    fontFamily: 'inherit'
+                                                                }}
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                value={item.label || ''}
+                                                                onChange={e => updateContactLink(item.id, 'label', e.target.value)}
+                                                                placeholder={L('备注标签 (如: 客服A)', 'Remark/Label (e.g. Support A)')}
+                                                                style={{
+                                                                    flex: '0 0 150px',
+                                                                    padding: '8px 12px',
+                                                                    borderRadius: '8px',
+                                                                    border: '1px solid var(--border-color)',
+                                                                    background: 'var(--bg-primary)',
+                                                                    color: 'var(--text-primary)',
+                                                                    fontSize: '0.85rem',
+                                                                    fontFamily: 'inherit'
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeContactLink(item.id)}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    width: '36px',
+                                                                    height: '36px',
+                                                                    borderRadius: '8px',
+                                                                    border: 'none',
+                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                    color: '#ef4444',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                className="delete-link-btn"
+                                                                title={L('删除', 'Delete')}
+                                                            >
+                                                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <polyline points="3 6 5 6 21 6" />
+                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                    <line x1="10" y1="11" x2="10" y2="17" />
+                                                                    <line x1="14" y1="11" x2="14" y2="17" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                     </>
@@ -6534,6 +7091,21 @@ function SettingsPage() {
                                 <span className="toggle-slider"></span>
                             </label>
                         </div>
+
+                        <div className="setting-item toggle-item">
+                            <div className="toggle-info">
+                                <label>{L('🎫 工单已关闭通知', '🎫 Ticket Closed Notification')}</label>
+                                <span className="toggle-desc">{L('当客服/管理员关闭工单后自动向买家发送工单关闭提醒邮件', 'Send a ticket closed notification email to buyer when support closes a ticket')}</span>
+                            </div>
+                            <label className="toggle-switch">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.notifyTicketClosed}
+                                    onChange={(e) => handleChange('notifyTicketClosed', e.target.checked)}
+                                />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
                         </fieldset>
                     </div>
                 )}
@@ -6631,11 +7203,12 @@ function SettingsPage() {
 function AdminDashboard({ basePath = '/admin' }) {
     const location = useLocation()
     const navigate = useNavigate()
-    const { logout, user } = useAuthStore()
+    const { token, logout, user } = useAuthStore()
     const L = useAdminL()
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [agentEnabled, setAgentEnabled] = useState(false)
-    const [setupGuideHidden, setSetupGuideHidden] = useState(false)
+    const [platformPaymentEnabled, setPlatformPaymentEnabled] = useState(true)
+    const [setupGuideHidden, setSetupGuideHidden] = useState(true)
     const [planLimits, setPlanLimits] = useState({})
     const isSuperAdmin = ['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)
 
@@ -6649,6 +7222,7 @@ function AdminDashboard({ basePath = '/admin' }) {
             { path: 'agents', label: L('admin.nav.agents', '代理商管理') },
             { path: 'tenants', label: L('admin.nav.subAdmins', '子账号管理') },
             { path: 'setup', label: L('admin.nav.setup', '新手起航') },
+            { path: 'wallet', label: L('admin.nav.wallet', '资金提现') },
             { path: 'shop-settings', label: L('admin.nav.settings', '店铺设置') },
             { path: 'settings', label: L('admin.nav.settings', '店铺设置') },
             { path: 'support', label: L('admin.nav.support', '工单系统') },
@@ -6659,9 +7233,7 @@ function AdminDashboard({ basePath = '/admin' }) {
         document.title = `${subTitle} - ${L('admin.dashboard.title', '商户管理后台')}`
     }, [location.pathname, basePath, L])
 
-    // 拉取Agent开关Status
-    useEffect(() => {
-        // 已登录Admins（含 TENANT_ADMIN）：用 /api/admin/settings 拿到Current租户的 agentEnabled
+    const loadAdminSettings = useCallback(() => {
         const token = useAuthStore.getState().token
         if (token) {
             fetch('/api/admin/settings', { headers: { Authorization: `Bearer ${token}` } })
@@ -6671,6 +7243,8 @@ function AdminDashboard({ basePath = '/admin' }) {
                     setAgentEnabled(v === true || v === 'true')
                     const hidden = settingsData?.settings?.setupGuideHidden
                     setSetupGuideHidden(hidden === true || hidden === 'true')
+                    const pEnabled = settingsData?.settings?.platformPaymentEnabled
+                    setPlatformPaymentEnabled(pEnabled === true || pEnabled === 'true')
                     // 同步经营货币到本地缓存
                     const cur = settingsData?.settings?.currency
                     if (cur === 'CNY' || cur === 'USD') {
@@ -6685,6 +7259,11 @@ function AdminDashboard({ basePath = '/admin' }) {
                 .then(publicSettings => setAgentEnabled(publicSettings.settings?.agentEnabled === 'true'))
                 .catch(() => {})
         }
+    }, [])
+
+    // 拉取Agent开关Status
+    useEffect(() => {
+        loadAdminSettings()
 
         // 拉取套餐限制（用于 support / customerTickets 等功能开关）
         // 优先用 admin token（适用于 TENANT_ADMIN 直接登录商户后台），fallback 到 merchant token
@@ -6705,7 +7284,17 @@ function AdminDashboard({ basePath = '/admin' }) {
                 }
             }
         } catch {}
-    }, [])
+    }, [loadAdminSettings])
+
+    useEffect(() => {
+        const handlePaymentSettingsSaved = () => {
+            loadAdminSettings()
+        }
+        window.addEventListener('tenant-payment-settings-saved', handlePaymentSettingsSaved)
+        return () => {
+            window.removeEventListener('tenant-payment-settings-saved', handlePaymentSettingsSaved)
+        }
+    }, [loadAdminSettings])
 
     useEffect(() => {
         const handleSetupGuideHidden = () => setSetupGuideHidden(true)
@@ -6722,6 +7311,33 @@ function AdminDashboard({ basePath = '/admin' }) {
     // 根据Role过滤菜单项
     const isTenantAdmin = user?.role === 'TENANT_ADMIN';
 
+    // 细粒度权限分组动态核算辅助函数
+    const hasModulePermission = (moduleName) => {
+        if (!user) return false;
+        if (['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user.role)) return true;
+        if (user.role === 'ADMIN') {
+            const perms = user.permissions || {};
+            let keys = [];
+            if (moduleName === 'dashboard') {
+                keys = ['dashboard.view', 'dashboard.viewStatsGrid', 'dashboard.viewTodayStats', 'dashboard.viewRevenue'];
+            } else if (moduleName === 'products') {
+                keys = ['products.view', 'products.edit', 'products.delete', 'products.categories'];
+            } else if (moduleName === 'orders') {
+                keys = ['orders.view', 'orders.ship', 'orders.cancel', 'orders.refund', 'orders.export'];
+            } else if (moduleName === 'tickets') {
+                keys = ['tickets.view', 'tickets.reply', 'tickets.close'];
+            } else if (moduleName === 'cards') {
+                keys = ['cards.view', 'cards.import', 'cards.delete'];
+            } else if (moduleName === 'customers') {
+                keys = ['customers.view'];
+            } else if (moduleName === 'agents') {
+                keys = ['agents.review', 'agents.skinPool', 'agents.withdraw'];
+            }
+            return keys.some(k => !!perms[k]);
+        }
+        return false;
+    };
+
     // 将 menuItems 里的 /admin 前缀替换for实际 basePath
     const resolvedMenuItems = menuItems.map(item => ({
         ...item,
@@ -6737,16 +7353,32 @@ function AdminDashboard({ basePath = '/admin' }) {
         if (item.ownerOnly && !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user?.role)) return false;
         // Agents仅在EnableAgent体系时显示
         if (item.path === '/admin/agents' && !agentEnabled) return false;
+        // 资金提现仅在开启了平台代收渠道时显示
+        if (item.path === '/admin/wallet' && !platformPaymentEnabled) return false;
         // 新手引导完成或手动关闭后，从侧边栏隐藏入口；路由仍保留可直接访问
         if (item.path === '/admin/setup' && setupGuideHidden) return false;
         // 套餐限制：联系客服需要套餐Enable support
         if (item.path === '/admin/support' && planLimits.support === false) return false;
         // 套餐限制：tickets管理需要套餐Enable customerTickets
         if (item.path === '/admin/tickets' && planLimits.customerTickets === false) return false;
-        // Sub-Admins（ADMIN）按 permissions 过滤
-        if (user?.role === 'ADMIN' && item.permission) {
-            const perms = user.permissions || {}
-            if (!perms[item.permission]) return false
+        
+        // Sub-Admins（ADMIN）按 permissions 模块化分组过滤
+        if (user?.role === 'ADMIN') {
+            let mod = '';
+            if (item.path === '/admin') mod = 'dashboard';
+            else if (item.path === '/admin/products') mod = 'products';
+            else if (item.path === '/admin/orders') mod = 'orders';
+            else if (item.path === '/admin/tickets') mod = 'tickets';
+            else if (item.path === '/admin/cards') mod = 'cards';
+            else if (item.path === '/admin/users') mod = 'customers';
+            else if (item.path === '/admin/agents') mod = 'agents';
+
+            if (mod) {
+                if (!hasModulePermission(mod)) return false;
+            } else if (item.permission) {
+                const perms = user.permissions || {};
+                if (!perms[item.permission]) return false;
+            }
         }
         return true;
     })
@@ -6798,17 +7430,48 @@ function AdminDashboard({ basePath = '/admin' }) {
             {/* 主内容区 */}
             <main className="admin-main">
                 <Routes>
-                    <Route index element={<DashboardHome />} />
-                    <Route path="products" element={<ProductsManage />} />
-                    <Route path="orders" element={<OrdersManage />} />
-                    <Route path="tickets" element={<TicketsManage />} />
-                    <Route path="cards" element={<CardsManage />} />
-                    <Route path="users" element={<UsersManage />} />
-                    <Route path="agents" element={<AgentsManage />} />
+                    <Route 
+                        index 
+                        element={hasModulePermission('dashboard') ? <DashboardHome /> : <div style={{ padding: '32px', textAlign: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', margin: '24px', color: 'var(--text-muted)' }}><h2>🔒 {L('暂无数据概览的访问权限', 'No access to data overview')}</h2><p>{L('请联系商城管理员分配相关权限。', 'Please contact the store administrator to assign permissions.')}</p></div>} 
+                    />
+                    <Route 
+                        path="products" 
+                        element={hasModulePermission('products') ? <ProductsManage /> : <Navigate to="../" replace />} 
+                    />
+                    <Route 
+                        path="orders" 
+                        element={hasModulePermission('orders') ? <OrdersManage /> : <Navigate to="../" replace />} 
+                    />
+                    <Route 
+                        path="tickets" 
+                        element={hasModulePermission('tickets') ? <TicketsManage /> : <Navigate to="../" replace />} 
+                    />
+                    <Route 
+                        path="cards" 
+                        element={hasModulePermission('cards') ? <CardsManage /> : <Navigate to="../" replace />} 
+                    />
+                    <Route 
+                        path="users" 
+                        element={hasModulePermission('customers') ? <UsersManage /> : <Navigate to="../" replace />} 
+                    />
+                    <Route 
+                        path="agents" 
+                        element={hasModulePermission('agents') ? <AgentsManage /> : <Navigate to="../" replace />} 
+                    />
                     <Route path="tenants" element={<TenantsManage />} />
                     <Route path="setup" element={<SetupGuidePage />} />
-                    <Route path="shop-settings" element={<TenantSettings />} />
-                    <Route path="settings" element={<TenantSettings />} />
+                    <Route 
+                        path="wallet" 
+                        element={user?.role === 'ADMIN' ? <Navigate to="../" replace /> : <div style={{ padding: '24px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', margin: '24px' }}><WalletSettings token={token} L={L} /></div>} 
+                    />
+                    <Route 
+                        path="shop-settings" 
+                        element={user?.role === 'ADMIN' ? <Navigate to="../" replace /> : <TenantSettings />} 
+                    />
+                    <Route 
+                        path="settings" 
+                        element={user?.role === 'ADMIN' ? <Navigate to="../" replace /> : <TenantSettings />} 
+                    />
                     <Route path="setting" element={<Navigate to="../settings" replace />} />
                     <Route path="support/*" element={<MerchantSupportPage />} />
                 </Routes>

@@ -136,4 +136,17 @@ router.post('/test-notify', async (req, res) => {
     }
 })
 
+// 商户实名认证 (KYC)
+const kycController = require('../controllers/kycController')
+router.post('/kyc/submit', kycController.submitKyc)
+router.get('/kyc/status', kycController.getKycStatus)
+
+// 商户钱包与资金提现
+const walletController = require('../controllers/tenantWalletController')
+router.get('/wallet/profile', walletController.getWalletProfile)
+router.post('/wallet/withdraw-accounts', walletController.bindWithdrawAccount)
+router.post('/wallet/withdraw', walletController.requestWithdrawal)
+router.get('/wallet/withdrawals', walletController.getWithdrawals)
+router.get('/wallet/balance-logs', walletController.getBalanceLogs)
+
 module.exports = router

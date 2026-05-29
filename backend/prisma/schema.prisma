@@ -14,6 +14,7 @@ model User {
   username          String?
   role              Role      @default(USER)
   avatar            String?
+  status            String    @default("ACTIVE")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   emailVerified     Boolean   @default(false) @map("email_verified")
@@ -242,11 +243,13 @@ model TicketMessage {
 
 model SiteVisit {
   id        String   @id @default(uuid())
-  date      DateTime @unique
+  date      DateTime
+  tenantId  String   @default("platform") @map("tenant_id")
   visits    Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@unique([date, tenantId], map: "site_visits_date_tenant_id_uk")
   @@map("site_visits")
 }
 
@@ -398,13 +401,58 @@ model Tenant {
   expireAt     DateTime?      @map("expire_at")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
+  kycStatus       String         @default("UNVERIFIED") @map("kyc_status") // UNVERIFIED, PENDING, VERIFIED, REJECTED
+  kycRealName     String?        @map("kyc_real_name")
+  kycIdNumber     String?        @map("kyc_id_number")
+  kycRejectReason String?        @map("kyc_reject_reason") @db.Text
+  kycRequestedAt  DateTime?      @map("kyc_requested_at")
+  kycAuditLog     String?        @map("kyc_audit_log") @db.Text
+  kycPhotoFile    String?        @map("kyc_photo_file")
+  balance         Decimal          @default(0.00) @db.Decimal(10, 2)
+  frozenBalance   Decimal          @default(0.00) @map("frozen_balance") @db.Decimal(10, 2)
+  totalSales      Decimal          @default(0.00) @map("total_sales") @db.Decimal(10, 2)
+  feeRate         Decimal          @default(0.02) @map("fee_rate") @db.Decimal(4, 3)
+  withdrawAccounts String?         @map("withdraw_accounts") @db.Text
   orders       Order[]
   products     Product[]
   domains      TenantDomain[]
   settings     TenantSetting?
   user         User           @relation(fields: [userId], references: [id])
+  withdrawals     TenantWithdrawal[]
+  balanceLogs     TenantBalanceLog[]
 
   @@map("tenants")
+}
+
+model TenantWithdrawal {
+  id          String           @id @default(uuid())
+  tenantId    String           @map("tenant_id")
+  amount      Decimal          @db.Decimal(10, 2)
+  method      String           // alipay, usdt_trc20, usdt_bep20
+  account     String
+  status      WithdrawalStatus @default(PENDING)
+  processedAt DateTime?        @map("processed_at")
+  rejectReason String?         @map("reject_reason")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "tenant_withdrawals_tenant_id_fkey")
+  @@map("tenant_withdrawals")
+}
+
+model TenantBalanceLog {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  type        String   // INCOME (订单代收入), WITHDRAW (提现扣减), REFUND (退款扣款), REJECT (提现驳回退回), ADJUST (人工调账)
+  amount      Decimal  @db.Decimal(10, 2)
+  balance     Decimal  @db.Decimal(10, 2)
+  referenceId String?  @map("reference_id")
+  remark      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "tenant_balance_logs_tenant_id_fkey")
+  @@map("tenant_balance_logs")
 }
 
 model TenantDomain {
@@ -448,6 +496,7 @@ model Customer {
   password          String
   username          String?
   avatar            String?
+  status            String    @default("ACTIVE")
   emailVerified     Boolean   @default(false) @map("email_verified")
   verificationToken String?   @map("verification_token")
   resetToken        String?   @map("reset_token")

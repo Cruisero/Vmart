@@ -80,7 +80,12 @@ exports.getPaymentMethods = async (req, res, next) => {
             let globalChannels = {}
             try {
                 const channelSettings = await prisma.platformSetting.findMany({
-                    where: { key: { startsWith: 'channel_' } }
+                    where: {
+                        OR: [
+                            { key: { startsWith: 'channel_' } },
+                            { key: { startsWith: 'platform_channel_' } }
+                        ]
+                    }
                 })
                 channelSettings.forEach(s => {
                     globalChannels[s.key] = s.value
@@ -98,14 +103,15 @@ exports.getPaymentMethods = async (req, res, next) => {
                 } catch (e) {}
             }
             const methods = defaultPaymentMethods
-                .filter(m => m.id !== 'wechat') // 商户暂不支持微信支付
                 .map(m => {
                     let enabled = false
-                    if (m.id === 'alipay' && globalChannels['channel_alipay'] !== 'false') {
+                    if (m.id === 'alipay' && (globalChannels['channel_alipay'] !== 'false' || globalChannels['platform_channel_alipay'] === 'true')) {
                         enabled = !!ts?.alipayEnabled
-                    } else if (m.id === 'usdt' && globalChannels['channel_usdt_trc20'] !== 'false') {
+                    } else if (m.id === 'wechat' && (globalChannels['channel_wechat'] !== 'false' || globalChannels['platform_channel_wechat'] === 'true')) {
+                        enabled = !!ts?.wechatEnabled
+                    } else if (m.id === 'usdt' && (globalChannels['channel_usdt_trc20'] !== 'false' || globalChannels['platform_channel_usdt_trc20'] === 'true')) {
                         enabled = !!ts?.usdtEnabled
-                    } else if (m.id === 'bsc_usdt' && globalChannels['channel_usdt_bep20'] !== 'false') {
+                    } else if (m.id === 'bsc_usdt' && (globalChannels['channel_usdt_bep20'] !== 'false' || globalChannels['platform_channel_usdt_bep20'] === 'true')) {
                         enabled = !!ts?.bscUsdtEnabled
                     }
                     return { id: m.id, name: m.name, icon: m.icon, enabled }
@@ -161,71 +167,105 @@ exports.createPayment = async (req, res, next) => {
             return res.status(400).json({ error: '订单状态异常' })
         }
 
+        // 解析租户支付配置（如果是租户订单）
+        let tenantPayConfig = null
+        let storeCurrency = 'CNY'
+        let usdToCnyRate = 7.2
+        let ts = null
+        if (order.tenantId) {
+            ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
+            if (ts?.paymentConfig) {
+                try { tenantPayConfig = JSON.parse(ts.paymentConfig) } catch {}
+            }
+            // 读取商城经营货币
+            if (ts?.systemSettings) {
+                try {
+                    const sys = JSON.parse(ts.systemSettings)
+                    if (sys.currency) storeCurrency = sys.currency
+                } catch {}
+            }
+            // USD→CNY 汇率从 paymentConfig 的 usdt_exchange_rate 读取（复用同一个字段）
+            if (tenantPayConfig?.usdt_exchange_rate) {
+                usdToCnyRate = parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2
+            }
+        }
+
         // 【安全修复】校验支付方式是否启用（区分租户/主站）
         let enabled = false
-        if (paymentMethod === 'yipay') {
-            if (order.tenantId) {
-                // 获取超管后台控制的商户支付渠道开关
-                let channelYipayGlobal = 'true'
-                try {
-                    const setting = await prisma.platformSetting.findUnique({
-                        where: { key: 'channel_yipay' }
-                    })
-                    if (setting) {
-                        channelYipayGlobal = setting.value
+        if (order.tenantId) {
+            // 获取全部全局通道开关
+            let globalSettings = {}
+            try {
+                const settings = await prisma.platformSetting.findMany({
+                    where: {
+                        OR: [
+                            { key: { startsWith: 'channel_' } },
+                            { key: { startsWith: 'platform_channel_' } }
+                        ]
                     }
-                } catch (e) {
-                    logger.error('Failed to query global channel_yipay:', e)
-                }
+                })
+                settings.forEach(s => { globalSettings[s.key] = s.value })
+            } catch (e) {
+                logger.error('Failed to query global channel settings:', e)
+            }
 
-                if (channelYipayGlobal !== 'false') {
-                    const ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
-                    if (ts?.paymentConfig) {
-                        try {
-                            const payConfig = JSON.parse(ts.paymentConfig)
-                            enabled = !!payConfig.yipay_enabled
-                        } catch {}
+            if (paymentMethod === 'alipay') {
+                if (ts?.alipayEnabled) {
+                    const mode = tenantPayConfig?.alipay_mode || 'self'
+                    if (mode === 'platform') {
+                        enabled = globalSettings['platform_channel_alipay'] !== 'false'
+                    } else {
+                        enabled = globalSettings['channel_alipay'] !== 'false'
+                    }
+                }
+            } else if (paymentMethod === 'wechat') {
+                if (ts?.wechatEnabled) {
+                    const mode = tenantPayConfig?.wechat_mode || 'self'
+                    if (mode === 'platform') {
+                        enabled = globalSettings['platform_channel_wechat'] !== 'false'
+                    } else {
+                        enabled = globalSettings['channel_wechat'] !== 'false'
+                    }
+                }
+            } else if (paymentMethod === 'usdt') {
+                if (ts?.usdtEnabled) {
+                    const mode = tenantPayConfig?.usdt_mode || 'self'
+                    if (mode === 'platform') {
+                        enabled = globalSettings['platform_channel_usdt_trc20'] !== 'false'
+                    } else {
+                        enabled = globalSettings['channel_usdt_trc20'] !== 'false'
+                    }
+                }
+            } else if (paymentMethod === 'bsc_usdt') {
+                if (ts?.bscUsdtEnabled) {
+                    const mode = tenantPayConfig?.bsc_usdt_mode || 'self'
+                    if (mode === 'platform') {
+                        enabled = globalSettings['platform_channel_usdt_bep20'] !== 'false'
+                    } else {
+                        enabled = globalSettings['channel_usdt_bep20'] !== 'false'
+                    }
+                }
+            } else if (paymentMethod === 'yipay') {
+                if (tenantPayConfig?.yipay_enabled) {
+                    const mode = tenantPayConfig?.yipay_mode || 'self'
+                    if (mode === 'platform') {
+                        enabled = globalSettings['platform_channel_yipay'] !== 'false'
+                    } else {
+                        enabled = globalSettings['channel_yipay'] !== 'false'
                     }
                 }
             }
         } else {
+            // 主站订单
             const methodConfig = defaultPaymentMethods.find(m => m.id === paymentMethod)
             if (methodConfig) {
-                if (order.tenantId) {
-                    // 获取超管后台控制的商户支付渠道开关
-                    let channelKey = ''
-                    if (paymentMethod === 'alipay') channelKey = 'channel_alipay'
-                    else if (paymentMethod === 'usdt') channelKey = 'channel_usdt_trc20'
-                    else if (paymentMethod === 'bsc_usdt') channelKey = 'channel_usdt_bep20'
-
-                    let channelGlobal = 'true'
-                    if (channelKey) {
-                        try {
-                            const setting = await prisma.platformSetting.findUnique({
-                                where: { key: channelKey }
-                            })
-                            if (setting) {
-                                channelGlobal = setting.value
-                            }
-                        } catch (e) {
-                            logger.error(`Failed to query global ${channelKey}:`, e)
-                        }
-                    }
-
-                    if (channelGlobal !== 'false') {
-                        const ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
-                        if (paymentMethod === 'alipay') enabled = !!ts?.alipayEnabled
-                        else if (paymentMethod === 'usdt') enabled = !!ts?.usdtEnabled
-                        else if (paymentMethod === 'bsc_usdt') enabled = !!ts?.bscUsdtEnabled
-                    }
-                } else {
-                    const setting = await prisma.setting.findFirst({
-                        where: { key: methodConfig.settingKey }
-                    })
-                    enabled = setting?.value === 'true'
-                }
+                const setting = await prisma.setting.findFirst({
+                    where: { key: methodConfig.settingKey }
+                })
+                enabled = setting?.value === 'true'
             }
         }
+
         if (!enabled) {
             logger.warn(`拒绝未启用的支付方式: ${paymentMethod} (订单 ${orderNo}, tenantId=${order.tenantId || 'main'})`)
             return res.status(400).json({ error: '该支付方式未启用' })
@@ -246,28 +286,6 @@ exports.createPayment = async (req, res, next) => {
             }
         })
 
-        // 解析租户支付配置（如果是租户订单）
-        let tenantPayConfig = null
-        let storeCurrency = 'CNY'
-        let usdToCnyRate = 7.2
-        if (order.tenantId) {
-            const ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
-            if (ts?.paymentConfig) {
-                try { tenantPayConfig = JSON.parse(ts.paymentConfig) } catch {}
-            }
-            // 读取商城经营货币
-            if (ts?.systemSettings) {
-                try {
-                    const sys = JSON.parse(ts.systemSettings)
-                    if (sys.currency) storeCurrency = sys.currency
-                } catch {}
-            }
-            // USD→CNY 汇率从 paymentConfig 的 usdt_exchange_rate 读取（复用同一个字段）
-            if (tenantPayConfig?.usdt_exchange_rate) {
-                usdToCnyRate = parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2
-            }
-        }
-
         // 计算实际支付金额（USD 商城 + 人民币通道需要换算）
         let payAmount = parseFloat(order.totalAmount)
         if (storeCurrency === 'USD' && (paymentMethod === 'alipay' || paymentMethod === 'wechat' || paymentMethod === 'yipay')) {
@@ -277,12 +295,32 @@ exports.createPayment = async (req, res, next) => {
         // 根据支付方式生成支付信息
         let paymentData = {}
         if (paymentMethod === 'alipay') {
-            // 使用当面付二维码（租户订单使用商户配置）
-            const tenantSdkConfig = tenantPayConfig ? {
-                appId: tenantPayConfig.alipay_app_id,
-                privateKey: tenantPayConfig.alipay_private_key,
-                alipayPublicKey: tenantPayConfig.alipay_public_key
-            } : null
+            // 使用当面付二维码
+            let tenantSdkConfig = null
+            const alipayMode = tenantPayConfig?.alipay_mode || 'self'
+            if (alipayMode === 'platform') {
+                try {
+                    const keys = ['merchant_alipay_app_id', 'merchant_alipay_private_key', 'merchant_alipay_public_key']
+                    const pSettings = await prisma.platformSetting.findMany({ where: { key: { in: keys } } })
+                    const pMap = {}
+                    pSettings.forEach(s => { pMap[s.key] = s.value })
+                    if (pMap.merchant_alipay_app_id && pMap.merchant_alipay_private_key && pMap.merchant_alipay_public_key) {
+                        tenantSdkConfig = {
+                            appId: pMap.merchant_alipay_app_id,
+                            privateKey: pMap.merchant_alipay_private_key,
+                            alipayPublicKey: pMap.merchant_alipay_public_key
+                        }
+                    }
+                } catch (e) {
+                    logger.error('Failed to load platform alipay credentials:', e)
+                }
+            } else if (tenantPayConfig) {
+                tenantSdkConfig = {
+                    appId: tenantPayConfig.alipay_app_id,
+                    privateKey: tenantPayConfig.alipay_private_key,
+                    alipayPublicKey: tenantPayConfig.alipay_public_key
+                }
+            }
 
             // 动态解析支付宝回调 URL 和返回 URL
             let alipayNotifyUrl = null
@@ -336,11 +374,29 @@ exports.createPayment = async (req, res, next) => {
             }
         } else if (paymentMethod === 'usdt') {
             const usdtService = require('../services/usdtService')
-            const overrideConfig = tenantPayConfig ? {
-                WALLET_ADDRESS: tenantPayConfig.usdt_wallet || '',
-                EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
-                ENABLED: true
-            } : null
+            let overrideConfig = null
+            const usdtMode = tenantPayConfig?.usdt_mode || 'self'
+            if (usdtMode === 'platform') {
+                try {
+                    const walletSetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_usdt_wallet' } })
+                    const rateSetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_usdt_rate' } })
+                    if (walletSetting?.value) {
+                        overrideConfig = {
+                            WALLET_ADDRESS: walletSetting.value,
+                            EXCHANGE_RATE: parseFloat(rateSetting?.value) || 7.2,
+                            ENABLED: true
+                        }
+                    }
+                } catch (e) {
+                    logger.error('Failed to load platform usdt credentials:', e)
+                }
+            } else if (tenantPayConfig) {
+                overrideConfig = {
+                    WALLET_ADDRESS: tenantPayConfig.usdt_wallet || '',
+                    EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
+                    ENABLED: true
+                }
+            }
             // USD 商城：金额已经是美元，汇率设为 1（不需要 CNY→USD 换算）
             if (storeCurrency === 'USD' && overrideConfig) {
                 overrideConfig.EXCHANGE_RATE = 1
@@ -355,11 +411,29 @@ exports.createPayment = async (req, res, next) => {
             }
         } else if (paymentMethod === 'bsc_usdt') {
             const bscUsdtService = require('../services/bscUsdtService')
-            const overrideConfig = tenantPayConfig ? {
-                WALLET_ADDRESS: tenantPayConfig.bsc_usdt_wallet || '',
-                EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
-                ENABLED: true
-            } : null
+            let overrideConfig = null
+            const bscUsdtMode = tenantPayConfig?.bsc_usdt_mode || 'self'
+            if (bscUsdtMode === 'platform') {
+                try {
+                    const walletSetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_bsc_usdt_wallet' } })
+                    const rateSetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_bsc_usdt_rate' } })
+                    if (walletSetting?.value) {
+                        overrideConfig = {
+                            WALLET_ADDRESS: walletSetting.value,
+                            EXCHANGE_RATE: parseFloat(rateSetting?.value) || 7.2,
+                            ENABLED: true
+                        }
+                    }
+                } catch (e) {
+                    logger.error('Failed to load platform bsc usdt credentials:', e)
+                }
+            } else if (tenantPayConfig) {
+                overrideConfig = {
+                    WALLET_ADDRESS: tenantPayConfig.bsc_usdt_wallet || '',
+                    EXCHANGE_RATE: parseFloat(tenantPayConfig.usdt_exchange_rate) || 7.2,
+                    ENABLED: true
+                }
+            }
             // USD 商城：金额已经是美元，汇率设为 1
             if (storeCurrency === 'USD' && overrideConfig) {
                 overrideConfig.EXCHANGE_RATE = 1
@@ -378,7 +452,37 @@ exports.createPayment = async (req, res, next) => {
             // 如果前端传了具体的支付类型(如alipay, wxpay)则使用，否则为null以使用易支付收银台
             const yipayType = req.body.yipayType || null
             const returnUrl = await getFrontendOrderUrl(order, req.get('host'), req.protocol)
-            const payUrl = yipayService.createPaymentUrl(order, payAmount, tenantPayConfig, baseUrl, returnUrl, yipayType)
+            
+            let yipayConfig = null
+            const yipayMode = tenantPayConfig?.yipay_mode || 'self'
+            if (yipayMode === 'platform') {
+                try {
+                    const urlSetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_yipay_api_url' } })
+                    const pidSetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_yipay_pid' } })
+                    const keySetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_yipay_key' } })
+                    if (urlSetting?.value && pidSetting?.value && keySetting?.value) {
+                        yipayConfig = {
+                            yipay_api_url: urlSetting.value,
+                            yipay_pid: pidSetting.value,
+                            yipay_key: keySetting.value
+                        }
+                    }
+                } catch (e) {
+                    logger.error('Failed to load platform yipay credentials:', e)
+                }
+            } else if (tenantPayConfig) {
+                yipayConfig = {
+                    yipay_api_url: tenantPayConfig.yipay_api_url,
+                    yipay_pid: tenantPayConfig.yipay_pid,
+                    yipay_key: tenantPayConfig.yipay_key
+                }
+            }
+
+            if (!yipayConfig) {
+                return res.status(400).json({ error: '在线支付配置不完整' })
+            }
+
+            const payUrl = yipayService.createPaymentUrl(order, payAmount, yipayConfig, baseUrl, returnUrl, yipayType)
             paymentData = {
                 paymentType: 'redirect',
                 qrCode: null,
@@ -394,6 +498,41 @@ exports.createPayment = async (req, res, next) => {
             amount: parseFloat(order.totalAmount)
         })
     } catch (error) {
+        logger.error('创建支付失败:', error)
+
+        // 针对支付宝/各种支付配置或通道错误的显示
+        const errMsg = error.message || ''
+        const errStack = error.stack || ''
+
+        // 1. 密钥格式错误导致的签名崩溃 (OpenSSL 内部错误)
+        if (
+            errMsg.includes('DECODER routines') || 
+            errMsg.includes('unsupported') || 
+            errMsg.includes('PEM_read_bio_PrivateKey') ||
+            errStack.includes('Sign.sign') ||
+            errStack.includes('crypto.sign')
+        ) {
+            return res.status(400).json({ 
+                error: '支付宝发起失败：支付宝私钥格式不支持或配置错误，请商户登录后台检查其支付宝私钥配置（须为 PKCS8 格式应用私钥）' 
+            })
+        }
+
+        // 2. 支付宝网关直接返回的业务错误 (例如：应用未上线)
+        if (errMsg.startsWith('支付宝接口及网关返回失败')) {
+            return res.status(400).json({ error: errMsg })
+        }
+
+        // 3. 通用友好提示
+        if (
+            paymentMethod === 'alipay' ||
+            errMsg.includes('支付宝') ||
+            errStack.includes('alipay')
+        ) {
+            return res.status(400).json({ 
+                error: '支付通道暂时不可用，请联系商家检查支付配置。' 
+            })
+        }
+
         next(error)
     }
 }
@@ -464,7 +603,21 @@ exports.alipayCallback = async (req, res, next) => {
             if (ts?.paymentConfig) {
                 try {
                     const tenantPayConfig = JSON.parse(ts.paymentConfig)
-                    if (tenantPayConfig.alipay_app_id && tenantPayConfig.alipay_private_key && tenantPayConfig.alipay_public_key) {
+                    const alipayMode = tenantPayConfig.alipay_mode || 'self'
+                    if (alipayMode === 'platform') {
+                        // 使用平台代收凭证验签
+                        const keys = ['merchant_alipay_app_id', 'merchant_alipay_private_key', 'merchant_alipay_public_key']
+                        const pSettings = await prisma.platformSetting.findMany({ where: { key: { in: keys } } })
+                        const pMap = {}
+                        pSettings.forEach(s => { pMap[s.key] = s.value })
+                        if (pMap.merchant_alipay_app_id && pMap.merchant_alipay_private_key && pMap.merchant_alipay_public_key) {
+                            tenantSdkConfig = {
+                                appId: pMap.merchant_alipay_app_id,
+                                privateKey: pMap.merchant_alipay_private_key,
+                                alipayPublicKey: pMap.merchant_alipay_public_key
+                            }
+                        }
+                    } else if (tenantPayConfig.alipay_app_id && tenantPayConfig.alipay_private_key && tenantPayConfig.alipay_public_key) {
                         tenantSdkConfig = {
                             appId: tenantPayConfig.alipay_app_id,
                             privateKey: tenantPayConfig.alipay_private_key,
@@ -472,7 +625,7 @@ exports.alipayCallback = async (req, res, next) => {
                         }
                     }
                 } catch (e) {
-                    logger.error('解析商户支付宝配置失败:', e)
+                    logger.error('解析商户/平台支付宝配置失败:', e)
                 }
             }
         }
@@ -554,6 +707,14 @@ async function processPaymentSuccess(orderNo, tradeNo, paymentMethod) {
             }
         })
     })
+
+    // ---- 商户资金结算 ----
+    try {
+        const tenantWalletService = require('../services/tenantWalletService')
+        await tenantWalletService.settleTenantOrder(order.id)
+    } catch (err) {
+        logger.error('结算商户资金失败:', err)
+    }
 
     // 邮件资源包：识别 remark 中的 email_pack:{tenantId}:{count}，增加永久额度
     const { processEmailPackIfNeeded } = require('../utils/emailPackHandler')
@@ -779,14 +940,20 @@ exports.yipayCallback = async (req, res, next) => {
             return res.status(404).send('fail')
         }
 
-        // 获取商户易支付密钥
+        // 获取商户/平台易支付密钥
         let tenantKey = null
         if (order.tenantId) {
             const ts = await prisma.tenantSetting.findUnique({ where: { tenantId: order.tenantId } })
             if (ts?.paymentConfig) {
                 try {
                     const payConfig = JSON.parse(ts.paymentConfig)
-                    tenantKey = payConfig.yipay_key
+                    const mode = payConfig.yipay_mode || 'self'
+                    if (mode === 'platform') {
+                        const keySetting = await prisma.platformSetting.findUnique({ where: { key: 'merchant_yipay_key' } })
+                        tenantKey = keySetting?.value || null
+                    } else {
+                        tenantKey = payConfig.yipay_key
+                    }
                 } catch {}
             }
         }

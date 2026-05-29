@@ -249,3 +249,18 @@
     height: 44px;
   }
 }
+
+.za-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: za-spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes za-spin {
+  to { transform: rotate(360deg); }
+}
+

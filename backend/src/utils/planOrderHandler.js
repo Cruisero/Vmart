@@ -1,5 +1,6 @@
 const prisma = require('../config/database')
 const logger = require('./logger')
+const { computePlanActivation, storePendingPlanChange, clearPendingPlanChange } = require('./planUpgradeHelper')
 
 async function processPlanOrderIfNeeded(order) {
     if (!order?.remark || !order.remark.startsWith('plan_order:')) return false
@@ -14,13 +15,12 @@ async function processPlanOrderIfNeeded(order) {
         })
 
         if (planOrder && planOrder.paymentStatus !== 'PAID') {
-            const now = new Date()
-            let baseDate = now
-            if (planOrder.shop.planExpiresAt && new Date(planOrder.shop.planExpiresAt) > now) {
-                baseDate = new Date(planOrder.shop.planExpiresAt)
-            }
-            const newExpiry = new Date(baseDate)
-            newExpiry.setMonth(newExpiry.getMonth() + planOrder.months)
+            const { effectivePlan, newExpiry, pendingDowngrade, action } = computePlanActivation(
+                planOrder.shop.plan,
+                planOrder.shop.planExpiresAt,
+                planOrder.plan,
+                planOrder.months
+            )
 
             await prisma.$transaction(async (tx) => {
                 await tx.planOrder.update({
@@ -30,7 +30,7 @@ async function processPlanOrderIfNeeded(order) {
 
                 await tx.shop.update({
                     where: { id: planOrder.shopId },
-                    data: { plan: planOrder.plan, planExpiresAt: newExpiry, status: 'ACTIVE' }
+                    data: { plan: effectivePlan, planExpiresAt: newExpiry, status: 'ACTIVE' }
                 })
 
                 await tx.order.update({
@@ -39,7 +39,15 @@ async function processPlanOrderIfNeeded(order) {
                 })
             })
 
-            logger.info(`[planOrder] 套餐自动激活: ${planOrder.merchant.email} → ${planOrder.plan}, 到期 ${newExpiry.toISOString()}`)
+            // 降级：存储待生效记录；升级/续费：清除旧的降级记录
+            if (pendingDowngrade) {
+                await storePendingPlanChange(planOrder.shopId, pendingDowngrade.plan, pendingDowngrade.switchAt)
+            } else {
+                await clearPendingPlanChange(planOrder.shopId)
+            }
+
+            const actionLabels = { new: '新购', renewal: '续费', upgrade: '升级', downgrade: '降级排队' }
+            logger.info(`[planOrder] 套餐${actionLabels[action] || action}: ${planOrder.merchant.email} → ${effectivePlan}${pendingDowngrade ? `(待降至${pendingDowngrade.plan})` : ''}, 到期 ${newExpiry.toISOString()}`)
 
             // 平台超管通知
             try {

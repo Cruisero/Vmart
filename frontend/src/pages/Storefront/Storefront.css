@@ -86,10 +86,291 @@
 /* Footer */
 .sf-footer {
     padding: 32px 0; text-align: center; color: #D1D5DB; font-size: 0.78rem; margin-top: 40px;
-    border-top: 1px solid #F3F4F6;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+/* Redesigned Premium Footer */
+.sf-footer-new {
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    background: #ffffff;
+    padding: 24px 0;
+    margin-top: 40px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.sf-footer-inner {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sf-footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.sf-footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.sf-footer-brand-logo {
+    height: 24px;
+    width: auto;
+    object-fit: contain;
+}
+
+.sf-footer-brand-logo-fallback {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.sf-footer-brand-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.sf-footer-brand-divider {
+    color: #cbd5e1;
+    font-weight: 300;
+    margin: 0 4px;
+}
+
+.sf-footer-slogan {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.sf-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.sf-footer-links {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.sf-footer-links a {
+    color: #64748b;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.82rem;
+    transition: color 0.15s ease;
+}
+
+.sf-footer-links a:hover {
+    color: #4f46e5;
+}
+
+.sf-footer-contacts {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sf-footer-contact-bubble {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.sf-footer-contact-bubble svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Telegram */
+.sf-footer-contact-bubble.tg {
+    background: #e0f2fe;
+    color: #0284c7;
+    border-color: #bae6fd;
+}
+.sf-footer-contact-bubble.tg:hover {
+    background: #bae6fd;
+    color: #0369a1;
+    border-color: #7dd3fc;
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.15);
+}
+
+/* WhatsApp */
+.sf-footer-contact-bubble.wa {
+    background: #dcfce7;
+    color: #16a34a;
+    border-color: #bbf7d0;
+}
+.sf-footer-contact-bubble.wa:hover {
+    background: #bbf7d0;
+    color: #15803d;
+    border-color: #86efac;
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.15);
+}
+
+/* Gmail */
+.sf-footer-contact-bubble.mail {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+.sf-footer-contact-bubble.mail:hover {
+    background: #fecaca;
+    color: #b91c1c;
+    border-color: #fca5a5;
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.15);
+}
+
+/* QQ */
+.sf-footer-contact-bubble.qq {
+    background: #e0f2fe;
+    color: #0284c7;
+    border-color: #bae6fd;
+}
+.sf-footer-contact-bubble.qq:hover {
+    background: #bae6fd;
+    color: #0369a1;
+    border-color: #7dd3fc;
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.15);
+}
+
+/* WeChat */
+.sf-footer-contact-bubble.wx {
+    background: #dcfce7;
+    color: #16a34a;
+    border-color: #bbf7d0;
+}
+.sf-footer-contact-bubble.wx:hover {
+    background: #bbf7d0;
+    color: #15803d;
+    border-color: #86efac;
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.15);
+}
+
+.sf-footer-bottom-bar {
+    border-top: 1px solid #f1f5f9;
+    padding-top: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sf-footer-copyright {
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
+.sf-footer-copyright a {
+    color: #94a3b8;
+    text-decoration: none;
+    transition: color 0.15s ease;
+    font-weight: 500;
+}
+
+.sf-footer-copyright a:hover {
+    color: #4f46e5;
+}
+
+/* Responsive adjustment */
+@media (max-width: 768px) {
+    .sf-footer-row {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 12px;
+    }
+    
+    .sf-footer-brand {
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .sf-footer-brand-divider {
+        display: none;
+    }
+    
+    .sf-footer-slogan {
+        display: none; /* Hide slogan on small screens to save space */
+    }
+    
+    .sf-footer-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .sf-footer-brand-divider.actions-divider {
+        display: none;
+    }
+}
+
+/* ========== Skin Specific Footer Width Adjustments ========== */
+
+/* Zen and Fresh skins: max-width 1280px to match products grid */
+.sf-footer-zen .sf-footer-inner,
+.sf-footer-fresh .sf-footer-inner {
+    max-width: 1280px;
+    padding: 0 40px;
+}
+
+/* Class (Origin) skin: 100% width with 24px padding (14px on mobile) */
+.sf-footer-class .sf-footer-inner {
+    max-width: none;
+    padding: 0 24px;
+}
+
+/* Classic & Classic V1 skins: 100% width with 40px padding (12px on mobile) */
+.sf-footer-classic .sf-footer-inner,
+.sf-footer-classic-v1 .sf-footer-inner {
+    max-width: none;
+    padding: 0 40px;
+}
+
+@media (max-width: 768px) {
+    .sf-footer-class .sf-footer-inner {
+        padding: 0 14px;
+    }
 }
 
 @media (max-width: 600px) {
-    .sf-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .sf-card-body { padding: 10px; }
+    .sf-footer-zen .sf-footer-inner,
+    .sf-footer-fresh .sf-footer-inner {
+        padding: 0 16px;
+    }
+    
+    .sf-footer-classic .sf-footer-inner,
+    .sf-footer-classic-v1 .sf-footer-inner {
+        padding: 0 12px;
+    }
 }
+

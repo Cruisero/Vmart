@@ -47,6 +47,7 @@ function Checkout() {
     const [showPassword, setShowPassword] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState('alipay')
     const [loading, setLoading] = useState(false)
+    const [isSubmitted, setIsSubmitted] = useState(false)
     const [agreed, setAgreed] = useState(true) // checked by default
     const [paymentMethods, setPaymentMethods] = useState([])
     const [remark, setRemark] = useState('')
@@ -116,7 +117,7 @@ function Checkout() {
         fetchPaymentMethods()
     }, [storefront?.slug])
 
-    if (!isAgentCheckout && cartItems.length === 0) {
+    if (!isAgentCheckout && cartItems.length === 0 && !isSubmitted) {
         return (
             <div className="checkout-page">
                 <div className="checkout-empty">
@@ -224,6 +225,7 @@ function Checkout() {
                 }
 
                 const firstOrder = results[0]
+                setIsSubmitted(true)
                 clearCart()
                 toast.success(t('checkout.orderSuccess'))
                 navigate(withPrefix(`/order/${firstOrder.order.orderNo}`))

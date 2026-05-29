@@ -345,3 +345,28 @@
     .zc-layout { grid-template-columns: 1fr; }
     .zc-sidebar { position: static; }
 }
+
+.zc-password-input {
+    padding-right: 44px;
+}
+
+.zc-password-toggle-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #9CA3AF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    transition: color 0.15s;
+}
+
+.zc-password-toggle-btn:hover {
+    color: #1A1A1A;
+}

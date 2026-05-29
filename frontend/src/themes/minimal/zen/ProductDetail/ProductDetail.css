@@ -13,7 +13,7 @@
 .zd-price-orig { font-size: 0.85rem; color: #bbb; text-decoration: line-through; }
 .zd-discount { font-size: 0.72rem; font-weight: 600; color: #C45D3E; background: rgba(196,93,62,0.08); padding: 2px 8px; border-radius: 3px; }
 .zd-ws-badge { font-size: 0.7rem; font-weight: 600; color: #10B981; background: rgba(16,185,129,0.08); padding: 2px 8px; border-radius: 3px; }
-.zd-meta { display: flex; justify-content: space-between; font-size: 0.78rem; color: #bbb; margin-bottom: 16px; }
+.zd-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #bbb; margin-bottom: 16px; }
 .zd-sep { height: 1px; background: #EEECE8; margin: 16px 0; }
 .zd-label { font-size: 0.75rem; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
 .zd-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }

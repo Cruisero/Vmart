@@ -4,19 +4,20 @@
  */
 const prisma = require('../config/database')
 const logger = require('../utils/logger')
+const { PLAN_RANK, computePlanActivation, storePendingPlanChange, clearPendingPlanChange } = require('../utils/planUpgradeHelper')
 
 // 默认套餐（数据库无配置时的 fallback）
 const DEFAULT_PLANS = [
     {
-        key: 'BASIC', name: '基础版', monthlyPrice: 19, yearlyPrice: 15,
+        key: 'BASIC', name: '基础版', monthlyPrice: 29, yearlyPrice: 23,
         features: { maxProducts: 10, skins: '简约', paymentMethods: '全部', customDomain: false, agentSystem: false, emailNotifications: 0, maxSubAdmins: 0, ssl: '共享', support: true, dataRetentionDays: 30 }
     },
     {
-        key: 'STANDARD', name: '标准版', monthlyPrice: 39, yearlyPrice: 31,
+        key: 'STANDARD', name: '标准版', monthlyPrice: 49, yearlyPrice: 39,
         features: { maxProducts: 50, skins: '全部', paymentMethods: '全部', customDomain: true, agentSystem: false, emailNotifications: 2000, maxSubAdmins: 2, ssl: '独立', support: true, dataRetentionDays: 30 }
     },
     {
-        key: 'PRO', name: '专业版', monthlyPrice: 59, yearlyPrice: 47,
+        key: 'PRO', name: '专业版', monthlyPrice: 69, yearlyPrice: 55,
         features: { maxProducts: 200, skins: '全部', paymentMethods: '全部', customDomain: true, agentSystem: true, emailNotifications: 5000, maxSubAdmins: 10, ssl: '独立', support: true, dataRetentionDays: 90 }
     }
 ]
@@ -85,8 +86,20 @@ exports.createPlanOrder = async (req, res) => {
         if (!months || months < 1 || months > 36) return res.status(400).json({ error: '购买时长 1-36 个月' })
         if (!['alipay', 'usdt', 'bsc_usdt'].includes(paymentMethod)) return res.status(400).json({ error: '不支持的支付方式' })
 
+        // 预判本次购买类型（用于前端提示）
         const shop = await prisma.shop.findUnique({ where: { merchantId: merchant.id } })
         if (!shop) return res.status(404).json({ error: '商城不存在' })
+        const currentRank = PLAN_RANK[shop.plan] || 0
+        const newRank = PLAN_RANK[plan] || 0
+        const isActive = shop.planExpiresAt && new Date(shop.planExpiresAt) > new Date() && shop.plan !== 'FREE'
+        let purchaseType = 'new'
+        if (isActive) {
+            if (newRank > currentRank) purchaseType = 'upgrade'
+            else if (newRank === currentRank) purchaseType = 'renewal'
+            else purchaseType = 'downgrade'
+        }
+
+        // shop 已在上面查询过
 
         // 计算金额
         const pricePerMonth = months >= 12 ? planInfo.yearlyPrice : planInfo.monthlyPrice
@@ -206,6 +219,7 @@ exports.createPlanOrder = async (req, res) => {
             plan,
             months,
             amount,
+            purchaseType,
             ...paymentData
         })
     } catch (e) {
@@ -232,27 +246,33 @@ exports.checkPlanPayment = async (req, res) => {
             })
 
             if (planOrder && planOrder.paymentStatus !== 'PAID') {
-                // 计算到期时间
-                const now = new Date()
-                let baseDate = now
-                if (planOrder.shop.planExpiresAt && new Date(planOrder.shop.planExpiresAt) > now) {
-                    baseDate = new Date(planOrder.shop.planExpiresAt)
-                }
-                const newExpiry = new Date(baseDate)
-                newExpiry.setMonth(newExpiry.getMonth() + planOrder.months)
+                const { effectivePlan, newExpiry, pendingDowngrade, action } = computePlanActivation(
+                    planOrder.shop.plan,
+                    planOrder.shop.planExpiresAt,
+                    planOrder.plan,
+                    planOrder.months
+                )
 
                 // 更新套餐
                 await prisma.planOrder.update({ where: { id: planOrder.id }, data: { paymentStatus: 'PAID', paidAt: new Date() } })
                 await prisma.shop.update({
                     where: { id: planOrder.shopId },
-                    data: { plan: planOrder.plan, planExpiresAt: newExpiry, status: 'ACTIVE' }
+                    data: { plan: effectivePlan, planExpiresAt: newExpiry, status: 'ACTIVE' }
                 })
                 await prisma.order.update({
                     where: { id: order.id },
                     data: { status: 'COMPLETED', completedAt: new Date() }
                 })
 
-                logger.info(`[planPayment] 套餐自动激活: ${merchant.email} → ${planOrder.plan}, 到期 ${newExpiry.toISOString()}`)
+                // 降级：存储待生效记录；升级/续费：清除旧的降级记录
+                if (pendingDowngrade) {
+                    await storePendingPlanChange(planOrder.shopId, pendingDowngrade.plan, pendingDowngrade.switchAt)
+                } else {
+                    await clearPendingPlanChange(planOrder.shopId)
+                }
+
+                const actionLabels = { new: '新购', renewal: '续费', upgrade: '升级', downgrade: '降级排队' }
+                logger.info(`[planPayment] 套餐${actionLabels[action]}: ${merchant.email} → ${effectivePlan}${pendingDowngrade ? `(待降至${pendingDowngrade.plan})` : ''}, 到期 ${newExpiry.toISOString()}`)
 
                 // 平台超管通知
                 try {
@@ -445,18 +465,25 @@ exports.confirmPlanOrder = async (req, res) => {
         if (!planOrder) return res.status(404).json({ error: '订单不存在' })
         if (planOrder.paymentStatus === 'PAID') return res.status(400).json({ error: '订单已确认' })
 
-        const now = new Date()
-        let baseDate = now
-        if (planOrder.shop.planExpiresAt && new Date(planOrder.shop.planExpiresAt) > now) {
-            baseDate = new Date(planOrder.shop.planExpiresAt)
-        }
-        const newExpiry = new Date(baseDate)
-        newExpiry.setMonth(newExpiry.getMonth() + planOrder.months)
+        const { effectivePlan, newExpiry, pendingDowngrade, action } = computePlanActivation(
+            planOrder.shop.plan,
+            planOrder.shop.planExpiresAt,
+            planOrder.plan,
+            planOrder.months
+        )
 
         await prisma.planOrder.update({ where: { id }, data: { paymentStatus: 'PAID', paidAt: new Date() } })
-        await prisma.shop.update({ where: { id: planOrder.shopId }, data: { plan: planOrder.plan, planExpiresAt: newExpiry, status: 'ACTIVE' } })
+        await prisma.shop.update({ where: { id: planOrder.shopId }, data: { plan: effectivePlan, planExpiresAt: newExpiry, status: 'ACTIVE' } })
 
-        res.json({ message: '已确认，套餐已更新', expiresAt: newExpiry })
+        // 降级：存储待生效记录；升级/续费：清除旧的降级记录
+        if (pendingDowngrade) {
+            await storePendingPlanChange(planOrder.shopId, pendingDowngrade.plan, pendingDowngrade.switchAt)
+        } else {
+            await clearPendingPlanChange(planOrder.shopId)
+        }
+
+        const actionLabels = { new: '新购', renewal: '续费', upgrade: '升级', downgrade: '降级排队' }
+        res.json({ message: `已确认，套餐${actionLabels[action] || '已更新'}`, expiresAt: newExpiry, action })
     } catch (e) {
         res.status(500).json({ error: e.message })
     }
@@ -513,12 +540,24 @@ exports.getPlanLimits = async (req, res) => {
             ])
         }
 
+        // 查询是否有待生效的降级
+        let pendingDowngrade = null
+        try {
+            const pendingSetting = await prisma.platformSetting.findUnique({
+                where: { key: `pending_plan_${shop.id}` }
+            })
+            if (pendingSetting?.value) {
+                pendingDowngrade = JSON.parse(pendingSetting.value)
+            }
+        } catch {}
+
         res.json({
             plan: shop.plan,
             planName: shop.plan === 'FREE' ? '免费试用' : (planInfo?.name || shop.plan),
             expiresAt: shop.planExpiresAt || shop.trialEndsAt,
             limits,
-            usage: { products: currentProducts, monthlyOrders: currentMonthOrders }
+            usage: { products: currentProducts, monthlyOrders: currentMonthOrders },
+            pendingDowngrade
         })
     } catch (e) {
         res.status(500).json({ error: e.message })

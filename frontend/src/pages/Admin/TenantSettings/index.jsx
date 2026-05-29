@@ -6,6 +6,7 @@ import { useAdminPrefsStore } from '../../../store/adminPrefsStore'
 import { useAdminL } from '../../../hooks/useAdminL'
 import { prepareUploadImageFile } from '../../../utils/imageUtils'
 import PlanPurchase from '../../ShopAdmin/PlanPurchase'
+import KycSettings from './KycSettings'
 import './TenantSettings.css'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -294,28 +295,43 @@ For orders eligible for a refund, we prioritize free replacement:
 
     // Payment
     const [payForm, setPayForm] = useState({
-        alipayEnabled: false, usdtEnabled: false, bscUsdtEnabled: false,
+        alipayEnabled: false, wechatEnabled: false, usdtEnabled: false, bscUsdtEnabled: false,
         yipayEnabled: false,
+        alipayMode: 'self', wechatMode: 'self', usdtMode: 'self', bscUsdtMode: 'self', yipayMode: 'self',
         alipayAppId: '', alipayPrivateKey: '', alipayPublicKey: '',
         usdtWallet: '', bscUsdtWallet: '', usdtExchangeRate: '7.2',
         yipayApiUrl: '', yipayPid: '', yipayKey: '',
+        settleAlipayAccount: '', settleWechatAccount: '', settleUsdtWallet: '', settleBscUsdtWallet: '', settleYipayAccount: '',
         emailMode: 'platform', smtpHost: '', smtpPort: '465', smtpUser: '', smtpPass: '',
         notifyOrderPaid: true, notifyShipRemind: true, notifyNewTicket: true, notifyNewUser: false, notifyStockAlert: true, notifyOrderCancel: false, notifyRefund: true, notifyEmail: '',
-        stockMode: 'auto', orderTimeout: 15
+        stockMode: 'auto', orderTimeout: 15,
+        fuzzyStockEnabled: false, fuzzyStockThreshold: 10, showSalesCount: true
     })
     const [paySaving, setPaySaving] = useState(false)
     const [payMsg, setPayMsg] = useState(null)
     const [globalChannels, setGlobalChannels] = useState({
         channel_alipay: 'true',
+        channel_wechat: 'true',
         channel_usdt_trc20: 'true',
         channel_usdt_bep20: 'true',
-        channel_yipay: 'true'
+        channel_yipay: 'true',
+        platform_channel_alipay: 'true',
+        platform_channel_wechat: 'true',
+        platform_channel_usdt_trc20: 'true',
+        platform_channel_usdt_bep20: 'true',
+        platform_channel_yipay: 'true'
     })
     const [payExpanded, setPayExpanded] = useState({
-        alipay: false,
-        usdt: false,
-        bsc_usdt: false,
-        yipay: false
+        self_alipay: false,
+        platform_alipay: false,
+        self_wechat: false,
+        platform_wechat: false,
+        self_usdt: false,
+        platform_usdt: false,
+        self_bsc_usdt: false,
+        platform_bsc_usdt: false,
+        self_yipay: false,
+        platform_yipay: false
     })
 
     const checkChannelVisible = (channelKey, defaultDomestic, defaultInternational) => {
@@ -367,12 +383,18 @@ For orders eligible for a refund, we prioritize free replacement:
             setPlanAllowsAgent(sysSettings._planAllowsAgent !== false)
             const channelsObj = {
                 channel_alipay: 'true',
+                channel_wechat: 'true',
                 channel_usdt_trc20: 'true',
                 channel_usdt_bep20: 'true',
-                channel_yipay: 'true'
+                channel_yipay: 'true',
+                platform_channel_alipay: 'true',
+                platform_channel_wechat: 'true',
+                platform_channel_usdt_trc20: 'true',
+                platform_channel_usdt_bep20: 'true',
+                platform_channel_yipay: 'true'
             }
             Object.keys(sysSettings).forEach(key => {
-                if (key.startsWith('channel_')) {
+                if (key.startsWith('channel_') || key.startsWith('platform_channel_')) {
                     channelsObj[key] = String(sysSettings[key])
                 }
             })
@@ -443,23 +465,36 @@ For orders eligible for a refund, we prioritize free replacement:
                 let payConfig = {}
                 try { payConfig = JSON.parse(s.paymentConfig || '{}') } catch {}
                 
-                const alipayConfigured = !!(payConfig.alipay_app_id || payConfig.alipay_private_key)
-                const usdtConfigured = !!payConfig.usdt_wallet
-                const bscUsdtConfigured = !!payConfig.bsc_usdt_wallet
-                const yipayConfigured = !!(payConfig.yipay_pid || payConfig.yipay_key)
+                const alipayConfigured = payConfig.alipay_mode === 'platform' ? !!payConfig.settle_alipay_account : !!(payConfig.alipay_app_id || payConfig.alipay_private_key)
+                const wechatConfigured = payConfig.wechat_mode === 'platform' ? !!payConfig.settle_wechat_account : true
+                const usdtConfigured = payConfig.usdt_mode === 'platform' ? !!payConfig.settle_usdt_wallet : !!payConfig.usdt_wallet
+                const bscUsdtConfigured = payConfig.bsc_usdt_mode === 'platform' ? !!payConfig.settle_bsc_usdt_wallet : !!payConfig.bsc_usdt_wallet
+                const yipayConfigured = payConfig.yipay_mode === 'platform' ? !!payConfig.settle_yipay_account : !!(payConfig.yipay_pid || payConfig.yipay_key)
 
                 setPayExpanded({
-                    alipay: !alipayConfigured,
-                    usdt: !usdtConfigured,
-                    bsc_usdt: !bscUsdtConfigured,
-                    yipay: !yipayConfigured
+                    self_alipay: !alipayConfigured && payConfig.alipay_mode !== 'platform',
+                    platform_alipay: !alipayConfigured && payConfig.alipay_mode === 'platform',
+                    self_wechat: false,
+                    platform_wechat: !wechatConfigured,
+                    self_usdt: !usdtConfigured && payConfig.usdt_mode !== 'platform',
+                    platform_usdt: !usdtConfigured && payConfig.usdt_mode === 'platform',
+                    self_bsc_usdt: !bscUsdtConfigured && payConfig.bsc_usdt_mode !== 'platform',
+                    platform_bsc_usdt: !bscUsdtConfigured && payConfig.bsc_usdt_mode === 'platform',
+                    self_yipay: !yipayConfigured && payConfig.yipay_mode !== 'platform',
+                    platform_yipay: !yipayConfigured && payConfig.yipay_mode === 'platform'
                 })
 
                 setPayForm({
                     alipayEnabled: s.alipayEnabled || false,
+                    wechatEnabled: s.wechatEnabled || false,
                     usdtEnabled: s.usdtEnabled || false,
                     bscUsdtEnabled: s.bscUsdtEnabled || false,
                     yipayEnabled: payConfig.yipay_enabled || false,
+                    alipayMode: payConfig.alipay_mode || 'self',
+                    wechatMode: payConfig.wechat_mode || 'self',
+                    usdtMode: payConfig.usdt_mode || 'self',
+                    bscUsdtMode: payConfig.bsc_usdt_mode || 'self',
+                    yipayMode: payConfig.yipay_mode || 'self',
                     alipayAppId: payConfig.alipay_app_id || '',
                     alipayPrivateKey: payConfig.alipay_private_key || '',
                     alipayPublicKey: payConfig.alipay_public_key || '',
@@ -469,6 +504,11 @@ For orders eligible for a refund, we prioritize free replacement:
                     yipayApiUrl: payConfig.yipay_api_url || '',
                     yipayPid: payConfig.yipay_pid || '',
                     yipayKey: payConfig.yipay_key || '',
+                    settleAlipayAccount: payConfig.settle_alipay_account || '',
+                    settleWechatAccount: payConfig.settle_wechat_account || '',
+                    settleUsdtWallet: payConfig.settle_usdt_wallet || '',
+                    settleBscUsdtWallet: payConfig.settle_bsc_usdt_wallet || '',
+                    settleYipayAccount: payConfig.settle_yipay_account || '',
                     emailMode: payConfig.email_mode || 'platform',
                     smtpHost: payConfig.smtp_host || '',
                     smtpPort: payConfig.smtp_port || '465',
@@ -483,7 +523,10 @@ For orders eligible for a refund, we prioritize free replacement:
                     notifyRefund: payConfig.notify_refund !== false,
                     notifyEmail: payConfig.notify_email || '',
                     stockMode: payConfig.stock_mode || 'auto',
-                    orderTimeout: payConfig.order_timeout || 15
+                    orderTimeout: payConfig.order_timeout || 15,
+                    fuzzyStockEnabled: payConfig.fuzzy_stock_enabled === true || payConfig.fuzzy_stock_enabled === 'true',
+                    fuzzyStockThreshold: payConfig.fuzzy_stock_threshold !== undefined ? payConfig.fuzzy_stock_threshold : 10,
+                    showSalesCount: payConfig.show_sales_count !== false && payConfig.show_sales_count !== 'false'
                 })
             }
             // 获取套餐允许的皮肤
@@ -607,6 +650,11 @@ For orders eligible for a refund, we prioritize free replacement:
 
                 // 保存 stock_mode 至 tenantSettings 的 paymentConfig 中
                 const paymentConfig = JSON.stringify({
+                    alipay_mode: payForm.alipayMode,
+                    wechat_mode: payForm.wechatMode,
+                    usdt_mode: payForm.usdtMode,
+                    bsc_usdt_mode: payForm.bscUsdtMode,
+                    yipay_mode: payForm.yipayMode,
                     alipay_app_id: payForm.alipayAppId,
                     alipay_private_key: payForm.alipayPrivateKey,
                     alipay_public_key: payForm.alipayPublicKey,
@@ -617,6 +665,11 @@ For orders eligible for a refund, we prioritize free replacement:
                     yipay_api_url: payForm.yipayApiUrl,
                     yipay_pid: payForm.yipayPid,
                     yipay_key: payForm.yipayKey,
+                    settle_alipay_account: payForm.settleAlipayAccount,
+                    settle_wechat_account: payForm.settleWechatAccount,
+                    settle_usdt_wallet: payForm.settleUsdtWallet,
+                    settle_bsc_usdt_wallet: payForm.settleBscUsdtWallet,
+                    settle_yipay_account: payForm.settleYipayAccount,
                     email_mode: payForm.emailMode,
                     smtp_host: payForm.smtpHost,
                     smtp_port: payForm.smtpPort,
@@ -638,6 +691,7 @@ For orders eligible for a refund, we prioritize free replacement:
                     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         alipayEnabled: payForm.alipayEnabled,
+                        wechatEnabled: payForm.wechatEnabled,
                         usdtEnabled: payForm.usdtEnabled,
                         bscUsdtEnabled: payForm.bscUsdtEnabled,
                         paymentConfig
@@ -674,22 +728,22 @@ For orders eligible for a refund, we prioritize free replacement:
         if (e?.preventDefault) e.preventDefault()
         // 校验：已启用的支付方式必填配置
         const errors = []
-        if (payForm.alipayEnabled) {
+        if (payForm.alipayEnabled && payForm.alipayMode === 'self') {
             if (!payForm.alipayAppId.trim()) errors.push(L('inline.alipay.please.enter.app.id.0620f7f'))
             if (!payForm.alipayPrivateKey.trim()) errors.push(L('inline.alipay.please.enter.private.key.e40bdce'))
             if (!payForm.alipayPublicKey.trim()) errors.push(L('inline.alipay.please.enter.public.key.1ce5a9a'))
         }
-        if (payForm.usdtEnabled) {
+        if (payForm.usdtEnabled && payForm.usdtMode === 'self') {
             if (!payForm.usdtWallet.trim()) errors.push('USDT-TRC20: Please enter wallet address')
             else if (!/^T[A-Za-z0-9]{33}$/.test(payForm.usdtWallet.trim())) errors.push('USDT-TRC20: Invalid address format')
             const rate = parseFloat(payForm.usdtExchangeRate)
             if (!rate || rate <= 0) errors.push('USDT-TRC20: Please enter valid rate')
         }
-        if (payForm.bscUsdtEnabled) {
+        if (payForm.bscUsdtEnabled && payForm.bscUsdtMode === 'self') {
             if (!payForm.bscUsdtWallet.trim()) errors.push('USDT-BEP20: Please enter wallet address')
             else if (!/^0x[a-fA-F0-9]{40}$/.test(payForm.bscUsdtWallet.trim())) errors.push('USDT-BEP20: Invalid address format')
         }
-        if (payForm.yipayEnabled) {
+        if (payForm.yipayEnabled && payForm.yipayMode === 'self') {
             if (!payForm.yipayApiUrl.trim()) errors.push(L('易支付：请输入 API 地址', 'Yipay: Please enter API URL'))
             if (!payForm.yipayPid.trim()) errors.push(L('易支付：请输入商户 ID', 'Yipay: Please enter Merchant ID'))
             if (!payForm.yipayKey.trim()) errors.push(L('易支付：请输入商户密钥', 'Yipay: Please enter Merchant Key'))
@@ -702,16 +756,26 @@ For orders eligible for a refund, we prioritize free replacement:
         setPaySaving(true); setPayMsg(null)
         try {
             const paymentConfig = JSON.stringify({
+                alipay_mode: payForm.alipayMode,
+                wechat_mode: payForm.wechatMode,
+                usdt_mode: payForm.usdtMode,
+                bsc_usdt_mode: payForm.bscUsdtMode,
+                yipay_mode: payForm.yipayMode,
                 alipay_app_id: payForm.alipayAppId,
                 alipay_private_key: payForm.alipayPrivateKey,
                 alipay_public_key: payForm.alipayPublicKey,
                 usdt_wallet: payForm.usdtWallet,
-                bsc_usdt_wallet: payForm.bscUsdtWallet,
+                bscUsdtWallet: payForm.bscUsdtWallet,
                 usdt_exchange_rate: payForm.usdtExchangeRate,
                 yipay_enabled: payForm.yipayEnabled,
                 yipay_api_url: payForm.yipayApiUrl,
                 yipay_pid: payForm.yipayPid,
                 yipay_key: payForm.yipayKey,
+                settle_alipay_account: payForm.settleAlipayAccount,
+                settle_wechat_account: payForm.settleWechatAccount,
+                settle_usdt_wallet: payForm.settleUsdtWallet,
+                settle_bsc_usdt_wallet: payForm.settleBscUsdtWallet,
+                settle_yipay_account: payForm.settleYipayAccount,
                 email_mode: payForm.emailMode,
                 smtp_host: payForm.smtpHost,
                 smtp_port: payForm.smtpPort,
@@ -726,21 +790,29 @@ For orders eligible for a refund, we prioritize free replacement:
                 notify_refund: payForm.notifyRefund,
                 notify_email: payForm.notifyEmail,
                 stock_mode: payForm.stockMode,
-                order_timeout: payForm.orderTimeout
+                order_timeout: payForm.orderTimeout,
+                fuzzy_stock_enabled: !!payForm.fuzzyStockEnabled,
+                fuzzy_stock_threshold: parseInt(payForm.fuzzyStockThreshold, 10) || 10,
+                show_sales_count: !!payForm.showSalesCount
             })
             const r = await fetch(`${API}/tenant/settings`, {
                 method: 'PUT',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     alipayEnabled: payForm.alipayEnabled,
+                    wechatEnabled: payForm.wechatEnabled,
                     usdtEnabled: payForm.usdtEnabled,
                     bscUsdtEnabled: payForm.bscUsdtEnabled,
                     paymentConfig
                 })
             })
             const d = await r.json()
-            if (r.ok) setPayMsg({ type: 'success', text: L('inline.settings.saved.96f47b4') })
-            else setPayMsg({ type: 'error', text: d.error || L('inline.save.failed.1b32f27') })
+            if (r.ok) {
+                setPayMsg({ type: 'success', text: L('inline.settings.saved.96f47b4') })
+                window.dispatchEvent(new CustomEvent('tenant-payment-settings-saved'))
+            } else {
+                setPayMsg({ type: 'error', text: d.error || L('inline.save.failed.1b32f27') })
+            }
         } catch { setPayMsg({ type: 'error', text: L('inline.network.error.c15d73e') }) }
         setPaySaving(false)
     }
@@ -820,12 +892,14 @@ For orders eligible for a refund, we prioritize free replacement:
     const displaySlug = shop?.slug || tenant?.shopSlug || '—'
 
     const tabs = [
-        { key: 'basic', icon: '🏪', label: L('inline.basic.info.183eebc') },
+        { key: 'basic', icon: '🏪', label: L('基础设置', 'Basic Settings') },
+        { key: 'display', icon: '🎨', label: L('界面与功能', 'Display & Features') },
         { key: 'payment', icon: '💳', label: L('inline.payment.d9fbbc6') },
         { key: 'email', icon: '📧', label: L('inline.email.dceeba7') },
         { key: 'admin', icon: '👥', label: L('inline.admins.d35236c') },
         { key: 'account', icon: '🔐', label: L('inline.account.d72d065') },
         { key: 'plan', icon: '💎', label: L('inline.plan.e8ec140') },
+        { key: 'kyc', icon: '🛡️', label: L('实名认证', 'Real-name Verification') },
     ]
 
     return (
@@ -850,6 +924,7 @@ For orders eligible for a refund, we prioritize free replacement:
             </div>
 
             {/* Basic Info */}
+            {/* Basic Info */}
             {activeTab === 'basic' && (
                 <div className="ts-section">
                     {shopMsg && <div className={`ts-msg ${shopMsg.type}`}>{shopMsg.text}</div>}
@@ -857,112 +932,6 @@ For orders eligible for a refund, we prioritize free replacement:
                         <div className="ts-form-group">
                             <label>{L('inline.store.name.b223d79')}</label>
                             <input value={shopForm.name} onChange={e => setShopForm(f => ({ ...f, name: e.target.value }))} placeholder={L('inline.your.store.name.ebd1ef9')} required />
-                        </div>
-                        <div className="ts-form-group">
-                            <label>Logo</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                {shopForm.logo && <img src={shopForm.logo} alt="Logo" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border-color)' }} />}
-                                <label style={{ padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '0.84rem', cursor: 'pointer' }}>
-                                    {shopForm.logo ? L('inline.replace.6ce02bc') : L('inline.upload.logo.2a5b9fa')}
-                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
-                                        const file = e.target.files[0]
-                                        if (!file) return
-                                        const uploadFile = await prepareUploadImageFile(file)
-                                        const formData = new FormData()
-                                        formData.append('images', uploadFile)
-                                        try {
-                                            const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData })
-                                            const d = await r.json()
-                                            if (d.images?.[0]) { setShopForm(f => ({ ...f, logo: d.images[0].urls.original })); setShopMsg({ type: 'success', text: L('inline.logo.uploaded.076e78c') }) }
-                                            else setShopMsg({ type: 'error', text: d.error || L('inline.upload.failed.7d90602') })
-                                        } catch { setShopMsg({ type: 'error', text: L('inline.upload.failed.7d90602') }) }
-                                    }} />
-                                </label>
-                                {shopForm.logo && <button type="button" onClick={() => setShopForm(f => ({ ...f, logo: '' }))} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.8rem', cursor: 'pointer' }}>{L('inline.clear.a0e44b2')}</button>}
-                            </div>
-                            <span className="ts-hint">{L('inline.recommended.size.200.x.200.png.svg.supported.0d81dfb')}</span>
-                        </div>
-                        <div className="ts-form-group">
-                            <label>{L('inline.favicon.a21d15d')}</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                {shopForm.favicon && <img src={shopForm.favicon} alt="Favicon" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', border: '1px solid var(--border-color)' }} />}
-                                <label style={{ padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '0.84rem', cursor: 'pointer' }}>
-                                    {shopForm.favicon ? L('inline.replace.6ce02bc') : L('inline.upload.favicon.28f504b')}
-                                    <input type="file" accept="image/*,.ico" style={{ display: 'none' }} onChange={async e => {
-                                        const file = e.target.files[0]
-                                        if (!file) return
-                                        const uploadFile = await prepareUploadImageFile(file)
-                                        const formData = new FormData()
-                                        formData.append('images', uploadFile)
-                                        try {
-                                            const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData })
-                                            const d = await r.json()
-                                            if (d.images?.[0]) { setShopForm(f => ({ ...f, favicon: d.images[0].urls.original })); setShopMsg({ type: 'success', text: L('inline.favicon.uploaded.af41074') }) }
-                                            else setShopMsg({ type: 'error', text: d.error || L('inline.upload.failed.7d90602') })
-                                        } catch { setShopMsg({ type: 'error', text: L('inline.upload.failed.7d90602') }) }
-                                    }} />
-                                </label>
-                                {shopForm.favicon && <button type="button" onClick={() => setShopForm(f => ({ ...f, favicon: '' }))} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.8rem', cursor: 'pointer' }}>{L('inline.clear.a0e44b2')}</button>}
-                            </div>
-                            <span className="ts-hint">{L('inline.recommended.size.32.x.32.ico.or.png.97179ea')}</span>
-                        </div>
-                        <div className="ts-form-group">
-                            <label>{L('书签栏文字 (浏览器标题)', 'Browser Tab Title')}</label>
-                            <input
-                                type="text"
-                                placeholder={L('留空默认使用域名或商城名称', 'Leave blank to use domain or shop name by default')}
-                                value={shopForm.bookmarkTitle || ''}
-                                onChange={e => setShopForm(f => ({ ...f, bookmarkTitle: e.target.value }))}
-                            />
-                            <span className="ts-hint">{L('自定义浏览器标签页和书签栏显示的文字。如果留空，默认使用自动文字。', 'Customize the text displayed on browser tab and bookmark bar. If left blank, the automatic text will be used.')}</span>
-                        </div>
-                        <div className="ts-form-group">
-                            <label>{L('inline.theme.410cf43')}</label>
-
-                            {/* 当前主题预览 + 切换按钮 */}
-                            {(() => {
-                                const allOptions = [
-                                    ...ALL_SKIN_OPTIONS.filter(s => allowedSkins.includes(s.value)).map(s => ({
-                                        value: s.value,
-                                        label: L(s.labelZh, s.labelEn),
-                                        desc: L(s.descZh, s.descEn),
-                                        group: s.value === 'class' ? L('inline.classic.c59d41b') : L('inline.minimal.db5115a'),
-                                        type: 'public'
-                                    })),
-                                    ...customThemes.map(t => ({
-                                        value: `custom:${t.key}`, label: t.name,
-                                        desc: t.description || L('inline.custom.theme.edda78b'),
-                                        group: L('inline.custom.953741b'), type: 'custom'
-                                    }))
-                                ]
-                                const current = allOptions.find(o => o.value === shopForm.skin)
-                                    || allOptions[0]
-                                    || { label: L('inline.no.theme.selected.5149ae5'), desc: L('inline.please.select.a.theme.647628a'), group: '' }
-
-                                return (
-                                    <div className="ts-theme-current">
-                                        <div className="ts-theme-current-info">
-                                            <div className="ts-theme-current-meta">
-                                                {current.group && <span className="ts-theme-current-group">{current.group}</span>}
-                                                {current.type === 'custom' && <span className="ts-theme-current-badge">✨ {L('inline.custom.953741b')}</span>}
-                                            </div>
-                                            <div className="ts-theme-current-name">{current.label}</div>
-                                            <div className="ts-theme-current-desc">{current.desc}</div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="ts-theme-switch-btn"
-                                            onClick={() => setThemePickerOpen(true)}
-                                        >
-                                            {L('inline.switch.theme.0f2165b')}
-                                        </button>
-                                    </div>
-                                )
-                            })()}
-
-                            {allowedSkins.length < 3 && (
-                                <span className="ts-hint">{L('inline.upgrade.to.unlock.more.themes.cda1023')}</span>
-                            )}
                         </div>
                         <div className="ts-form-group">
                             <label>{L('inline.store.language.8f95cf0')}</label>
@@ -1083,6 +1052,218 @@ For orders eligible for a refund, we prioritize free replacement:
                                     )}
                                     <span className="ts-hint">{L('绑定您自己的独立域名，打造更专业的商城形象', 'Bind your own domain for a professional look')}</span>
                                 </>
+                            )}
+                        </div>
+
+                        {/* 库存计算方式 */}
+                        <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 18 }}>
+                            <label>{L('inline.stock.calculation.3fce3ce')}</label>
+                            <div style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap' }}>
+                                <div
+                                    onClick={() => setPayForm(f => ({ ...f, stockMode: 'auto' }))}
+                                    style={{
+                                        flex: 1, minWidth: '240px',
+                                        display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+                                        border: `2px solid ${(payForm.stockMode || 'auto') === 'auto' ? 'var(--primary)' : 'var(--border-color)'}`,
+                                        borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                                        background: (payForm.stockMode || 'auto') === 'auto' ? 'rgba(239,68,68,0.04)' : 'transparent',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${(payForm.stockMode || 'auto') === 'auto' ? 'var(--primary)' : 'var(--border-color)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {(payForm.stockMode || 'auto') === 'auto' && <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--primary)' }} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>🔄 {L('inline.auto.53a3bc0')}</div>
+                                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>{L('inline.stock.equals.available.card.count.and.is.deducted.after.deli.0efda59')}</div>
+                                    </div>
+                                </div>
+                                <div
+                                    onClick={() => setPayForm(f => ({ ...f, stockMode: 'manual' }))}
+                                    style={{
+                                        flex: 1, minWidth: '240px',
+                                        display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+                                        border: `2px solid payForm.stockMode === 'manual' ? 'var(--primary)' : 'var(--border-color)'`,
+                                        borderWidth: '2px',
+                                        borderColor: payForm.stockMode === 'manual' ? 'var(--primary)' : 'var(--border-color)',
+                                        borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                                        background: payForm.stockMode === 'manual' ? 'rgba(239,68,68,0.04)' : 'transparent',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${payForm.stockMode === 'manual' ? 'var(--primary)' : 'var(--border-color)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {payForm.stockMode === 'manual' && <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--primary)' }} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>✏️ {L('inline.manual.843ab14')}</div>
+                                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>{L('inline.enter.stock.manually.without.linking.it.to.card.count.9693c33')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" className="ts-btn-primary" disabled={shopSaving}>
+                            {shopSaving ? L('inline.saving.18c1774') : L('保存基础设置', 'Save Basic Settings')}
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {/* Display & Features */}
+            {activeTab === 'display' && (
+                <div className="ts-section">
+                    {shopMsg && <div className={`ts-msg ${shopMsg.type}`}>{shopMsg.text}</div>}
+                    <form onSubmit={handleShopSave} className="ts-form">
+                        <div className="ts-form-group">
+                            <label>Logo</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                {shopForm.logo && (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 120,
+                                        height: 48,
+                                        borderRadius: 8,
+                                        background: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border-color)',
+                                        padding: '4px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <img
+                                            src={shopForm.logo}
+                                            alt="Logo"
+                                            style={{
+                                                maxWidth: '100%',
+                                                maxHeight: '100%',
+                                                objectFit: 'contain'
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                <label style={{ padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '0.84rem', cursor: 'pointer' }}>
+                                    {shopForm.logo ? L('inline.replace.6ce02bc') : L('inline.upload.logo.2a5b9fa')}
+                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
+                                        const file = e.target.files[0]
+                                        if (!file) return
+                                        const uploadFile = await prepareUploadImageFile(file)
+                                        const formData = new FormData()
+                                        formData.append('images', uploadFile)
+                                        try {
+                                            const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData })
+                                            const d = await r.json()
+                                            if (d.images?.[0]) { setShopForm(f => ({ ...f, logo: d.images[0].urls.original })); setShopMsg({ type: 'success', text: L('inline.logo.uploaded.076e78c') }) }
+                                            else setShopMsg({ type: 'error', text: d.error || L('inline.upload.failed.7d90602') })
+                                        } catch { setShopMsg({ type: 'error', text: L('inline.upload.failed.7d90602') }) }
+                                    }} />
+                                </label>
+                                {shopForm.logo && <button type="button" onClick={() => setShopForm(f => ({ ...f, logo: '' }))} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.8rem', cursor: 'pointer' }}>{L('inline.clear.a0e44b2')}</button>}
+                            </div>
+                            <span className="ts-hint">{L('inline.recommended.size.200.x.200.png.svg.supported.0d81dfb')}</span>
+                        </div>
+                        <div className="ts-form-group">
+                            <label>{L('inline.favicon.a21d15d')}</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                {shopForm.favicon && (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius: 6,
+                                        background: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border-color)',
+                                        padding: '2px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <img
+                                            src={shopForm.favicon}
+                                            alt="Favicon"
+                                            style={{
+                                                maxWidth: '100%',
+                                                maxHeight: '100%',
+                                                objectFit: 'contain'
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                <label style={{ padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '0.84rem', cursor: 'pointer' }}>
+                                    {shopForm.favicon ? L('inline.replace.6ce02bc') : L('inline.upload.favicon.28f504b')}
+                                    <input type="file" accept="image/*,.ico" style={{ display: 'none' }} onChange={async e => {
+                                        const file = e.target.files[0]
+                                        if (!file) return
+                                        const uploadFile = await prepareUploadImageFile(file)
+                                        const formData = new FormData()
+                                        formData.append('images', uploadFile)
+                                        try {
+                                            const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData })
+                                            const d = await r.json()
+                                            if (d.images?.[0]) { setShopForm(f => ({ ...f, favicon: d.images[0].urls.original })); setShopMsg({ type: 'success', text: L('inline.favicon.uploaded.af41074') }) }
+                                            else setShopMsg({ type: 'error', text: d.error || L('inline.upload.failed.7d90602') })
+                                        } catch { setShopMsg({ type: 'error', text: L('inline.upload.failed.7d90602') }) }
+                                    }} />
+                                </label>
+                                {shopForm.favicon && <button type="button" onClick={() => setShopForm(f => ({ ...f, favicon: '' }))} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.8rem', cursor: 'pointer' }}>{L('inline.clear.a0e44b2')}</button>}
+                            </div>
+                            <span className="ts-hint">{L('inline.recommended.size.32.x.32.ico.or.png.97179ea')}</span>
+                        </div>
+                        <div className="ts-form-group">
+                            <label>{L('书签栏文字 (浏览器标题)', 'Browser Tab Title')}</label>
+                            <input
+                                type="text"
+                                placeholder={L('留空默认使用域名或商城名称', 'Leave blank to use domain or shop name by default')}
+                                value={shopForm.bookmarkTitle || ''}
+                                onChange={e => setShopForm(f => ({ ...f, bookmarkTitle: e.target.value }))}
+                            />
+                            <span className="ts-hint">{L('自定义浏览器标签页和书签栏显示的文字。如果留空，默认使用自动文字。', 'Customize the text displayed on browser tab and bookmark bar. If left blank, the automatic text will be used.')}</span>
+                        </div>
+                        <div className="ts-form-group">
+                            <label>{L('inline.theme.410cf43')}</label>
+
+                            {/* 当前主题预览 + 切换按钮 */}
+                            {(() => {
+                                const allOptions = [
+                                    ...ALL_SKIN_OPTIONS.filter(s => allowedSkins.includes(s.value)).map(s => ({
+                                        value: s.value,
+                                        label: L(s.labelZh, s.labelEn),
+                                        desc: L(s.descZh, s.descEn),
+                                        group: s.value === 'class' ? L('inline.classic.c59d41b') : L('inline.minimal.db5115a'),
+                                        type: 'public'
+                                    })),
+                                    ...customThemes.map(t => ({
+                                        value: `custom:${t.key}`, label: t.name,
+                                        desc: t.description || L('inline.custom.theme.edda78b'),
+                                        group: L('inline.custom.953741b'), type: 'custom'
+                                    }))
+                                ]
+                                const current = allOptions.find(o => o.value === shopForm.skin)
+                                    || allOptions[0]
+                                    || { label: L('inline.no.theme.selected.5149ae5'), desc: L('inline.please.select.a.theme.647628a'), group: '' }
+
+                                return (
+                                    <div className="ts-theme-current">
+                                        <div className="ts-theme-current-info">
+                                            <div className="ts-theme-current-meta">
+                                                {current.group && <span className="ts-theme-current-group">{current.group}</span>}
+                                                {current.type === 'custom' && <span className="ts-theme-current-badge">✨ {L('inline.custom.953741b')}</span>}
+                                            </div>
+                                            <div className="ts-theme-current-name">{current.label}</div>
+                                            <div className="ts-theme-current-desc">{current.desc}</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="ts-theme-switch-btn"
+                                            onClick={() => setThemePickerOpen(true)}
+                                        >
+                                            {L('inline.switch.theme.0f2165b')}
+                                        </button>
+                                    </div>
+                                )
+                            })()}
+
+                            {allowedSkins.length < 3 && (
+                                <span className="ts-hint">{L('inline.upgrade.to.unlock.more.themes.cda1023')}</span>
                             )}
                         </div>
 
@@ -1271,55 +1452,76 @@ For orders eligible for a refund, we prioritize free replacement:
                             )}
                         </div>
 
-                        {/* 库存计算方式 */}
-                        <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 18 }}>
-                            <label>{L('inline.stock.calculation.3fce3ce')}</label>
-                            <div style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap' }}>
-                                <div
-                                    onClick={() => setPayForm(f => ({ ...f, stockMode: 'auto' }))}
-                                    style={{
-                                        flex: 1, minWidth: '240px',
-                                        display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-                                        border: `2px solid ${(payForm.stockMode || 'auto') === 'auto' ? 'var(--primary)' : 'var(--border-color)'}`,
-                                        borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-                                        background: (payForm.stockMode || 'auto') === 'auto' ? 'rgba(239,68,68,0.04)' : 'transparent',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${(payForm.stockMode || 'auto') === 'auto' ? 'var(--primary)' : 'var(--border-color)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {(payForm.stockMode || 'auto') === 'auto' && <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--primary)' }} />}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>🔄 {L('inline.auto.53a3bc0')}</div>
-                                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>{L('inline.stock.equals.available.card.count.and.is.deducted.after.deli.0efda59')}</div>
-                                    </div>
-                                </div>
-                                <div
-                                    onClick={() => setPayForm(f => ({ ...f, stockMode: 'manual' }))}
-                                    style={{
-                                        flex: 1, minWidth: '240px',
-                                        display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-                                        border: `2px solid payForm.stockMode === 'manual' ? 'var(--primary)' : 'var(--border-color)'`,
-                                        borderWidth: '2px',
-                                        borderColor: payForm.stockMode === 'manual' ? 'var(--primary)' : 'var(--border-color)',
-                                        borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-                                        background: payForm.stockMode === 'manual' ? 'rgba(239,68,68,0.04)' : 'transparent',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${payForm.stockMode === 'manual' ? 'var(--primary)' : 'var(--border-color)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {payForm.stockMode === 'manual' && <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--primary)' }} />}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>✏️ {L('inline.manual.843ab14')}</div>
-                                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>{L('inline.enter.stock.manually.without.linking.it.to.card.count.9693c33')}</div>
-                                    </div>
-                                </div>
+                        {/* 商品销量与模糊库存 */}
+                        <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 4 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <label style={{ margin: 0 }}>{L('显示商品销量', 'Display Product Sales Volume')}</label>
+                                <label className="ts-switch" style={{ position: 'relative', display: 'inline-block', width: 42, height: 22 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!!payForm.showSalesCount}
+                                        onChange={e => setPayForm(f => ({ ...f, showSalesCount: e.target.checked }))}
+                                        style={{ opacity: 0, width: 0, height: 0 }}
+                                    />
+                                    <span style={{
+                                        position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                        background: payForm.showSalesCount ? 'var(--primary)' : '#ccc',
+                                        borderRadius: 22, transition: '0.2s'
+                                    }}>
+                                        <span style={{
+                                            position: 'absolute', height: 16, width: 16, left: payForm.showSalesCount ? 23 : 3,
+                                            top: 3, background: '#fff', borderRadius: '50%', transition: '0.2s'
+                                        }} />
+                                    </span>
+                                </label>
                             </div>
+                            <span className="ts-hint">{L('启用后，将在买家端商品列表和商品详情页展示该商品的累计销量。', 'When enabled, displays total sales volume on product list and detail pages.')}</span>
+                        </div>
+
+                        <div className="ts-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 18, marginTop: 4 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <label style={{ margin: 0 }}>{L('模糊库存显示', 'Fuzzy Stock Display')}</label>
+                                <label className="ts-switch" style={{ position: 'relative', display: 'inline-block', width: 42, height: 22 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!!payForm.fuzzyStockEnabled}
+                                        onChange={e => setPayForm(f => ({ ...f, fuzzyStockEnabled: e.target.checked }))}
+                                        style={{ opacity: 0, width: 0, height: 0 }}
+                                    />
+                                    <span style={{
+                                        position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                        background: payForm.fuzzyStockEnabled ? 'var(--primary)' : '#ccc',
+                                        borderRadius: 22, transition: '0.2s'
+                                    }}>
+                                        <span style={{
+                                            position: 'absolute', height: 16, width: 16, left: payForm.fuzzyStockEnabled ? 23 : 3,
+                                            top: 3, background: '#fff', borderRadius: '50%', transition: '0.2s'
+                                        }} />
+                                    </span>
+                                </label>
+                            </div>
+                            <span className="ts-hint">{L('启用后，买家端将不显示精确的库存数字，而是显示“库存紧张”或“库存充足”。', 'When enabled, shows "Low Stock" or "In Stock" instead of precise numbers.')}</span>
+
+                            {payForm.fuzzyStockEnabled && (
+                                <div style={{ marginTop: 12 }}>
+                                    <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>{L('库存紧张阈值', 'Low Stock Threshold')}</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={payForm.fuzzyStockThreshold}
+                                        onChange={e => setPayForm(f => ({ ...f, fuzzyStockThreshold: parseInt(e.target.value, 10) || 0 }))}
+                                        placeholder="10"
+                                        style={{ width: '100px', padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                                    />
+                                    <span className="ts-hint" style={{ marginTop: 4, display: 'block' }}>
+                                        {L('当库存小于等于此值时显示“库存紧张”，大于此值时显示“库存充足”。', 'Displays "Low Stock" when inventory is less than or equal to this threshold.')}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <button type="submit" className="ts-btn-primary" disabled={shopSaving}>
-                            {shopSaving ? L('inline.saving.18c1774') : L('inline.save.settings.bdd3186')}
+                            {shopSaving ? L('inline.saving.18c1774') : L('保存界面与功能', 'Save Display & Features')}
                         </button>
                     </form>
                 </div>
@@ -1334,185 +1536,322 @@ For orders eligible for a refund, we prioritize free replacement:
                     </div>
                     {payMsg && <div className={`ts-msg ${payMsg.type}`}>{payMsg.text}</div>}
                     <form onSubmit={handlePaySave} className="ts-form">
-                        {/* 支付宝 */}
-                        {globalChannels.channel_alipay !== 'false' && checkChannelVisible('channel_alipay', true, false) && (
-                            <>
-                                <div className="ts-pay-toggle-row">
-                                    <label className="ts-toggle">
-                                        <input type="checkbox" checked={payForm.alipayEnabled} onChange={e => {
-                                            const checked = e.target.checked
-                                            setPayForm(f => ({ ...f, alipayEnabled: checked }))
-                                            if (checked) setPayExpanded(ex => ({ ...ex, alipay: true }))
-                                        }} />
-                                        <span className="ts-toggle-slider"></span>
-                                        <span className="ts-toggle-label">{L('inline.alipay.face.to.face.003c1ad')}</span>
-                                    </label>
-                                    {payForm.alipayEnabled && (
-                                        <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, alipay: !ex.alipay }))}>
-                                            {payExpanded.alipay ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
-                                        </button>
-                                    )}
-                                </div>
-                                {payForm.alipayEnabled && payExpanded.alipay && (
-                                    <div className="ts-pay-config-wrapper">
-                                        <div className="ts-pay-fields">
-                                            <div className="ts-pay-field">
-                                                <label>{L('inline.app.id.c0125a9')}</label>
-                                                <input value={payForm.alipayAppId} onChange={e => setPayForm(f => ({ ...f, alipayAppId: e.target.value }))} placeholder="支付宝应用 App ID" />
-                                            </div>
-                                            <div className="ts-pay-field">
-                                                <label>{L('inline.app.private.key.86b2173')}</label>
-                                                <input value={payForm.alipayPrivateKey} onChange={e => setPayForm(f => ({ ...f, alipayPrivateKey: e.target.value }))} placeholder={L('inline.rsa2.app.private.key.18c4561')} type="password" />
-                                            </div>
-                                            <div className="ts-pay-field">
-                                                <label>{L('inline.alipay.public.key.f1b9616')}</label>
-                                                <input value={payForm.alipayPublicKey} onChange={e => setPayForm(f => ({ ...f, alipayPublicKey: e.target.value }))} placeholder={L('inline.alipay.public.key.for.signature.verification.b3ec4f7')} type="password" />
-                                            </div>
-                                            {shopForm.currency === 'USD' && (
-                                                <div className="ts-pay-field">
-                                                    <label>USD→CNY 汇率</label>
-                                                    <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" min="1" max="20" />
-                                                    <span className="ts-hint">{L('inline.usd.pricing.with.alipay.cny.collection.example.8.x.7.2.57.60.52fb4e9')}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
+                        {/* 🌟 Section 1: 平台代收渠道（统一结算） */}
+                        <div style={{ marginBottom: 30, background: 'var(--bg-secondary)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                            <div className="ts-section-desc" style={{ marginBottom: 20 }}>
+                                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>🌐 {L('平台代收渠道（统一结算）', 'Platform Collection Channels')}</h4>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                                    {L('由平台收银结账并统一打款给您，开启时会自动关闭对应的自备收款通道。', 'Collected and settled by the platform. Automatically disables corresponding direct payment.')}
+                                </p>
+                            </div>
 
-                        {/* USDT-TRC20 */}
-                        {globalChannels.channel_usdt_trc20 !== 'false' && checkChannelVisible('channel_usdt_trc20', false, true) && (
-                            <>
-                                <div className="ts-pay-toggle-row">
-                                    <label className="ts-toggle">
-                                        <input type="checkbox" checked={payForm.usdtEnabled} onChange={e => {
-                                            const checked = e.target.checked
-                                            setPayForm(f => ({ ...f, usdtEnabled: checked }))
-                                            if (checked) setPayExpanded(ex => ({ ...ex, usdt: true }))
-                                        }} />
-                                        <span className="ts-toggle-slider"></span>
-                                        <span className="ts-toggle-label">USDT-TRC20</span>
-                                    </label>
-                                    {payForm.usdtEnabled && (
-                                        <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, usdt: !ex.usdt }))}>
-                                            {payExpanded.usdt ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
-                                        </button>
-                                    )}
-                                </div>
-                                {payForm.usdtEnabled && payExpanded.usdt && (
-                                    <div className="ts-pay-config-wrapper">
-                                        <div className="ts-pay-fields">
-                                            <div className="ts-pay-field">
-                                                <label>{L('inline.trc20.receiving.wallet.2aab6ca')}</label>
-                                                <input value={payForm.usdtWallet} onChange={e => setPayForm(f => ({ ...f, usdtWallet: e.target.value }))} placeholder="T..." />
-                                            </div>
-                                            {shopForm.currency !== 'USD' && (
-                                                <div className="ts-pay-field">
-                                                    <label>{L('inline.exchange.rate.1.usdt.cny.51a7779')}</label>
-                                                    <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" />
-                                                </div>
-                                            )}
-                                            {shopForm.currency === 'USD' && (
-                                                <div className="ts-pay-field">
-                                                    <span className="ts-hint">{L('inline.usd.stores.collect.usdt.at.1.1.no.exchange.rate.needed.47fdc62')}</span>
-                                                </div>
-                                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {/* 支付宝当面付 - 代收 */}
+                                {globalChannels.platform_channel_alipay === 'true' && checkChannelVisible('channel_alipay', true, false) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.alipayEnabled && payForm.alipayMode === 'platform'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, alipayEnabled: checked, alipayMode: checked ? 'platform' : f.alipayMode }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('平台代收：支付宝当面付', 'Platform Alipay')}</span>
+                                            </label>
                                         </div>
                                     </div>
                                 )}
-                            </>
-                        )}
 
-                        {/* USDT-BEP20 */}
-                        {globalChannels.channel_usdt_bep20 !== 'false' && checkChannelVisible('channel_usdt_bep20', false, true) && (
-                            <>
-                                <div className="ts-pay-toggle-row">
-                                    <label className="ts-toggle">
-                                        <input type="checkbox" checked={payForm.bscUsdtEnabled} onChange={e => {
-                                            const checked = e.target.checked
-                                            setPayForm(f => ({ ...f, bscUsdtEnabled: checked }))
-                                            if (checked) setPayExpanded(ex => ({ ...ex, bsc_usdt: true }))
-                                        }} />
-                                        <span className="ts-toggle-slider"></span>
-                                        <span className="ts-toggle-label">USDT-BEP20 (BSC)</span>
-                                    </label>
-                                    {payForm.bscUsdtEnabled && (
-                                        <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, bsc_usdt: !ex.bsc_usdt }))}>
-                                            {payExpanded.bsc_usdt ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
-                                        </button>
-                                    )}
-                                </div>
-                                {payForm.bscUsdtEnabled && payExpanded.bsc_usdt && (
-                                    <div className="ts-pay-config-wrapper">
-                                        <div className="ts-pay-fields">
-                                            <div className="ts-pay-field">
-                                                <label>{L('inline.bep20.receiving.wallet.835e5ab')}</label>
-                                                <input value={payForm.bscUsdtWallet} onChange={e => setPayForm(f => ({ ...f, bscUsdtWallet: e.target.value }))} placeholder="0x..." />
-                                            </div>
-                                            {shopForm.currency !== 'USD' && (
-                                                <div className="ts-pay-field">
-                                                    <label>{L('inline.exchange.rate.1.usdt.cny.51a7779')}</label>
-                                                    <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" />
-                                                </div>
-                                            )}
-                                            {shopForm.currency === 'USD' && (
-                                                <div className="ts-pay-field">
-                                                    <span className="ts-hint">{L('inline.usd.stores.collect.usdt.at.1.1.no.exchange.rate.needed.47fdc62')}</span>
-                                                </div>
-                                            )}
+                                {/* 微信支付 - 代收 */}
+                                {globalChannels.platform_channel_wechat === 'true' && checkChannelVisible('channel_wechat', true, false) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.wechatEnabled && payForm.wechatMode === 'platform'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, wechatEnabled: checked, wechatMode: checked ? 'platform' : f.wechatMode }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('平台代收：微信支付', 'Platform WeChat Pay')}</span>
+                                            </label>
                                         </div>
                                     </div>
                                 )}
-                            </>
-                        )}
 
-                        {/* 易支付 */}
-                        {globalChannels.channel_yipay !== 'false' && checkChannelVisible('channel_yipay', true, false) && (
-                            <>
-                                <div className="ts-pay-toggle-row">
-                                    <label className="ts-toggle">
-                                        <input type="checkbox" checked={payForm.yipayEnabled} onChange={e => {
-                                            const checked = e.target.checked
-                                            setPayForm(f => ({ ...f, yipayEnabled: checked }))
-                                            if (checked) setPayExpanded(ex => ({ ...ex, yipay: true }))
-                                        }} />
-                                        <span className="ts-toggle-slider"></span>
-                                        <span className="ts-toggle-label">{L('在线支付 (易支付)', 'Online Payment (Yipay)')}</span>
-                                    </label>
-                                    {payForm.yipayEnabled && (
-                                        <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, yipay: !ex.yipay }))}>
-                                            {payExpanded.yipay ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
-                                        </button>
-                                    )}
-                                </div>
-                                {payForm.yipayEnabled && payExpanded.yipay && (
-                                    <div className="ts-pay-config-wrapper">
-                                        <div className="ts-pay-fields">
-                                            <div className="ts-pay-field">
-                                                <label>{L('API 地址', 'API URL')}</label>
-                                                <input value={payForm.yipayApiUrl} onChange={e => setPayForm(f => ({ ...f, yipayApiUrl: e.target.value }))} placeholder="https://pay.xxx.com/" />
-                                            </div>
-                                            <div className="ts-pay-field">
-                                                <label>{L('商户 ID (PID)', 'Merchant ID (PID)')}</label>
-                                                <input value={payForm.yipayPid} onChange={e => setPayForm(f => ({ ...f, yipayPid: e.target.value }))} placeholder="1000" />
-                                            </div>
-                                            <div className="ts-pay-field">
-                                                <label>{L('商户密钥 (Key)', 'Merchant Key')}</label>
-                                                <input value={payForm.yipayKey} onChange={e => setPayForm(f => ({ ...f, yipayKey: e.target.value }))} placeholder="Key" />
-                                            </div>
-                                            {shopForm.currency === 'USD' && (
-                                                <div className="ts-pay-field">
-                                                    <label>USD→CNY 汇率</label>
-                                                    <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" min="1" max="20" />
-                                                    <span className="ts-hint">{L('USD商场使用在线支付时，美元折算为人民币支付的比例。例如设置 7.2，商品标价 $8，实际需支付 8 * 7.2 = 57.6 元。', 'When USD store uses online payment, the conversion ratio to CNY. E.g. if set to 7.2, a $8 product costs 8 * 7.2 = 57.6 RMB.')}</span>
-                                                </div>
-                                            )}
+                                {/* USDT-TRC20 - 代收 */}
+                                {globalChannels.platform_channel_usdt_trc20 === 'true' && checkChannelVisible('channel_usdt_trc20', false, true) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.usdtEnabled && payForm.usdtMode === 'platform'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, usdtEnabled: checked, usdtMode: checked ? 'platform' : f.usdtMode }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('平台代收：USDT-TRC20', 'Platform USDT-TRC20')}</span>
+                                            </label>
                                         </div>
                                     </div>
                                 )}
-                            </>
-                        )}
+
+                                {/* USDT-BEP20 - 代收 */}
+                                {globalChannels.platform_channel_usdt_bep20 === 'true' && checkChannelVisible('channel_usdt_bep20', false, true) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.bscUsdtEnabled && payForm.bscUsdtMode === 'platform'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, bscUsdtEnabled: checked, bscUsdtMode: checked ? 'platform' : f.bscUsdtMode }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('平台代收：USDT-BEP20 (BSC)', 'Platform USDT-BEP20')}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 在线支付 (易支付) - 代收 */}
+                                {globalChannels.platform_channel_yipay === 'true' && checkChannelVisible('channel_yipay', true, false) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.yipayEnabled && payForm.yipayMode === 'platform'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, yipayEnabled: checked, yipayMode: checked ? 'platform' : f.yipayMode }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('平台代收：在线支付 (易支付)', 'Platform Online Payment (Yipay)')}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 🌟 Section 2: 自备收款渠道（自用） */}
+                        <div style={{ marginBottom: 30, background: 'var(--bg-secondary)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                            <div className="ts-section-desc" style={{ marginBottom: 20 }}>
+                                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>🏪 {L('自备收款渠道（自用）', 'Direct Payment Channels (Self-provided)')}</h4>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                                    {L('启用并配置您自己的收款账号 and API 密钥，买家付款将直接进入您的账户。', 'Configure and use your own payment gateways. Funds go directly to your accounts.')}
+                                </p>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {/* 支付宝当面付 - 自备 */}
+                                {globalChannels.channel_alipay !== 'false' && checkChannelVisible('channel_alipay', true, false) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.alipayEnabled && payForm.alipayMode === 'self'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, alipayEnabled: checked, alipayMode: checked ? 'self' : f.alipayMode }))
+                                                    if (checked) setPayExpanded(ex => ({ ...ex, self_alipay: true }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('inline.alipay.face.to.face.003c1ad')}</span>
+                                            </label>
+                                            {payForm.alipayEnabled && payForm.alipayMode === 'self' && (
+                                                <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, self_alipay: !ex.self_alipay }))}>
+                                                    {payExpanded.self_alipay ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {payForm.alipayEnabled && payForm.alipayMode === 'self' && payExpanded.self_alipay && (
+                                            <div className="ts-pay-config-wrapper" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)' }}>
+                                                <div className="ts-pay-fields">
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('inline.app.id.c0125a9')}</label>
+                                                        <input value={payForm.alipayAppId} onChange={e => setPayForm(f => ({ ...f, alipayAppId: e.target.value }))} placeholder="支付宝应用 App ID" />
+                                                    </div>
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('inline.app.private.key.86b2173')}</label>
+                                                        <input value={payForm.alipayPrivateKey} onChange={e => setPayForm(f => ({ ...f, alipayPrivateKey: e.target.value }))} placeholder={L('inline.rsa2.app.private.key.18c4561')} type="password" />
+                                                    </div>
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('inline.alipay.public.key.f1b9616')}</label>
+                                                        <input value={payForm.alipayPublicKey} onChange={e => setPayForm(f => ({ ...f, alipayPublicKey: e.target.value }))} placeholder={L('inline.alipay.public.key.for.signature.verification.b3ec4f7')} type="password" />
+                                                    </div>
+                                                    {shopForm.currency === 'USD' && (
+                                                        <div className="ts-pay-field">
+                                                            <label>USD→CNY 汇率</label>
+                                                            <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" min="1" max="20" />
+                                                            <span className="ts-hint">{L('inline.usd.pricing.with.alipay.cny.collection.example.8.x.7.2.57.60.52fb4e9')}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 微信支付 - 自备 */}
+                                {globalChannels.channel_wechat !== 'false' && checkChannelVisible('channel_wechat', true, false) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.wechatEnabled && payForm.wechatMode === 'self'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, wechatEnabled: checked, wechatMode: checked ? 'self' : f.wechatMode }))
+                                                    if (checked) setPayExpanded(ex => ({ ...ex, self_wechat: true }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('微信支付', 'WeChat Pay')}</span>
+                                            </label>
+                                            {payForm.wechatEnabled && payForm.wechatMode === 'self' && (
+                                                <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, self_wechat: !ex.self_wechat }))}>
+                                                    {payExpanded.self_wechat ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {payForm.wechatEnabled && payForm.wechatMode === 'self' && payExpanded.self_wechat && (
+                                            <div className="ts-pay-config-wrapper" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)' }}>
+                                                <div className="ts-pay-fields">
+                                                    <div className="ts-pay-field">
+                                                        <span className="ts-hint" style={{ color: 'var(--text-muted)' }}>
+                                                            {L('提示：当前版本自备微信支付为模拟收款，无需配置 API 凭证。开启后买家支付时将使用模拟测试。', 'Tip: WeChat Pay is currently in simulation mode. No API setup required.')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* USDT-TRC20 - 自备 */}
+                                {globalChannels.channel_usdt_trc20 !== 'false' && checkChannelVisible('channel_usdt_trc20', false, true) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.usdtEnabled && payForm.usdtMode === 'self'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, usdtEnabled: checked, usdtMode: checked ? 'self' : f.usdtMode }))
+                                                    if (checked) setPayExpanded(ex => ({ ...ex, self_usdt: true }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>USDT-TRC20</span>
+                                            </label>
+                                            {payForm.usdtEnabled && payForm.usdtMode === 'self' && (
+                                                <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, self_usdt: !ex.self_usdt }))}>
+                                                    {payExpanded.self_usdt ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {payForm.usdtEnabled && payForm.usdtMode === 'self' && payExpanded.self_usdt && (
+                                            <div className="ts-pay-config-wrapper" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)' }}>
+                                                <div className="ts-pay-fields">
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('inline.trc20.receiving.wallet.2aab6ca')}</label>
+                                                        <input value={payForm.usdtWallet} onChange={e => setPayForm(f => ({ ...f, usdtWallet: e.target.value }))} placeholder="T..." />
+                                                    </div>
+                                                    {shopForm.currency !== 'USD' && (
+                                                        <div className="ts-pay-field">
+                                                            <label>{L('inline.exchange.rate.1.usdt.cny.51a7779')}</label>
+                                                            <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" />
+                                                        </div>
+                                                    )}
+                                                    {shopForm.currency === 'USD' && (
+                                                        <div className="ts-pay-field">
+                                                            <span className="ts-hint">{L('inline.usd.stores.collect.usdt.at.1.1.no.exchange.rate.needed.47fdc62')}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* USDT-BEP20 - 自备 */}
+                                {globalChannels.channel_usdt_bep20 !== 'false' && checkChannelVisible('channel_usdt_bep20', false, true) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.bscUsdtEnabled && payForm.bscUsdtMode === 'self'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, bscUsdtEnabled: checked, bscUsdtMode: checked ? 'self' : f.bscUsdtMode }))
+                                                    if (checked) setPayExpanded(ex => ({ ...ex, self_bsc_usdt: true }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>USDT-BEP20 (BSC)</span>
+                                            </label>
+                                            {payForm.bscUsdtEnabled && payForm.bscUsdtMode === 'self' && (
+                                                <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, self_bsc_usdt: !ex.self_bsc_usdt }))}>
+                                                    {payExpanded.self_bsc_usdt ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {payForm.bscUsdtEnabled && payForm.bscUsdtMode === 'self' && payExpanded.self_bsc_usdt && (
+                                            <div className="ts-pay-config-wrapper" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)' }}>
+                                                <div className="ts-pay-fields">
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('inline.bep20.receiving.wallet.835e5ab')}</label>
+                                                        <input value={payForm.bscUsdtWallet} onChange={e => setPayForm(f => ({ ...f, bscUsdtWallet: e.target.value }))} placeholder="0x..." />
+                                                    </div>
+                                                    {shopForm.currency !== 'USD' && (
+                                                        <div className="ts-pay-field">
+                                                            <label>{L('inline.exchange.rate.1.usdt.cny.51a7779')}</label>
+                                                            <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" />
+                                                        </div>
+                                                    )}
+                                                    {shopForm.currency === 'USD' && (
+                                                        <div className="ts-pay-field">
+                                                            <span className="ts-hint">{L('inline.usd.stores.collect.usdt.at.1.1.no.exchange.rate.needed.47fdc62')}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 在线支付 (易支付) - 自备 */}
+                                {globalChannels.channel_yipay !== 'false' && checkChannelVisible('channel_yipay', true, false) && (
+                                    <div className="ts-pay-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
+                                        <div className="ts-pay-toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="ts-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={payForm.yipayEnabled && payForm.yipayMode === 'self'} onChange={e => {
+                                                    const checked = e.target.checked
+                                                    setPayForm(f => ({ ...f, yipayEnabled: checked, yipayMode: checked ? 'self' : f.yipayMode }))
+                                                    if (checked) setPayExpanded(ex => ({ ...ex, self_yipay: true }))
+                                                }} />
+                                                <span className="ts-toggle-slider"></span>
+                                                <span className="ts-toggle-label" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{L('在线支付 (易支付)', 'Online Payment (Yipay)')}</span>
+                                            </label>
+                                            {payForm.yipayEnabled && payForm.yipayMode === 'self' && (
+                                                <button type="button" className="ts-pay-config-btn" onClick={() => setPayExpanded(ex => ({ ...ex, self_yipay: !ex.self_yipay }))}>
+                                                    {payExpanded.self_yipay ? L('收起 ▴', 'Collapse ▴') : L('配置参数 ⚙️', 'Configure ⚙️')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {payForm.yipayEnabled && payForm.yipayMode === 'self' && payExpanded.self_yipay && (
+                                            <div className="ts-pay-config-wrapper" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-color)' }}>
+                                                <div className="ts-pay-fields">
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('API 地址', 'API URL')}</label>
+                                                        <input value={payForm.yipayApiUrl} onChange={e => setPayForm(f => ({ ...f, yipayApiUrl: e.target.value }))} placeholder="https://pay.xxx.com/" />
+                                                    </div>
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('商户 ID (PID)', 'Merchant ID (PID)')}</label>
+                                                        <input value={payForm.yipayPid} onChange={e => setPayForm(f => ({ ...f, yipayPid: e.target.value }))} placeholder="1000" />
+                                                    </div>
+                                                    <div className="ts-pay-field">
+                                                        <label>{L('商户密钥 (Key)', 'Merchant Key')}</label>
+                                                        <input value={payForm.yipayKey} onChange={e => setPayForm(f => ({ ...f, yipayKey: e.target.value }))} placeholder="Key" />
+                                                    </div>
+                                                    {shopForm.currency === 'USD' && (
+                                                        <div className="ts-pay-field">
+                                                            <label>USD→CNY 汇率</label>
+                                                            <input value={payForm.usdtExchangeRate} onChange={e => setPayForm(f => ({ ...f, usdtExchangeRate: e.target.value }))} placeholder="7.2" type="number" step="0.01" min="1" max="20" />
+                                                            <span className="ts-hint">{L('USD商场使用在线支付时，美元折算为人民币支付的比例。例如设置 7.2，商品标价 $8，实际需支付 8 * 7.2 = 57.6 元。', 'When USD store uses online payment, the conversion ratio to CNY. E.g. if set to 7.2, a $8 product costs 8 * 7.2 = 57.6 RMB.')}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                         <button type="submit" className="ts-btn-primary" disabled={paySaving}>
                             {paySaving ? L('inline.saving.18c1774') : L('inline.save.payment.settings.5ed4b51')}
@@ -1814,6 +2153,13 @@ For orders eligible for a refund, we prioritize free replacement:
             {activeTab === 'plan' && (
                 <div className="ts-section">
                     <PlanTab shop={shop} mToken={mToken} displaySlug={displaySlug} />
+                </div>
+            )}
+
+            {/* KYC */}
+            {activeTab === 'kyc' && (
+                <div className="ts-section">
+                    <KycSettings token={token} L={L} />
                 </div>
             )}
 
